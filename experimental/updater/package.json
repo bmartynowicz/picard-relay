@@ -1,0 +1,1 @@
+{"name": "picard-relay-safe-updater-candidate", "private": true, "type": "module", "scripts": {"test": "node --test *.test.mjs"}, "engines": {"node": ">=24"}}

@@ -11,7 +11,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "fb157c0d93783f89b62a2730f17d21c5df0303dcd8b587798a764e755a50c2b4"
+      "sha256": "ced01e73dbb16a823507a73dcc81742cc924d2d7b3545c99b310fc02d2d84d1c"
     },
     {
       "path": "VERIFICATION.txt",
@@ -36,6 +36,162 @@
     {
       "path": "examples/hello-local.mjs",
       "sha256": "abcc134d44daa1e864fb67851593a5f6eda27293854d9020e85e91f5d2a62bba"
+    },
+    {
+      "path": "experimental/README.md",
+      "sha256": "75ac1e1302df5fa243d14f34f3ed3b053c1d085eebd728d7fc1a907f6d8671dd"
+    },
+    {
+      "path": "experimental/VERIFICATION.md",
+      "sha256": "197d612c6e9c7bb1d88f35d0e6d6a6212c1d31ab77d26121ebfa7aa862edd72c"
+    },
+    {
+      "path": "experimental/runtime-control/README.md",
+      "sha256": "b916ec2b81ac2936b2c2dc78b39131c249be40776088b9db850c75f719235109"
+    },
+    {
+      "path": "experimental/runtime-control/package.json",
+      "sha256": "b0fc68f626c55c2d2fd71f94abbd0ef61df26dcd6e784bbef98fb71351795717"
+    },
+    {
+      "path": "experimental/runtime-control/src/adapters.mjs",
+      "sha256": "84c31634bce05107a96a39b11fac0f4587d94808fa675066a695b0a72f8b77de"
+    },
+    {
+      "path": "experimental/runtime-control/src/cli-claim.mjs",
+      "sha256": "2355bb95940e788abb9e20adb2ae61882aad0569d209c286feb77742a12b8c5a"
+    },
+    {
+      "path": "experimental/runtime-control/src/cli-crash-after-reply.mjs",
+      "sha256": "b4524f07d6f97c845d3ee31604c5f2866f7f874bc5485e7e62f704e72d9c9e68"
+    },
+    {
+      "path": "experimental/runtime-control/src/dispatcher.mjs",
+      "sha256": "40ef44f5ade161e9075621f4d3fb233e54b6c6286ef99825acd511e7a161729d"
+    },
+    {
+      "path": "experimental/runtime-control/src/groq-adapter.mjs",
+      "sha256": "59222ea4a73fdba47dc906d2d5bb53941e238f6b88155b5f953793e09be755c3"
+    },
+    {
+      "path": "experimental/runtime-control/src/groq-once-adapter.mjs",
+      "sha256": "116cce87e426a351050c5a4f260c411b798f6d026cc9a35d8293c6673f23694a"
+    },
+    {
+      "path": "experimental/runtime-control/src/https-fetch.mjs",
+      "sha256": "6ac78c2bea319943b251238e55332312a54878810a96fa32c95cdbd87f9ae795"
+    },
+    {
+      "path": "experimental/runtime-control/src/oracle-service.mjs",
+      "sha256": "1f7691561322726988dbc4d8c055470c9c1ee37b7f7d84fff3e4ae97eff3a2be"
+    },
+    {
+      "path": "experimental/runtime-control/src/outbox.mjs",
+      "sha256": "c485030671c5d11b785c465ce445f1fda15cd4923222a86fbdd77e8460db4eb1"
+    },
+    {
+      "path": "experimental/runtime-control/src/protocol.d.mts",
+      "sha256": "dbcb7ddb761a1e36e5c33136ce3875cda30531eac07b44863364e622ca559573"
+    },
+    {
+      "path": "experimental/runtime-control/src/protocol.mjs",
+      "sha256": "fb4a9b10830a84e6e94133e92bb838fee408dc5d9b497077b5ba5d792678ad4d"
+    },
+    {
+      "path": "experimental/runtime-control/src/receiver.mjs",
+      "sha256": "80cc8c9dbdec92d50ecbc99110fff5f51608a07b2465afb623b6ec9d457cd176"
+    },
+    {
+      "path": "experimental/runtime-control/src/relay-store.mjs",
+      "sha256": "3ac3c5787f4dcce87d7bd60913151519a3cbd9f41c183fb47181407c52014c2f"
+    },
+    {
+      "path": "experimental/runtime-control/src/runtime-control.mjs",
+      "sha256": "c58c6051b89d6a461d9fbef2e685a6ed0dc9ac5e65a38b562d9796f1ba261422"
+    },
+    {
+      "path": "experimental/runtime-control/src/selected-assistant.mjs",
+      "sha256": "898d3c1d51f8b7fb8197fcc073f5b8a95eadbd5f44e6804f73844d1fb401885d"
+    },
+    {
+      "path": "experimental/runtime-control/src/service.mjs",
+      "sha256": "be1cb93a94bff8408a017dc4892978364149322987843fa2166725338fd1a9a2"
+    },
+    {
+      "path": "experimental/runtime-control/test/bridge.test.mjs",
+      "sha256": "6cce8b2ccf9e6ae530ceefa95ed7bedda45764a9ca7f9e8139bcd5f327dfcc8e"
+    },
+    {
+      "path": "experimental/runtime-control/test/drain-integration.test.mjs",
+      "sha256": "852fbb256ca09a6ded4c809ca33dc83d1c0bac4096a613c63f969d617839c18f"
+    },
+    {
+      "path": "experimental/runtime-control/test/groq-adapter.test.mjs",
+      "sha256": "98eb2a06ff54f46107ca66da28aa7a7e01451c2bbd550ddd64487307047ce980"
+    },
+    {
+      "path": "experimental/runtime-control/test/groq-once.test.mjs",
+      "sha256": "838b5a27b7aabb1784701fb2f135c7fc103eed3ba83919b03cc6ff86b5e14d61"
+    },
+    {
+      "path": "experimental/runtime-control/test/https-fetch.test.mjs",
+      "sha256": "9b9a29a4699a6a05d3eebe3b998f3479e1c21432a2db827404939b307bb79c58"
+    },
+    {
+      "path": "experimental/runtime-control/test/network-guard.cjs",
+      "sha256": "bf9356c443c0fc685f4b756234ee40c327d612cc787673b7887b0b390b642e97"
+    },
+    {
+      "path": "experimental/runtime-control/test/process-tests.mjs",
+      "sha256": "949f9980da956540045b49d4720590d1cc590d4d267884f71c1c8c17c8cd5869"
+    },
+    {
+      "path": "experimental/runtime-control/test/relay-crash-child.mjs",
+      "sha256": "ccd35e905953c22dc61a496ea776754dd1b90d6d3cbe20e5d5ab086b78e65ce4"
+    },
+    {
+      "path": "experimental/runtime-control/test/relay-process.test.mjs",
+      "sha256": "430b53781fa7368b4872acd1ecbd88bf471600729c26bc18ea242cae705f4442"
+    },
+    {
+      "path": "experimental/runtime-control/test/result-after-capacity.test.mjs",
+      "sha256": "ace6f56415c363f5bfec062fd341bde0c8ea25567f1fd9f1eba478f5b398cb31"
+    },
+    {
+      "path": "experimental/runtime-control/test/runtime-control.test.mjs",
+      "sha256": "dd5b832e11945f07a8e53f21bc57676293b761676b11bb44ddc4ea2bac3594b5"
+    },
+    {
+      "path": "experimental/runtime-control/test/sqlite-contention.test.mjs",
+      "sha256": "5010c227645340dbbdd0178288cb09feb43cc3adb5396777fe2460cfc64c5bd3"
+    },
+    {
+      "path": "experimental/updater/README.md",
+      "sha256": "f1bcbfb68d9149476d2e7134aae308eac760e9e5e6bf801f2347570dc2e08518"
+    },
+    {
+      "path": "experimental/updater/package.json",
+      "sha256": "eec5462b2a89119afcc9f7c0ed13ee82b62cd41d3baf0129df1bc098f59762cf"
+    },
+    {
+      "path": "experimental/updater/policy.example.json",
+      "sha256": "3b3e72a1dfbaa7546e277b894965c1894db99004ee65f1d4e32cf2b55bfa2a1b"
+    },
+    {
+      "path": "experimental/updater/pull-tls.test.mjs",
+      "sha256": "9fbbf25eb428039af5bc8b16398e6e7f948f563fbc4624517215e6891eea5af7"
+    },
+    {
+      "path": "experimental/updater/pull.mjs",
+      "sha256": "91756957bd0dee2aa8340cfd9635c69b00216afd527e6791164f47062cce42d5"
+    },
+    {
+      "path": "experimental/updater/updater.mjs",
+      "sha256": "df1305c2fd2233c1e8bee310233f62d719a14fe64c708c87adcba4eca8d92b9a"
+    },
+    {
+      "path": "experimental/updater/updater.test.mjs",
+      "sha256": "8184acb4ed41f2bcd9759409f59b8370217208b5bda910ab85dcad3459e5a213"
     },
     {
       "path": "package.json",

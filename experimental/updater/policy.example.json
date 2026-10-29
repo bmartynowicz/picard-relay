@@ -1,0 +1,20 @@
+{
+  "enabled": false,
+  "source": "https://raw.githubusercontent.com/OWNER/REPOSITORY/main/releases/stable.json",
+  "channel": "stable",
+  "stateSchema": 1,
+  "publisherKey": "REPLACE_WITH_SEPARATELY_APPROVED_ED25519_PUBLIC_KEY_PEM",
+  "allowedFiles": [
+    "src/adapters.mjs",
+    "src/dispatcher.mjs",
+    "src/groq-adapter.mjs",
+    "src/groq-once-adapter.mjs",
+    "src/https-fetch.mjs",
+    "src/oracle-service.mjs",
+    "src/protocol.mjs",
+    "src/receiver.mjs",
+    "src/relay-store.mjs",
+    "src/runtime-control.mjs",
+    "src/selected-assistant.mjs"
+  ]
+}

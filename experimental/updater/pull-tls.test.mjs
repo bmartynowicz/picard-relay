@@ -1,0 +1,37 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import https from 'node:https';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {generateKeyPairSync,sign,createHash} from 'node:crypto';
+import {pullSignedRelease} from './pull.mjs';
+const hash=b=>createHash('sha256').update(b).digest('hex');
+test('real local TLS transport, no external network or providers', async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'picard-update-tls-'));
+ t.after(()=>fs.rm(dir,{recursive:true,force:true}));
+ execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',`${dir}/key.pem`,'-out',`${dir}/cert.pem`,'-days','1','-subj','/CN=127.0.0.1','-addext','subjectAltName=IP:127.0.0.1'],{stdio:'ignore'});
+ const key=await fs.readFile(`${dir}/key.pem`),cert=await fs.readFile(`${dir}/cert.pem`);
+ const kp=generateKeyPairSync('ed25519');const code=Buffer.from('// fixture');
+ const bundle=Buffer.from(JSON.stringify({files:[{path:'src/oracle-service.mjs',base64:code.toString('base64')}]}));
+ const manifest=Buffer.from(JSON.stringify({format:1,product:'picard-relay',channel:'stable',version:'1.0.1',sequence:1,expiresAt:Date.now()+60000,nodeMajor:24,stateSchema:1,migration:'none',bundleSha256:hash(bundle),files:[{path:'src/oracle-service.mjs',sha256:hash(code),bytes:code.length}]}));
+ const payload=JSON.stringify({manifest:manifest.toString('base64'),signature:sign(null,manifest,kp.privateKey).toString('base64'),bundle:bundle.toString('base64')});
+ const policy={enabled:true,source:'https://raw.githubusercontent.com/example/picard-relay/main/releases/stable.json',publisherKey:kp.publicKey.export({type:'spki',format:'pem'}),channel:'stable',stateSchema:1,allowedFiles:['src/oracle-service.mjs']};
+ let mode='ok',requests=0;
+ const server=https.createServer({key,cert},(req,res)=>{requests++;if(mode==='hang') return;if(mode==='redirect'){res.writeHead(302,{location:'https://example.invalid/'}).end();return;}if(mode==='oversized'){res.end('x'.repeat(3*1024*1024+1));return;}if(mode==='status'){res.writeHead(503).end();return;}if(mode==='malformed'){res.end('{');return;}res.end(payload);});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ t.after(()=>new Promise(r=>server.close(r)));
+ const original=https.get;
+ // Test-local interception only. Production function retains its fixed public source.
+ let trusted=true;
+ https.get=(url,options,callback)=>original(`https://127.0.0.1:${server.address().port}/`,{...options,...(trusted?{ca:cert}:{})},callback);
+ t.after(()=>{https.get=original;});
+ await t.test('valid TLS and signature accepted',async()=>assert.deepEqual((await pullSignedRelease(policy)).manifestBytes,manifest));
+ await t.test('untrusted TLS rejected',async()=>{trusted=false;await assert.rejects(pullSignedRelease(policy),/transport_failed/);trusted=true;});
+ await t.test('redirect rejected, no follow or retry',async()=>{mode='redirect';const before=requests;await assert.rejects(pullSignedRelease(policy),/http_status/);assert.equal(requests,before+1);});
+ await t.test('HTTP failure stops once',async()=>{mode='status';const before=requests;await assert.rejects(pullSignedRelease(policy),/http_status/);assert.equal(requests,before+1);});
+ await t.test('response cap enforced',async()=>{mode='oversized';await assert.rejects(pullSignedRelease(policy),/too_large/);});
+ await t.test('15-second timeout stops without retry',async()=>{mode='hang';const before=requests;await assert.rejects(pullSignedRelease(policy),/transport_failed/);assert.equal(requests,before+1);});
+ await t.test('malformed JSON rejected',async()=>{mode='malformed';await assert.rejects(pullSignedRelease(policy));});
+});
