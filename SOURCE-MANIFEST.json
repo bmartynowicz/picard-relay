@@ -1,0 +1,137 @@
+{
+  "description": "SHA-256 of public source snapshot files; this manifest excludes itself.",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "a2f418ee1eb5982e9b7a4a9e8473259cdc787d349148287cdc0d4f4530c1a88a"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "e0a74e757224ba0ca8974618132ac97a6eee00dcab063f0e4e8971b7f1016133"
+    },
+    {
+      "path": "README.md",
+      "sha256": "ed6bda79b36057780e328be7f7d6e7f5d00bdb15a3e0f6e455815f3f46657890"
+    },
+    {
+      "path": "VERIFICATION.txt",
+      "sha256": "79bb98a362b2042fc70e3a21d2e620171ffd3ff1bda6df7f6be36fe083c51047"
+    },
+    {
+      "path": "deploy/Caddyfile.example",
+      "sha256": "102dcb950301723517fbad3534ee382adcd272aa8fb36e629cdb0c26633fa0f6"
+    },
+    {
+      "path": "deploy/relay.env.example",
+      "sha256": "91bff16232b726aaea3933e8570ba3b246c89c9b74e3cafbc8a365fd1a926ffb"
+    },
+    {
+      "path": "docs/DEPLOYMENT.md",
+      "sha256": "94634feb89806788ac5e8b3c5c38c005797f9e23f307bb73c66e8d2f50745781"
+    },
+    {
+      "path": "docs/STATUS.md",
+      "sha256": "42ffe578d86beaabd8e7e1410f6b483fe06c658cb6da378161a7a7d61cf34b23"
+    },
+    {
+      "path": "examples/hello-local.mjs",
+      "sha256": "abcc134d44daa1e864fb67851593a5f6eda27293854d9020e85e91f5d2a62bba"
+    },
+    {
+      "path": "package.json",
+      "sha256": "9d7f54d01a6df31f2ca9d002bc658caca558563ecab054b482f967f4645467de"
+    },
+    {
+      "path": "src/adapters.mjs",
+      "sha256": "84c31634bce05107a96a39b11fac0f4587d94808fa675066a695b0a72f8b77de"
+    },
+    {
+      "path": "src/cli-claim.mjs",
+      "sha256": "2355bb95940e788abb9e20adb2ae61882aad0569d209c286feb77742a12b8c5a"
+    },
+    {
+      "path": "src/cli-crash-after-reply.mjs",
+      "sha256": "b4524f07d6f97c845d3ee31604c5f2866f7f874bc5485e7e62f704e72d9c9e68"
+    },
+    {
+      "path": "src/dispatcher.mjs",
+      "sha256": "40ef44f5ade161e9075621f4d3fb233e54b6c6286ef99825acd511e7a161729d"
+    },
+    {
+      "path": "src/groq-adapter.mjs",
+      "sha256": "59222ea4a73fdba47dc906d2d5bb53941e238f6b88155b5f953793e09be755c3"
+    },
+    {
+      "path": "src/groq-once-adapter.mjs",
+      "sha256": "116cce87e426a351050c5a4f260c411b798f6d026cc9a35d8293c6673f23694a"
+    },
+    {
+      "path": "src/oracle-service.mjs",
+      "sha256": "25be0692ce32e61a57272f0305d4b84450ec486b8d7af00b2633b524888f5c2f"
+    },
+    {
+      "path": "src/outbox.mjs",
+      "sha256": "c485030671c5d11b785c465ce445f1fda15cd4923222a86fbdd77e8460db4eb1"
+    },
+    {
+      "path": "src/protocol.d.mts",
+      "sha256": "dbcb7ddb761a1e36e5c33136ce3875cda30531eac07b44863364e622ca559573"
+    },
+    {
+      "path": "src/protocol.mjs",
+      "sha256": "fb4a9b10830a84e6e94133e92bb838fee408dc5d9b497077b5ba5d792678ad4d"
+    },
+    {
+      "path": "src/receiver.mjs",
+      "sha256": "86817687aef44acd4ef7ec536681bacce4a9a98163af624dcdf95917832f2cc8"
+    },
+    {
+      "path": "src/relay-store.mjs",
+      "sha256": "b7a80a276eaa94ef9e905a63b5783db27f9501dc65e26fe3b453cd0267ca24d7"
+    },
+    {
+      "path": "src/selected-assistant.mjs",
+      "sha256": "b1420f2959b3432da2313ad046f49a1e973bf205d642b96d86f7a72d1fef6bdf"
+    },
+    {
+      "path": "src/service.mjs",
+      "sha256": "be1cb93a94bff8408a017dc4892978364149322987843fa2166725338fd1a9a2"
+    },
+    {
+      "path": "test/bridge.test.mjs",
+      "sha256": "6cce8b2ccf9e6ae530ceefa95ed7bedda45764a9ca7f9e8139bcd5f327dfcc8e"
+    },
+    {
+      "path": "test/groq-adapter.test.mjs",
+      "sha256": "98eb2a06ff54f46107ca66da28aa7a7e01451c2bbd550ddd64487307047ce980"
+    },
+    {
+      "path": "test/groq-once.test.mjs",
+      "sha256": "838b5a27b7aabb1784701fb2f135c7fc103eed3ba83919b03cc6ff86b5e14d61"
+    },
+    {
+      "path": "test/network-guard.cjs",
+      "sha256": "bf9356c443c0fc685f4b756234ee40c327d612cc787673b7887b0b390b642e97"
+    },
+    {
+      "path": "test/process-tests.mjs",
+      "sha256": "949f9980da956540045b49d4720590d1cc590d4d267884f71c1c8c17c8cd5869"
+    },
+    {
+      "path": "test/relay-crash-child.mjs",
+      "sha256": "ccd35e905953c22dc61a496ea776754dd1b90d6d3cbe20e5d5ab086b78e65ce4"
+    },
+    {
+      "path": "test/relay-process.test.mjs",
+      "sha256": "430b53781fa7368b4872acd1ecbd88bf471600729c26bc18ea242cae705f4442"
+    },
+    {
+      "path": "test/result-after-capacity.test.mjs",
+      "sha256": "ace6f56415c363f5bfec062fd341bde0c8ea25567f1fd9f1eba478f5b398cb31"
+    },
+    {
+      "path": "test/sqlite-contention.test.mjs",
+      "sha256": "5010c227645340dbbdd0178288cb09feb43cc3adb5396777fe2460cfc64c5bd3"
+    }
+  ]
+}

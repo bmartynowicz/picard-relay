@@ -1,0 +1,16 @@
+# Template only: replace with your own hostname and validate before use.
+relay.example.com {
+	@bridge {
+		method POST
+		path /bridge/v1
+	}
+	handle @bridge {
+		request_body {
+			max_size 24KB
+		}
+		reverse_proxy 127.0.0.1:8787
+	}
+	handle {
+		respond 404
+	}
+}

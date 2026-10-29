@@ -1,0 +1,28 @@
+Picard Relay public snapshot verification — 2026-10-29 UTC
+Environment: Linux x86_64, Node.js v24.22.1
+
+PASS npm run demo: one synthetic invocation, one stored reply, duplicate suppressed.
+PASS npm test: 62 PASS cases, exit 0.
+  1 SQLite contention + 16 bridge + 4 process + 4 relay process
+  + 20 Groq adapter fixtures + 8 one-shot + 9 result/scope cases.
+PASS node --check for every .mjs source, test and example.
+PASS BRIDGE_ENABLED=false npm start: {"state":"disabled"}, exit 0.
+PASS Caddy 2.11.7 adapts deploy/Caddyfile.example; no server started.
+
+No live model/network request, provider key, real task board write,
+listener activation, credential provisioning or deployment performed.
+Caddy template adaptation is syntax evidence, not certificate issuance proof.
+Full test suite was not rerun on native Windows; production permission checks
+use POSIX filesystem ownership/mode semantics.
+
+Publication audit:
+- Explicit source/test allowlist only; no broad workspace copy.
+- No .github/workflows, binary/archive, symlink, private key, credential file,
+  runtime DB, private board source or encrypted handoff included.
+- Scanned every staged text file for known private identifiers, infrastructure
+  IPs, user paths, private-key blocks, common provider token patterns and long
+  base64 payloads. No matches except public repository URL and loopback address.
+- Historical encoded installation wrappers deliberately omitted; nothing opaque
+  is hidden in a compressed/base64 payload in this public source snapshot.
+
+See docs/STATUS.md for earlier observed live proofs and remaining limitations.

@@ -1,3 +1,20 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite*
+*.pem
+*.key
+credentials/
+secrets/
+state/
+logs/
+*.log
+*.tar.*
+*.zip
+.DS_Store
 # Logs
 logs
 *.log
@@ -147,3 +164,5 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Picard Relay private runtime artifacts
