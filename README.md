@@ -1,5 +1,21 @@
 # PICARD RELAY
 
+```text
+         .-============-.
+     ___/   P I C A R D   \___
+    (____.--------------.____)
+              \ || /
+  [==========]==||==[==========]
+                ||
+             .--||--.
+             '------'
+
+       P I C A R D  R E L A Y
+            MAKE IT SO.
+```
+
+*In tribute to Sir Patrick Stewart.*
+
 **Small ship. Durable messages. No surprise warp jumps.**
 
 A lightweight, self-hosted relay for routing tasks to AI providers and reliably returning results. Built for modest hardware and tight budgets. Make it so.
