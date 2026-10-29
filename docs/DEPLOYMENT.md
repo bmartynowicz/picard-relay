@@ -5,6 +5,8 @@ Start with `npm run demo` and `npm test`. These instructions are not an automate
 ## Requirements
 
 - A Linux host with persistent local storage and Node.js 24; SQLite is built into Node.
+- OpenSSL CLI for the offline loopback TLS regression (not for issuing public production certificates).
+- Production Groq requests use a fixed-endpoint native `node:https` transport, including under `node --jitless`; no Undici/WebAssembly dependency. Certificate verification remains enabled.
 - A dedicated unprivileged service account; root-owned application code and configuration, private service-owned data directory.
 - Correct system clock, service supervision, backups of the durable database, and a consuming client that implements `src/protocol.mjs`.
 - Trusted HTTPS reverse proxy, with only TCP 443 exposed for the relay and backend bound to `127.0.0.1:8787`.

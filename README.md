@@ -26,7 +26,7 @@ Picard Relay is a lightweight Node.js + SQLite relay for bounded AI requests. It
 
 ## Try it locally — no account or API key
 
-Install Node.js 24 (includes `node:sqlite`) and Git. No npm dependencies are required.
+Install Node.js 24 (includes `node:sqlite`), Git, and the OpenSSL CLI for the local TLS test. No npm dependencies are required.
 
 ```sh
 git clone https://github.com/bmartynowicz/picard-relay.git
@@ -46,6 +46,7 @@ Expected demo ending: `One synthetic request, one stored answer, duplicate repla
 - A fixed Groq `openai/gpt-oss-20b` text-only adapter, disabled by default. No tools, paid fallback, automatic model substitution or automatic inference retries.
 - A one-shot adapter limited to the exact harmless `Reply Hello World` pilot input and short-lived externally verified account gate.
 - Loopback-only HTTP receiver suitable for a separately configured TLS reverse proxy.
+- Fixed-endpoint native HTTPS transport compatible with `node --jitless`; certificate verification stays on. A local TLS fixture tests the adapter without calling Groq.
 - [Manual deployment notes](docs/DEPLOYMENT.md), configuration templates and [verification boundaries](docs/STATUS.md).
 
 ## What is not here

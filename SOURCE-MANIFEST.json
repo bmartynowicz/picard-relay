@@ -11,11 +11,11 @@
     },
     {
       "path": "README.md",
-      "sha256": "ed6bda79b36057780e328be7f7d6e7f5d00bdb15a3e0f6e455815f3f46657890"
+      "sha256": "fb157c0d93783f89b62a2730f17d21c5df0303dcd8b587798a764e755a50c2b4"
     },
     {
       "path": "VERIFICATION.txt",
-      "sha256": "79bb98a362b2042fc70e3a21d2e620171ffd3ff1bda6df7f6be36fe083c51047"
+      "sha256": "515730da73398bbb0a1f84f91ee2632ec6d1f0cc6dce1869c9e0a2297d9333ba"
     },
     {
       "path": "deploy/Caddyfile.example",
@@ -27,11 +27,11 @@
     },
     {
       "path": "docs/DEPLOYMENT.md",
-      "sha256": "94634feb89806788ac5e8b3c5c38c005797f9e23f307bb73c66e8d2f50745781"
+      "sha256": "b3f4fb3d8c95ea1b0505920ec147eaed4a437e33f2b8fee2684db90a37b8e1a2"
     },
     {
       "path": "docs/STATUS.md",
-      "sha256": "42ffe578d86beaabd8e7e1410f6b483fe06c658cb6da378161a7a7d61cf34b23"
+      "sha256": "8f026b27137c5d41502a26ea37f7cceaa1a7e60778e866cf61779a667d10836c"
     },
     {
       "path": "examples/hello-local.mjs",
@@ -39,7 +39,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "9d7f54d01a6df31f2ca9d002bc658caca558563ecab054b482f967f4645467de"
+      "sha256": "1f56e492ff1c1efc01ed223ac7c697a31a911561b36821aeb4263cba536c3109"
     },
     {
       "path": "src/adapters.mjs",
@@ -64,6 +64,10 @@
     {
       "path": "src/groq-once-adapter.mjs",
       "sha256": "116cce87e426a351050c5a4f260c411b798f6d026cc9a35d8293c6673f23694a"
+    },
+    {
+      "path": "src/https-fetch.mjs",
+      "sha256": "6ac78c2bea319943b251238e55332312a54878810a96fa32c95cdbd87f9ae795"
     },
     {
       "path": "src/oracle-service.mjs",
@@ -91,7 +95,7 @@
     },
     {
       "path": "src/selected-assistant.mjs",
-      "sha256": "b1420f2959b3432da2313ad046f49a1e973bf205d642b96d86f7a72d1fef6bdf"
+      "sha256": "898d3c1d51f8b7fb8197fcc073f5b8a95eadbd5f44e6804f73844d1fb401885d"
     },
     {
       "path": "src/service.mjs",
@@ -108,6 +112,10 @@
     {
       "path": "test/groq-once.test.mjs",
       "sha256": "838b5a27b7aabb1784701fb2f135c7fc103eed3ba83919b03cc6ff86b5e14d61"
+    },
+    {
+      "path": "test/https-fetch.test.mjs",
+      "sha256": "9b9a29a4699a6a05d3eebe3b998f3479e1c21432a2db827404939b307bb79c58"
     },
     {
       "path": "test/network-guard.cjs",

@@ -10,7 +10,8 @@
   "scripts": {
     "demo": "node examples/hello-local.mjs",
     "start": "node src/oracle-service.mjs",
-    "test": "node test/sqlite-contention.test.mjs && node test/bridge.test.mjs && node test/process-tests.mjs && node test/relay-process.test.mjs && node test/groq-adapter.test.mjs && node test/groq-once.test.mjs && node test/result-after-capacity.test.mjs"
+    "test": "node test/sqlite-contention.test.mjs && node test/bridge.test.mjs && node test/process-tests.mjs && node test/relay-process.test.mjs && node test/groq-adapter.test.mjs && node test/groq-once.test.mjs && node test/result-after-capacity.test.mjs && npm run test:tls",
+    "test:tls": "node --jitless test/https-fetch.test.mjs"
   },
   "license": "MIT"
 }

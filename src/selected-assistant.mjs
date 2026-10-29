@@ -1,3 +1,4 @@
+import {groqHttpsFetch} from './https-fetch.mjs';
 import {readFileSync,lstatSync} from 'node:fs';
 import {createRealAssistantAdapter} from './adapters.mjs';
 import {createGroqAdapter,GROQ_ID} from './groq-adapter.mjs';
@@ -9,6 +10,6 @@ export function createSelectedAssistantAdapter(e=process.env){
  // Key and nonsecret gate are separate private files provisioned only after explicit authorization.
  const apiKey=privateFile(e.GROQ_API_KEY_FILE).trim(),gate=JSON.parse(privateFile(e.GROQ_FREE_GATE_FILE));
  if(e.GROQ_ONE_SHOT==='true'&&(gate.owner!==e.BRIDGE_OWNER_ID||gate.task!==e.BRIDGE_ALLOWED_TASK_ID))throw Error('groq_scope_config_mismatch');
- if(e.GROQ_ONE_SHOT==='true')return createGroqOnceAdapter({enabled:true,apiKey,gate,markerPath:e.GROQ_ONCE_MARKER_FILE??''});
- return createGroqAdapter({enabled:true,apiKey,gate});
+ if(e.GROQ_ONE_SHOT==='true')return createGroqOnceAdapter({enabled:true,apiKey,gate,markerPath:e.GROQ_ONCE_MARKER_FILE??'',fetchImpl:groqHttpsFetch});
+ return createGroqAdapter({enabled:true,apiKey,gate,fetchImpl:groqHttpsFetch});
 }

@@ -8,6 +8,7 @@ This repository snapshots the reusable relay core, not an entire private applica
 - A single authorized live Groq request returned Hello World through the durable ledger; reopen reconciliation and duplicate replay did not make a second outbound invocation.
 - A separate Caddy HTTPS endpoint passed trusted certificate verification. Its root intentionally returned 404.
 - Later one-shot allowance and result-after-capacity retrieval regression tests were added locally.
+- Native TLS transport corrected the `--jitless` / native-fetch WebAssembly incompatibility. Its loopback regression validates a generated local certificate and exercises the Groq adapter without contacting Groq.
 
 Those observations do not prove a fresh installation, a third party's configuration, unlimited dispatch, or full board integration. No private logs, owner identifiers, infrastructure addresses, credentials or certificate state are included here.
 
