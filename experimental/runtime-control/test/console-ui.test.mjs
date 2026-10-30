@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"1410cea5cbda1437a55d2c6615051ac238a672e42e9f65b6c3bfc022e649477d");
+assert.equal(createHash('sha256').update(script).digest('hex'),"d5bf6f83f139d380730d40910f9a7310f99a1a3170f9562ba8186049c53ac36d");
 assert.equal(createHash('sha256').update(html.match(/aria-label="Picard Relay ASCII Starfleet insignia">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|href=|@import|url\(/i.test(html));assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -19,10 +19,23 @@ function harness(handler){
  return {get:id=>els.get(id),els,requests,timers,wl,dl,ml,pref,document,async submit(id){await els.get(id).listeners.submit({preventDefault(){}})},async click(id){await els.get(id).listeners.click()}};
 }
 let h=harness(async path=>path==='/auth/state'?ok({enrolled:false}):path==='/auth/setup'?ok({ok:true}):ok(health));await flush();assert.equal(h.get('setup-form').hidden,false);assert.equal(h.get('private').hidden,true);assert.deepEqual(h.requests.map(x=>x.path),['/auth/state']);
-h.get('new-password').value='short';h.get('confirm-password').value='short';h.get('setup-code').value='private-test-code';await h.submit('setup-form');assert.equal(h.requests.length,1);assert.match(h.get('auth-message').textContent,/12 and 128/);
+h.get('new-password').value='x'.repeat(7);h.get('confirm-password').value='x'.repeat(7);h.get('setup-code').value='private-test-code';await h.submit('setup-form');assert.equal(h.requests.length,1);assert.match(h.get('auth-message').textContent,/8 and 128 UTF-8 bytes/);
 h.get('new-password').value='correct-test-password';h.get('confirm-password').value='mismatch';await h.submit('setup-form');assert.equal(h.requests.length,1);
 h.get('new-password').value='😀'.repeat(33);h.get('confirm-password').value=h.get('new-password').value;await h.submit('setup-form');assert.equal(h.requests.length,1);
 h.get('new-password').value='correct-test-password';h.get('confirm-password').value='correct-test-password';await h.submit('setup-form');assert.deepEqual(h.requests.map(x=>x.path),['/auth/state','/auth/setup','/status']);assert.equal(h.get('private').hidden,false);assert.equal(h.get('completed').textContent,'2');for(const id of ['setup-code','new-password','confirm-password'])assert.equal(h.get(id).value,'');assert.equal(h.get('auth').hidden,true);
+// Exact byte limits apply equally to setup and login, without character-mix rules.
+assert.ok(html.includes('8–128 UTF-8 bytes. Most ordinary characters use one byte; no character-mix rules.'));
+for(const [password,accepted] of [['a'.repeat(7),false],['aaaaaaaa',true],['12345678',true],['é'.repeat(3)+'a',false],['é'.repeat(4),true],['😀abc',false],['😀'.repeat(2),true],['x'.repeat(128),true],['x'.repeat(129),false],['é'.repeat(64),true],['é'.repeat(64)+'a',false],['😀'.repeat(32),true],['😀'.repeat(33),false]]){
+ for(const setup of [true,false]){
+  let signedIn=false;
+  const boundary=harness(async path=>path==='/auth/state'?ok({enrolled:!setup}):path==='/status'?signedIn?ok(health):bad(401,'auth_failed'):(signedIn=true,ok({ok:true})));
+  await flush();boundary.get(setup?'new-password':'login-password').value=password;
+  if(setup){boundary.get('confirm-password').value=password;boundary.get('setup-code').value='private-test-code';}
+  await boundary.submit(setup?'setup-form':'login-form');
+  assert.equal(boundary.requests.some(request=>request.path===(setup?'/auth/setup':'/auth/login')),accepted);
+  if(accepted)assert.equal(boundary.get('private').hidden,false);else assert.match(boundary.get('auth-message').textContent,/8 and 128 UTF-8 bytes/);
+ }
+}
 // Existing session resumes without asking for a password; expiry removes every private value.
 let expired=false;h=harness(async path=>path==='/auth/state'?ok({enrolled:true}):expired?bad(401,'auth_failed'):ok(health));await flush();assert.equal(h.get('private').hidden,false);expired=true;await h.click('refresh');assert.equal(h.get('private').hidden,true);assert.equal(h.get('completed').textContent,'—');assert.equal(h.get('fingerprint').textContent,'No verified observation');assert.equal(h.get('login-form').hidden,false);
 // Login success, generic failed credentials and rate limiting; no server error text reflected.
