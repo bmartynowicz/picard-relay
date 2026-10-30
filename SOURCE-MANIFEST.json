@@ -171,7 +171,11 @@
     },
     {
       "path": "experimental/updater/README.md",
-      "sha256": "dd1615da333696688c1dd40babd48dd98456195b7347995f66b0c5ab1a02bd52"
+      "sha256": "303bcf34394a33380216a79c041669df8a034696344298ab7abf0aa4dc53b728"
+    },
+    {
+      "path": "experimental/updater/fetch-release.mjs",
+      "sha256": "9b05199b95a9910d870c4102c1d0f4027e3c3a651f4b0b3480fd93436e9b574c"
     },
     {
       "path": "experimental/updater/fixed-service-adapter.mjs",
@@ -190,8 +194,12 @@
       "sha256": "eec5462b2a89119afcc9f7c0ed13ee82b62cd41d3baf0129df1bc098f59762cf"
     },
     {
+      "path": "experimental/updater/picard-update-fetch.service.in",
+      "sha256": "feaf51e8ea6cca8a5a75286b3c26807f7193c8f35b91d969df9ef6933f377177"
+    },
+    {
       "path": "experimental/updater/picard-updater.service",
-      "sha256": "b2e97c704efdc90cb70425fbef23d1b3ab42c451419089fa85e9f879029066ca"
+      "sha256": "301cef557ed6a98fdc794b8584291d084c11e97fde969569ce543f7dc481cbb2"
     },
     {
       "path": "experimental/updater/picard-updater.timer",
@@ -207,11 +215,11 @@
     },
     {
       "path": "experimental/updater/pull.mjs",
-      "sha256": "33a6efd9a042b877a6b92ae88d71acf5aa67cb19e7bdbc0a75217b5dd1798f3e"
+      "sha256": "0c40b780035592456086fb71d64b64169ad45605e40678fa47b0ee3187360bc8"
     },
     {
       "path": "experimental/updater/run-once.mjs",
-      "sha256": "3d2ca467c00497331b58cab0a2c577ef6aa8849ecfb5208b24baebeba9d950ec"
+      "sha256": "5463e013705d779c4c76bcb512a0c5fc5cceba34bed6518ca27d7cbb449c007c"
     },
     {
       "path": "experimental/updater/sigstore-verifier.mjs",

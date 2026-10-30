@@ -9,7 +9,7 @@ export function releaseUrl(source) {
 }
 // Native HTTPS works with the relay's SELinux-compatible --jitless Node runtime.
 // No credential headers, provider calls, redirects, fallback, or retries.
-function readHttps(url) {
+export function readHttps(url) {
  return new Promise((resolve,reject)=>{
   const req=https.get(url,{agent:false,rejectUnauthorized:true,maxHeaderSize:8192,signal:AbortSignal.timeout(15000)},res=>{
    if(res.statusCode!==200){res.destroy();reject(new Error('release_http_status'));return;}

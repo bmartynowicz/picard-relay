@@ -19,3 +19,9 @@ The fixed adapter drains the exact local service before stopping it; an unconfir
 Uncertain provider invocations must never be retried because of an update. Pending journal, unsafe ownership, stale lock or failed verification stops progress and requires review. Signed code still requires trusted publisher review: a valid signature is not a safety proof.
 
 Production crash/power-loss/disk-full behavior and actual host enrollment remain unverified. GitHub publication is not VM activation.
+
+## Split network / privileged installation
+
+The prepared host path now separates fetching from installation. `fetch-release.mjs` runs as the verified existing relay account and atomically writes an **untrusted** bounded envelope into a private inbox. `run-once.mjs` opens that inbox file without following symlinks, then performs signature and source verification before staging. The privileged service permits AF_UNIX only and denies IP networking. The fetch unit requires an explicit verified service-user substitution; it is not directly installable as shipped.
+
+Cosign binary and trust-root checks include every ancestor directory: root-owned, nonsymlink and not group/world-writable. Real deployment and enrollment remain separately controlled; committing these templates does not install units, change host settings or authorize a provider request.

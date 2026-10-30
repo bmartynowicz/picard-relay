@@ -1,0 +1,17 @@
+[Unit]
+Description=Download public signed Picard source as existing relay user
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+User=@VERIFIED_RELAY_USER@
+ExecStart=/usr/local/lib/board-event-relay/node --jitless /usr/local/lib/picard-updater/fetch-release.mjs
+TimeoutStartSec=25
+MemoryMax=96M
+UMask=0077
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/picard-updater-inbox
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# No NoNewPrivileges=true until existing httpd_t executable transition is qualified.
