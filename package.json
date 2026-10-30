@@ -10,8 +10,11 @@
   "scripts": {
     "demo": "node examples/hello-local.mjs",
     "start": "node src/oracle-service.mjs",
-    "test": "node test/sqlite-contention.test.mjs && node test/bridge.test.mjs && node test/process-tests.mjs && node test/relay-process.test.mjs && node test/groq-adapter.test.mjs && node test/groq-once.test.mjs && node test/result-after-capacity.test.mjs && npm run test:tls && node test/protocol-redirect.test.mjs",
-    "test:tls": "node --jitless test/https-fetch.test.mjs"
+    "test": "node test/sqlite-contention.test.mjs && node test/bridge.test.mjs && node test/process-tests.mjs && node test/relay-process.test.mjs && node test/groq-adapter.test.mjs && node test/groq-once.test.mjs && node test/result-after-capacity.test.mjs && npm run test:tls && node test/protocol-redirect.test.mjs && npm run test:candidate",
+    "test:tls": "node --jitless test/https-fetch.test.mjs",
+    "test:candidate": "node --test test/free-only-routing.test.mjs test/fixture-executor.test.mjs test/health-diagnostics.test.mjs test/mission-control.test.mjs",
+    "demo:mission-control": "node examples/mission-control.mjs",
+    "demo:fixtures": "node examples/fixture-tasks.mjs"
   },
   "license": "MIT"
 }

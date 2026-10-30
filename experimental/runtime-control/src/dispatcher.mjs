@@ -18,6 +18,9 @@ export function createDispatcher({
   if (production) {
     if (dbPath === ':memory:') throw new Error('Production mode must not use :memory: storage.');
     if (assistantAdapter.kind === 'synthetic-local-test-only') throw new Error('Production mode must not use the synthetic assistant adapter.');
+    if (assistantAdapter.kind === 'controlled-local-fixture-only' || assistantAdapter.localTestOnly === true || boardAdapter.localTestOnly === true) {
+      throw new AdapterBlockedError('production_fixture_forbidden', 'Production mode rejects local fixture execution.');
+    }
     if (boardAdapter.kind === 'real-blocked' || assistantAdapter.kind === 'real-blocked') {
       throw new AdapterBlockedError('production_adapter_missing', 'Production mode rejects missing real adapters. Board ingress and assistant invocation are not available.');
     }

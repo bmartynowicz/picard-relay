@@ -1,5 +1,18 @@
 import {verifyRequest,signedResponse,ProtocolError} from './protocol.mjs';
-export function createReceiver({store,config,assistantAdapter,canAccept=()=>true}){
+const STATES=['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain'];
+// Only aggregate allowlisted values cross the existing signed health boundary.
+// No row, task, owner, result, error text, pid, path or environment is copied.
+export function healthDiagnostics({rows=null,runtimeHealth=null,providerReady=false,accepting=false}={}){
+ let ledgerStateCounts=null,jobsTotal=null,resultsTotal=null;
+ if(Array.isArray(rows)&&rows.length<=STATES.length){
+  const counts=Object.fromEntries(STATES.map(state=>[state,0]));let total=0,valid=true;const seen=new Set();
+  for(const row of rows){if(!row||!STATES.includes(row.state)||seen.has(row.state)||!Number.isSafeInteger(row.count)||row.count<0||row.count>10000){valid=false;break;}seen.add(row.state);counts[row.state]=row.count;total+=row.count;}
+  if(valid&&total<=10000){ledgerStateCounts=counts;jobsTotal=total;resultsTotal=counts.completed;}
+ }
+ const hash=runtimeHealth?.updateReady===true&&/^[a-f0-9]{64}$/.test(runtimeHealth.releaseHash??'')?runtimeHealth.releaseHash:null;
+ return {v:1,serviceReady:runtimeHealth?.serviceReady===true,resultRecoveryReady:runtimeHealth?.resultRecoveryReady===true,providerReady:providerReady===true,acceptingNewWork:accepting===true&&providerReady===true,ledgerStateCounts,jobsTotal,resultsTotal,release:{state:hash?'identified':'unknown',hash},updater:{state:'unknown'},capabilities:{routing:'free-only-one-shot-v1',taskExecution:'local-fixture-only',productionTaskExecution:false}};
+}
+export function createReceiver({store,config,assistantAdapter,canAccept=()=>true,runtimeHealth=()=>null}){
  return async function handle(request){
   if(new URL(request.url).pathname!=='/bridge/v1')return new Response(null,{status:404});
   let nonce;
@@ -8,9 +21,13 @@ export function createReceiver({store,config,assistantAdapter,canAccept=()=>true
    if(!p||p.v!==1||p.ownerId!==config.ownerId)throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
    const pilot=config.assistantId.startsWith('groq:');
    if(pilot&&(!config.allowedTaskId||(p.action!=='health'&&(p.action==='exchange'?p.payload?.taskId:p.taskId)!==config.allowedTaskId)))throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
-   const ready=canAccept()&&assistantAdapter.ready===true&&assistantAdapter.assistantId===config.assistantId&&assistantAdapter.kind!=='synthetic-local-test-only';
+   const ready=canAccept()&&assistantAdapter.ready===true&&assistantAdapter.assistantId===config.assistantId&&assistantAdapter.localTestOnly!==true&&!['synthetic-local-test-only','controlled-local-fixture-only'].includes(assistantAdapter.kind);
    let result;
-   if(p.action==='health'&&Object.keys(p).length===3)result={ready,assistantId:config.assistantId,code:ready?'ready':'assistant_invocation_unavailable'};
+   if(p.action==='health'&&Object.keys(p).length===3){
+    let rows=null,health=null;try{rows=store.scopedStats({ownerId:p.ownerId,allowedTaskId:config.allowedTaskId});}catch{}
+    try{health=runtimeHealth();}catch{}
+    result={ready,assistantId:config.assistantId,code:ready?'ready':'assistant_invocation_unavailable',diagnostics:healthDiagnostics({rows,runtimeHealth:health,providerReady:assistantAdapter.ready===true&&assistantAdapter.localTestOnly!==true&&!['synthetic-local-test-only','controlled-local-fixture-only'].includes(assistantAdapter.kind)&&assistantAdapter.assistantId===config.assistantId,accepting:ready})};
+   }
    else if(p.action==='cancel'&&Object.keys(p).length===5&&typeof p.taskId==='string'&&p.taskId.length<=200&&typeof p.grantId==='string'&&p.grantId.length<=200){store.cancel(p.ownerId,p.taskId,p.grantId);result={state:'cancelled'};}
    else if(p.action==='result'&&Object.keys(p).length===6&&typeof p.taskId==='string'&&p.taskId.length>0&&p.taskId.length<=200&&typeof p.eventId==='string'&&/^[a-f0-9]{64}$/.test(p.eventId)&&typeof p.payloadHash==='string'&&/^[a-f0-9]{64}$/.test(p.payloadHash)){
     const row=store.get(p.eventId);

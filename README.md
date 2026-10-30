@@ -71,6 +71,13 @@ Expected demo ending: `One synthetic request, one stored answer, duplicate repla
 
 ## Experimental progress
 
+The [bounded next candidate](docs/NEXT-CANDIDATE.md) adds an explicit Free-only
+one-shot routing policy in the signed-runtime source, deterministic local fixture
+tasks, sanitized diagnostics on the existing signed health action, and an offline
+mission-control presentation. It adds no production executor or browser endpoint.
+Run `npm run demo:fixtures` or `node examples/mission-control.mjs --output preview.html`
+for synthetic local demonstrations; `npm run test:candidate` tests that candidate.
+
 The [isolated updater and runtime-control candidates](experimental/README.md) preserve work toward signed, opt-in manual-host updates. **Disabled, not installed, not production-ready.** They do not replace this repository's normal runtime. See their explicit test results and Unix-socket/root-owned-release verification gaps before experimenting.
 
 ## What is not here

@@ -56,5 +56,14 @@ export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
  });}
  function cancel(owner,task,grantId){return transaction(()=>{db.prepare('INSERT OR IGNORE INTO relay_revocations VALUES(?,?,?)').run(owner,task,grantId);db.prepare("UPDATE relay_jobs SET state='cancelled',last_error='owner_revoked',updated_at=? WHERE owner=? AND task=? AND grant_id=? AND state!='completed'").run(now(),owner,task,grantId);});}
  function consumeNonce(nonce,expires){db.prepare('DELETE FROM relay_nonces WHERE expires<=?').run(now());return db.prepare('INSERT OR IGNORE INTO relay_nonces VALUES(?,?)').run(nonce,expires).changes===1;}
- return {accept,claimNext,startInvocation,renewLease,getTaskContext,appendReply,cancel,consumeNonce,get,close:()=>db.close(),getReplyByRequestId:id=>{const r=get(id);return r?.response_id?{reply_id:r.response_id}:null;},markCompleted:i=>transition(i,'completed'),markBlocked:i=>transition(i,'blocked',i.error),markFailed:i=>transition(i,'failed',i.error),stats:()=>db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs GROUP BY state').all()};
+ // Network diagnostics must use an explicit authenticated owner and, when
+ // configured, the allowed task. Never derive these counts from global stats:
+ // a reused database can retain work from an earlier service configuration.
+ function scopedStats({ownerId,allowedTaskId=''}={}){
+  if(typeof ownerId!=='string'||!ownerId||ownerId.length>200||typeof allowedTaskId!=='string'||allowedTaskId.length>200)throw error('diagnostic_scope_invalid');
+  return allowedTaskId
+   ?db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs WHERE owner=? AND task=? GROUP BY state').all(ownerId,allowedTaskId)
+   :db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs WHERE owner=? GROUP BY state').all(ownerId);
+ }
+ return {accept,claimNext,startInvocation,renewLease,getTaskContext,appendReply,cancel,consumeNonce,get,scopedStats,close:()=>db.close(),getReplyByRequestId:id=>{const r=get(id);return r?.response_id?{reply_id:r.response_id}:null;},markCompleted:i=>transition(i,'completed'),markBlocked:i=>transition(i,'blocked',i.error),markFailed:i=>transition(i,'failed',i.error),stats:()=>db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs GROUP BY state').all()};
 }

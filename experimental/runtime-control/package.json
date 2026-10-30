@@ -8,9 +8,10 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "test": "node test/sqlite-contention.test.mjs && node test/bridge.test.mjs && node test/process-tests.mjs && node test/relay-process.test.mjs && node test/groq-adapter.test.mjs && node test/groq-once.test.mjs && node test/result-after-capacity.test.mjs && npm run test:tls && node --jitless test/drain-integration.test.mjs",
+    "test": "node test/sqlite-contention.test.mjs && node test/bridge.test.mjs && node test/process-tests.mjs && node test/relay-process.test.mjs && node test/groq-adapter.test.mjs && node test/groq-once.test.mjs && node test/result-after-capacity.test.mjs && npm run test:tls && node --jitless test/drain-integration.test.mjs && npm run test:candidate",
     "test:tls": "node --jitless test/https-fetch.test.mjs",
-    "test:socket": "node --jitless test/runtime-control.test.mjs"
+    "test:socket": "node --jitless test/runtime-control.test.mjs",
+    "test:candidate": "npm --prefix ../.. run test:candidate"
   },
   "license": "MIT"
 }

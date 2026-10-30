@@ -22,13 +22,14 @@ export async function main(){
  return startOracleService(config,createSelectedAssistantAdapter());
 }
 export async function startOracleService(config,assistantAdapter,{intervalMs=1000,installSignals=true}={}){
+ if(assistantAdapter?.localTestOnly===true||assistantAdapter?.kind==='controlled-local-fixture-only')throw Error('production_fixture_executor_forbidden');
  // No provider/API/model/command fallback. This is the sole external runtime
  // Unconfigured adapters fail closed; a spent one-shot adapter may serve saved results.
  if((assistantAdapter.ready!==true&&assistantAdapter.canServeResults!==true)||assistantAdapter.assistantId!==config.assistantId)throw Error('assistant_invocation_unavailable');
  let store,live=false;
  const control=createRuntimeControl({socketPath:config.controlSocket,releaseHash:config.releaseHash,stats:()=>store.stats(),providerReady:()=>assistantAdapter.ready===true,resultRecoveryReady:()=>live,serviceReady:()=>live});
  store=createRelayStore({...config,canAccept:()=>control.accepting});
- const receiver=createReceiver({store,config,assistantAdapter,canAccept:()=>control.accepting});
+ const receiver=createReceiver({store,config,assistantAdapter,canAccept:()=>control.accepting,runtimeHealth:()=>control.health()});
  const boardAdapter={kind:'signed-relay-result-ledger',scopeEnforced:true,getTaskContext:store.getTaskContext,appendReply:store.appendReply,getReplyByRequestId:store.getReplyByRequestId};
  const dispatcher=createDispatcher({store,boardAdapter,assistantAdapter,production:true,enabled:true,dbPath:config.dbPath,workerId:'oracle-relay',claimTtlMs:60000});
  let stopping=false,shutdownPromise=null,finishBusy=null;

@@ -44,6 +44,52 @@ export function createSyntheticAssistantAdapter({ enabledForLocalTestOnly = fals
   };
 }
 
+/**
+ * Deterministic local fixture tasks only. This is not a production executor:
+ * no tools, callbacks, filesystem, network, dynamic code, or external actions.
+ * Each instance retains at most eight small results for exact replay checking.
+ */
+export function createFixtureTaskExecutor({ enabledForLocalTestOnly = false, maxTasks = 4 } = {}) {
+  const blocked = code => new AdapterBlockedError(code, code);
+  if (!Number.isSafeInteger(maxTasks) || maxTasks < 1 || maxTasks > 8) throw blocked('fixture_invalid_limits');
+  const results = new Map();
+  const identity = value => typeof value === 'string' && value.length > 0 && value.length <= 200;
+  return Object.freeze({
+    kind: 'controlled-local-fixture-only',
+    localTestOnly: true,
+    ready: false,
+    get executedTasks() { return results.size; },
+    async answer(input) {
+      if (enabledForLocalTestOnly !== true) throw blocked('fixture_disabled');
+      if (!input || !['owner', 'task', 'requestId'].every(key => identity(input[key])) ||
+          input.invocationId !== input.requestId || !Number.isSafeInteger(input.attempt) ||
+          input.attempt < 1 || input.attempt > 1000) throw blocked('fixture_identity_invalid');
+      if (input.signal !== undefined && !(input.signal instanceof AbortSignal)) throw blocked('fixture_invalid_request');
+      if (input.signal?.aborted) throw blocked('fixture_cancelled_before_run');
+      if (typeof input.requestText !== 'string') throw blocked('fixture_invalid_request');
+      if (input.requestText.length > 1024 || new TextEncoder().encode(input.requestText).length > 2048) throw blocked('fixture_input_too_large');
+      let job;
+      try { job = JSON.parse(input.requestText); } catch { throw blocked('fixture_invalid_request'); }
+      if (!job || typeof job !== 'object' || Array.isArray(job) ||
+          Object.keys(job).sort().join(',') !== 'operation,text,v' || job.v !== 1 || typeof job.text !== 'string') throw blocked('fixture_invalid_request');
+      if (job.text.length > 512 || new TextEncoder().encode(job.text).length > 1024) throw blocked('fixture_input_too_large');
+      if (!['echo', 'count-words'].includes(job.operation)) throw blocked('fixture_task_unsupported');
+      const fingerprint = JSON.stringify([input.owner, input.task, input.requestText]);
+      const old = results.get(input.requestId);
+      if (old && old.fingerprint !== fingerprint) throw blocked('idempotency_conflict');
+      if (!old && results.size >= maxTasks) throw blocked('fixture_task_limit');
+      // Task text stays inert data. Replays use a cached result, never a rerun.
+      const body = old?.body ?? (job.operation === 'echo'
+        ? `Fixture only (echo): ${job.text}`
+        : `Fixture only (count-words): ${job.text.trim() ? job.text.trim().split(/\s+/u).length : 0}`);
+      if (!old) results.set(input.requestId, { fingerprint, body });
+      return { kind: 'answer', outcomeKind: 'information', body, statusChange: null,
+        eventId: `resp:${input.requestId}`, owner: input.owner, task: input.task,
+        requestId: input.requestId, attempt: input.attempt };
+    },
+  });
+}
+
 export function createRealAssistantAdapter() {
   return {
     kind: 'real-blocked',
