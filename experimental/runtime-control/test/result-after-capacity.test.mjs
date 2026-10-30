@@ -4,7 +4,7 @@ import {createReceiver} from '../src/receiver.mjs';
 import {canonical,digest,payloadHash,signRequest,verifyResponse} from '../src/protocol.mjs';
 const config={allowedTaskId:'task',ownerId:'owner',assistantId:'groq:openai/gpt-oss-20b',keyId:'fixture',secret:'SYNTHETIC_ONLY_NOT_CREDENTIAL_1234567890'};
 const at=Date.now();const store=createRelayStore({dbPath:':memory:'});
-const adapter={ready:true,assistantId:config.assistantId,kind:'explicit-fixture'};
+const adapter={ready:true,assistantId:config.assistantId,kind:'explicit-fixture',acceptsWorkScope:p=>p.request?.text==='Reply Hello World'&&p.request?.answerTo===null&&p.context?.title==='Relay Hello World verification'&&p.context?.nextAction===''&&p.context?.latestFinding===''};
 const receiver=createReceiver({store,config,assistantAdapter:adapter});
 async function work(message){const p={v:1,eventId:await digest(canonical(['owner','task',message])),ownerId:'owner',taskId:'task',requestId:message,grantId:'grant',assistantId:config.assistantId,grantExpiresAt:at+600000,request:{text:'Reply Hello World',createdAt:new Date(at).toISOString(),answerTo:null},context:{title:'Relay Hello World verification',nextAction:'',latestFinding:''}};p.payloadHash=await payloadHash(p);return p;}
 async function exchange(p){const s=await signRequest('https://relay.invalid/bridge/v1',{v:1,action:'exchange',ownerId:'owner',payload:p},config);const response=await receiver(s.request);return {status:response.status,value:await verifyResponse(response,s.nonce,config)};}

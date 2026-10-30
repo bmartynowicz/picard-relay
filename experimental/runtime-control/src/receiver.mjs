@@ -40,7 +40,8 @@ export function createReceiver({store,config,assistantAdapter,canAccept=()=>true
    }
    else if(p.action==='exchange'&&Object.keys(p).length===4){
     if(p.payload?.ownerId!==config.ownerId||p.payload?.assistantId!==config.assistantId)throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
-    if(pilot&&(p.payload.request?.text!=='Reply Hello World'||p.payload.request?.answerTo!==null||p.payload.context?.title!=='Relay Hello World verification'||p.payload.context?.nextAction!==''||p.payload.context?.latestFinding!==''))throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
+    // Groq admission is exact administrator-approved scope, never arbitrary text.
+    if(pilot&&typeof assistantAdapter.acceptsWorkScope!=='function')throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
     if(typeof assistantAdapter.acceptsWorkScope==='function'&&!assistantAdapter.acceptsWorkScope(p.payload))throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
     // Polling an authenticated existing immutable job never consumes provider capacity.
     // accept() still validates the entire payload and rejects altered replay content.
