@@ -8,10 +8,11 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "test": "node test/sqlite-contention.test.mjs && node test/bridge.test.mjs && node test/process-tests.mjs && node test/relay-process.test.mjs && node test/groq-adapter.test.mjs && node test/groq-once.test.mjs && node test/approved-work.test.mjs && node --test ../../test/queued-grant-boundary.test.mjs && node test/result-after-capacity.test.mjs && npm run test:tls && node --jitless test/drain-integration.test.mjs && npm run test:candidate",
+    "test": "node test/sqlite-contention.test.mjs && node test/bridge.test.mjs && node test/process-tests.mjs && node test/relay-process.test.mjs && node test/groq-adapter.test.mjs && node test/groq-once.test.mjs && node test/approved-work.test.mjs && node --test ../../test/queued-grant-boundary.test.mjs && node test/result-after-capacity.test.mjs && npm run test:tls && node --jitless test/drain-integration.test.mjs && npm run test:candidate && npm run test:console",
     "test:tls": "node --jitless test/https-fetch.test.mjs",
     "test:socket": "node --jitless test/runtime-control.test.mjs",
-    "test:candidate": "npm --prefix ../.. run test:candidate"
+    "test:candidate": "npm --prefix ../.. run test:candidate",
+    "test:console": "node --test test/console.test.mjs test/console-auth-routes.test.mjs test/owner-auth.test.mjs test/console-http-boundary.test.mjs && node --jitless --test test/console.test.mjs test/console-auth-routes.test.mjs test/owner-auth.test.mjs test/console-http-boundary.test.mjs && node test/console-service.test.mjs && node --jitless test/console-service.test.mjs && node test/console-ui.test.mjs && node --jitless test/console-ui.test.mjs"
   },
   "license": "MIT"
 }
