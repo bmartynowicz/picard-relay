@@ -6,13 +6,15 @@ import {AdapterBlockedError} from './adapters.mjs';
 export const PILOT_TEXT='Reply Hello World';
 export const PILOT_CONTEXT=Object.freeze({title:'Relay Hello World verification',nextAction:'',latestFinding:''});
 const blocked=code=>new AdapterBlockedError(code,code);
+// Purpose describes input provenance; both values retain the same exact scope.
+const REVIEW_PURPOSES=Object.freeze(['public-source-review','sanitized-source-proposal']);
 /** One exact approved request, one durable allowance. Legacy pilot stays supported. */
 export function createGroqOnceAdapter({enabled=false,apiKey='',gate=null,markerPath='',fetchImpl=globalThis.fetch,now=Date.now,timeoutMs=30000}={}){
  // Snapshot administrator configuration: later caller mutation cannot widen scope.
  try{gate=JSON.parse(JSON.stringify(gate));}catch{gate=null;}
  function reviewScope(){
   const c=gate?.taskContext;
-  return gate?.v===2&&gate.purpose==='public-source-review'&&typeof gate.approvedRequestText==='string'&&gate.approvedRequestText.length>0&&gate.approvedRequestText.length<=4000&&c&&typeof c==='object'&&!Array.isArray(c)&&Object.keys(c).sort().join(',')==='latestFinding,nextAction,title'&&typeof c.title==='string'&&c.title.length>0&&c.title.length<=200&&typeof c.nextAction==='string'&&c.nextAction.length<=1500&&typeof c.latestFinding==='string'&&c.latestFinding.length<=4000&&/^[a-f0-9]{64}$/.test(gate.eventId??'')&&typeof gate.grantId==='string'&&gate.grantId.length>0&&gate.grantId.length<=200&&/^[a-f0-9]{64}$/.test(gate.approvedInputSha256??'')&&gate.approvedInputSha256===inputDigest({requestText:gate.approvedRequestText,context:{taskContext:c}})&&Buffer.byteLength(JSON.stringify({request:gate.approvedRequestText,context:c}))<=12000;
+  return gate?.v===2&&REVIEW_PURPOSES.includes(gate.purpose)&&typeof gate.approvedRequestText==='string'&&gate.approvedRequestText.length>0&&gate.approvedRequestText.length<=4000&&c&&typeof c==='object'&&!Array.isArray(c)&&Object.keys(c).sort().join(',')==='latestFinding,nextAction,title'&&typeof c.title==='string'&&c.title.length>0&&c.title.length<=200&&typeof c.nextAction==='string'&&c.nextAction.length<=1500&&typeof c.latestFinding==='string'&&c.latestFinding.length<=4000&&/^[a-f0-9]{64}$/.test(gate.eventId??'')&&typeof gate.grantId==='string'&&gate.grantId.length>0&&gate.grantId.length<=200&&/^[a-f0-9]{64}$/.test(gate.approvedInputSha256??'')&&gate.approvedInputSha256===inputDigest({requestText:gate.approvedRequestText,context:{taskContext:c}})&&Buffer.byteLength(JSON.stringify({request:gate.approvedRequestText,context:c}))<=12000;
  }
  function approvedScope(){return gate?.v===1?gate.approvedRequestText===PILOT_TEXT&&canonical(gate.taskContext)===canonical(PILOT_CONTEXT):reviewScope();}
  function privateParent(){try{if(!isAbsolute(markerPath)||resolve(markerPath)!==markerPath)return false;const parent=dirname(markerPath),s=lstatSync(parent);return s.isDirectory()&&!s.isSymbolicLink()&&(s.mode&0o077)===0&&s.uid===process.getuid()&&realpathSync(parent)===parent;}catch{return false;}}
