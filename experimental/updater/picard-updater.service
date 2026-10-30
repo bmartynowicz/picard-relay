@@ -1,0 +1,19 @@
+[Unit]
+Description=Verify and install signed Picard runtime source (no provider calls)
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/lib/picard-updater/node --jitless /usr/local/lib/picard-updater/run-once.mjs
+TimeoutStartSec=180
+Environment=GOMAXPROCS=1
+Environment=GOMEMLIMIT=64MiB
+MemoryMax=192M
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/usr/local/lib/board-event-relay /var/lib/picard-updater /var/lib/board-event-relay
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

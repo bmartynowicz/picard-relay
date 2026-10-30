@@ -1,3 +1,5 @@
+> Signing-only GitHub Actions now builds and publishes signed source envelopes. No workflow deploys or contacts the VM. The updater remains disabled until separately enrolled; see [updated updater documentation](updater/README.md). Earlier offline-snapshot statements below describe the initial checkpoint.
+
 # Experimental updates and runtime control
 
 **NOT PRODUCTION-READY. NOT INSTALLED. DISABLED BY DEFAULT.**

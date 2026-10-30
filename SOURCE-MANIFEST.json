@@ -2,6 +2,10 @@
   "description": "SHA-256 of public source snapshot files; this manifest excludes itself.",
   "files": [
     {
+      "path": ".github/workflows/sign-release.yml",
+      "sha256": "b30464ac560b4cb6ccf493468e40ef717a56694a4492c0cb99b7288571f933ce"
+    },
+    {
       "path": ".gitignore",
       "sha256": "a2f418ee1eb5982e9b7a4a9e8473259cdc787d349148287cdc0d4f4530c1a88a"
     },
@@ -11,7 +15,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "450fdd812cf12cdb8863ed41a21ec2467294d2d07845584b364fe3e378813fff"
+      "sha256": "f580a6cbd841a6a83718b88482ee0f13b7be16701d24768e0e01f81e8f7cbea0"
     },
     {
       "path": "VERIFICATION.txt",
@@ -39,7 +43,7 @@
     },
     {
       "path": "experimental/README.md",
-      "sha256": "75ac1e1302df5fa243d14f34f3ed3b053c1d085eebd728d7fc1a907f6d8671dd"
+      "sha256": "00c12a1989ae39682570a64811d4c0899baf9a70815763be6086ead02d553f98"
     },
     {
       "path": "experimental/VERIFICATION.md",
@@ -95,7 +99,7 @@
     },
     {
       "path": "experimental/runtime-control/src/protocol.mjs",
-      "sha256": "fb4a9b10830a84e6e94133e92bb838fee408dc5d9b497077b5ba5d792678ad4d"
+      "sha256": "8c53e6954a0999ee5827eac6bd637bc67eccecd2b8484affa35548cf9c2f412c"
     },
     {
       "path": "experimental/runtime-control/src/receiver.mjs",
@@ -167,15 +171,35 @@
     },
     {
       "path": "experimental/updater/README.md",
-      "sha256": "f1bcbfb68d9149476d2e7134aae308eac760e9e5e6bf801f2347570dc2e08518"
+      "sha256": "dd1615da333696688c1dd40babd48dd98456195b7347995f66b0c5ab1a02bd52"
+    },
+    {
+      "path": "experimental/updater/fixed-service-adapter.mjs",
+      "sha256": "22a7eb2bc4fe4f2d6628aa7e9c2134e8bbae192774dd61f94026b5af099f3e74"
+    },
+    {
+      "path": "experimental/updater/fixed-service-adapter.test.mjs",
+      "sha256": "7dab2ff534e584d322476627fd3400b7d580cf4097dc7c95c6ff3deaab168c85"
+    },
+    {
+      "path": "experimental/updater/launch-versioned.mjs",
+      "sha256": "b2087b10836d95d08486a2e195e4486df6fb6521b0bce5c43a763f93158e53ea"
     },
     {
       "path": "experimental/updater/package.json",
       "sha256": "eec5462b2a89119afcc9f7c0ed13ee82b62cd41d3baf0129df1bc098f59762cf"
     },
     {
+      "path": "experimental/updater/picard-updater.service",
+      "sha256": "b2e97c704efdc90cb70425fbef23d1b3ab42c451419089fa85e9f879029066ca"
+    },
+    {
+      "path": "experimental/updater/picard-updater.timer",
+      "sha256": "e6c5e45a1d2a1bc28edeb16d81c6bae3c92c029c3f4ffa70a8afbec455cd7670"
+    },
+    {
       "path": "experimental/updater/policy.example.json",
-      "sha256": "3b3e72a1dfbaa7546e277b894965c1894db99004ee65f1d4e32cf2b55bfa2a1b"
+      "sha256": "5451076402d4015c5049d37b225750837e2ab7164db4acbe3f47e1f93c2e62bf"
     },
     {
       "path": "experimental/updater/pull-tls.test.mjs",
@@ -183,11 +207,23 @@
     },
     {
       "path": "experimental/updater/pull.mjs",
-      "sha256": "91756957bd0dee2aa8340cfd9635c69b00216afd527e6791164f47062cce42d5"
+      "sha256": "33a6efd9a042b877a6b92ae88d71acf5aa67cb19e7bdbc0a75217b5dd1798f3e"
+    },
+    {
+      "path": "experimental/updater/run-once.mjs",
+      "sha256": "3d2ca467c00497331b58cab0a2c577ef6aa8849ecfb5208b24baebeba9d950ec"
+    },
+    {
+      "path": "experimental/updater/sigstore-verifier.mjs",
+      "sha256": "7f615bd0bd470bd216dcb8e578e713d10e51fb005620fdc4ea894efaeb191fc9"
+    },
+    {
+      "path": "experimental/updater/sigstore-verifier.test.mjs",
+      "sha256": "6ad4b94d14baa9ec3a9b99c06d5c4e5627eb5a92562a548187d2f7e6f57192a4"
     },
     {
       "path": "experimental/updater/updater.mjs",
-      "sha256": "df1305c2fd2233c1e8bee310233f62d719a14fe64c708c87adcba4eca8d92b9a"
+      "sha256": "3937371ce897df261fae98cddcab27c694a33253ff295748270650e9d46ef89b"
     },
     {
       "path": "experimental/updater/updater.test.mjs",
@@ -196,6 +232,14 @@
     {
       "path": "package.json",
       "sha256": "6914a91896a076715a20d4d105a99367160dc139f8cf54efe3a046c952c85635"
+    },
+    {
+      "path": "scripts/build-release.mjs",
+      "sha256": "60ddb7965c7b004d50de1690edb58fcbffa963a068589ac0dc8cadd838dc6b18"
+    },
+    {
+      "path": "scripts/package-signed-release.mjs",
+      "sha256": "48317ba21ae41b6e842042eca03bb792b7f17e562515068c45827b137582636c"
     },
     {
       "path": "src/adapters.mjs",

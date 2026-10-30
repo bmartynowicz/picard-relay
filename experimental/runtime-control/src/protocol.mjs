@@ -21,7 +21,8 @@ export async function signRequest(url,payload,c,now=Date.now()){
  if(!validConfig(c))throw new ProtocolError('bridge_configuration_unavailable');
  const body=JSON.stringify(payload);if(encoder.encode(body).length>24576)throw new ProtocolError('body_too_large');
  const nonce=crypto.randomUUID(),stamp=String(now),signature=await mac(c.secret,`board-bridge-v1\n${c.keyId}\n${stamp}\n${nonce}\n${await digest(body)}`);
- return {nonce,request:new Request(url,{method:'POST',redirect:'error',headers:{'content-type':'application/json','x-bridge-key':c.keyId,'x-bridge-time':stamp,'x-bridge-nonce':nonce,'x-bridge-signature':signature},body})};
+ // Workers supports manual/follow only. Callers MUST reject every 3xx response; never follow signed requests.
+ return {nonce,request:new Request(url,{method:'POST',redirect:'manual',headers:{'content-type':'application/json','x-bridge-key':c.keyId,'x-bridge-time':stamp,'x-bridge-nonce':nonce,'x-bridge-signature':signature},body})};
 }
 export async function verifyRequest(request,c,consumeNonce,now=Date.now()){
  if(!validConfig(c))throw new ProtocolError('bridge_configuration_unavailable');

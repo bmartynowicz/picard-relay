@@ -42,7 +42,7 @@ A lightweight, self-hosted relay for routing tasks to AI providers and reliably 
 
 Picard Relay is a lightweight Node.js + SQLite relay for bounded AI requests. It preserves request identity, claims work once, stores correlated responses, and refuses to automatically retry an invocation whose outcome is uncertain.
 
-**Status: early source preview.** The simplest working entry point is an offline demo. A separately gated Groq text-only adapter exists; a complete portable board application, universal AI-provider router, and production automatic updater do not. This repository stores code. **There are no GitHub Actions or automatic deployments.**
+**Status: early source preview.** The simplest working entry point is an offline demo. A separately gated Groq text-only adapter exists; a complete portable board application, universal AI-provider router, and production automatic updater do not. This repository stores code and signed source envelopes. **GitHub Actions tests, signs and publishes source releases only; it never deploys.**
 
 ## Try it locally — no account or API key
 
@@ -87,4 +87,4 @@ A “Free” gate is an operator's external account-plan verification, **not a b
 
 Released under the [MIT License](LICENSE), as selected by the repository owner. This is an early source preview. No third-party music, images or character artwork are included. Picard is a project nickname, not an affiliation or endorsement.
 
-Manual review and deployment remain deliberate operator actions. GitHub is source storage only.
+Manual review and deployment remain deliberate operator actions. GitHub may build, sign and publish source; installation remains a separately enrolled host action.

@@ -3,6 +3,8 @@ import { createHash, verify, createPublicKey, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { constants } from 'node:fs';
+import {verifySigstoreManifest} from './sigstore-verifier.mjs';
+import {createPreparedServiceAdapter} from './fixed-service-adapter.mjs';
 const MAX = 2 * 1024 * 1024;
 const sha = b => createHash('sha256').update(b).digest('hex');
 const fail = code => { throw new Error(code); };
@@ -29,6 +31,10 @@ export function validate(manifestBytes, signature, bundleBytes, policy, now = Da
   if(!Buffer.isBuffer(manifestBytes) || manifestBytes.length > 16384 || !Buffer.isBuffer(bundleBytes) || bundleBytes.length > MAX) fail('size_limit');
   const key = createPublicKey(policy.publisherKey);
   if(key.asymmetricKeyType !== 'ed25519' || !verify(null, manifestBytes, key, signature)) fail('bad_signature');
+  return validateArtifact(manifestBytes,bundleBytes,policy,now);
+}
+export function validateArtifact(manifestBytes,bundleBytes,policy,now=Date.now()){
+  if(!Buffer.isBuffer(manifestBytes)||manifestBytes.length>16384||!Buffer.isBuffer(bundleBytes)||bundleBytes.length>MAX)fail('size_limit');
   const m = JSON.parse(manifestBytes.toString('utf8'));
   if(m.format !== 1 || m.product !== 'picard-relay' || m.channel !== policy.channel || !Number.isSafeInteger(m.sequence) || m.sequence < 1 || !/^[0-9]+\.[0-9]+\.[0-9]+$/.test(m.version)) fail('manifest_invalid');
   if(!Number.isSafeInteger(m.expiresAt) || m.expiresAt <= now || m.expiresAt > now + 7*86400000) fail('manifest_expired_or_excessive');
@@ -49,9 +55,15 @@ export function validate(manifestBytes, signature, bundleBytes, policy, now = Da
   if(policy.allowedFiles.some(p => !seen.has(p))) fail('incomplete_runtime');
   return {manifest:m, files, release:sha(manifestBytes)};
 }
-export async function applyOfflineCandidate({root, policy, manifestBytes, signature, bundleBytes, adapter, now}) {
-  // Caller supplies a local TEST adapter. Production plumbing intentionally absent.
-  if(policy.enabled !== true || adapter?.kind !== 'offline-test') fail('disabled_or_no_reviewed_adapter');
+export async function applyOfflineCandidate(options){
+ if(options.policy.enabled!==true||options.adapter?.kind!=='offline-test')fail('disabled_or_no_reviewed_adapter');
+ return applyTransaction(options);
+}
+export async function applyPreparedUpdate({policy,manifestBytes,signature,bundleBytes}){
+ if(process.getuid()!==0||policy.enabled!==true||policy.expectedAdministratorUid!==0||policy.signatureMode!=='sigstore')fail('production_not_enrolled');
+ return applyTransaction({root:'/usr/local/lib/board-event-relay',policy,manifestBytes,signature,bundleBytes,adapter:createPreparedServiceAdapter()});
+}
+async function applyTransaction({root, policy, manifestBytes, signature, bundleBytes, adapter, now}) {
   const uid=policy.expectedAdministratorUid;
   if(!Number.isSafeInteger(uid)||uid<0)fail('owner_policy_required');
   await rootCheck(root,uid);
@@ -60,7 +72,9 @@ export async function applyOfflineCandidate({root, policy, manifestBytes, signat
   try {
     await rootCheck(lock,uid);
     if(await json(path.join(root,'pending.json'),null,uid)) fail('recovery_required');
-    const v = validate(manifestBytes,signature,bundleBytes,policy,now);
+    let v;
+    if(policy.signatureMode==='sigstore'){await verifySigstoreManifest(manifestBytes,signature);v=validateArtifact(manifestBytes,bundleBytes,policy,now);}
+    else v=validate(manifestBytes,signature,bundleBytes,policy,now);
     const state = await json(path.join(root,'state.json'), {highestSequence:0},uid);
     if(!Number.isSafeInteger(state.highestSequence)||state.highestSequence<0)fail('invalid_sequence_state');
     if(v.manifest.sequence <= state.highestSequence) fail('replay_or_downgrade');

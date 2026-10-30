@@ -1,0 +1,60 @@
+name: Sign Picard release (never deploy)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'experimental/runtime-control/src/**'
+      - 'experimental/updater/policy.example.json'
+      - 'scripts/build-release.mjs'
+      - 'scripts/package-signed-release.mjs'
+      - '.github/workflows/sign-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: picard-sign-stable
+  cancel-in-progress: false
+jobs:
+  sign:
+    if: github.repository == 'bmartynowicz/picard-relay' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.22.1'
+      - name: Test source without provider calls
+        run: |
+          npm --prefix experimental/updater test
+          npm --prefix experimental/runtime-control test
+          npm --prefix experimental/runtime-control run test:socket
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac
+        with:
+          cosign-release: 'v3.1.4'
+      - name: Build and sign source manifest with ephemeral identity
+        run: |
+          node scripts/build-release.mjs
+          cosign sign-blob --yes --bundle release-output/manifest.sigstore.json release-output/manifest.json
+          cosign verify-blob --bundle release-output/manifest.sigstore.json --certificate-identity 'https://github.com/bmartynowicz/picard-relay/.github/workflows/sign-release.yml@refs/heads/main' --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' release-output/manifest.json
+          node scripts/package-signed-release.mjs
+      - name: Publish source envelope only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'JS'
+          import {readFile,writeFile} from 'node:fs/promises';
+          import {execFileSync} from 'node:child_process';
+          const endpoint='repos/bmartynowicz/picard-relay/contents/releases/stable.json';
+          let sha;
+          try { sha=JSON.parse(execFileSync('gh',['api',endpoint],{encoding:'utf8'})).sha; }
+          catch(error) { if(!String(error.stderr).includes('404')) throw error; }
+          const body={message:'Publish signed Picard source release',branch:'main',content:(await readFile('release-output/stable.json')).toString('base64'),...(sha?{sha}:{})};
+          await writeFile('release-output/publish.json',JSON.stringify(body));
+          execFileSync('gh',['api','--method','PUT',endpoint,'--input','release-output/publish.json'],{stdio:'inherit'});
+          JS
