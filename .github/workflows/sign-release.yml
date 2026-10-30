@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'experimental/runtime-control/src/**'
+      - 'experimental/runtime-control/test/**'
+      - 'experimental/updater/**'
       - 'experimental/updater/policy.example.json'
       - 'scripts/build-release.mjs'
       - 'scripts/package-signed-release.mjs'

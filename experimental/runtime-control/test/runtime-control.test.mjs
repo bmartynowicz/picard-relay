@@ -14,6 +14,6 @@ try{
  counts=[{state:'invoking',count:1}];assert.equal(c.health().drained,false);assert.equal(c.health().unresolvedInvoking,1);assert.deepEqual(counts,[{state:'invoking',count:1}]);
  await c.close();assert.equal(existsSync(path),false);
  writeFileSync(path,'preserved');await assert.rejects(createRuntimeControl({socketPath:path,releaseHash:'b'.repeat(64)}).start(),/exists/);assert.equal(existsSync(path),true);
- const off=createRuntimeControl();await off.start();assert.equal(off.health().accepting,true);await off.close();
+ const off=createRuntimeControl();await off.start();assert.equal(off.health().accepting,false);assert.equal(off.health().providerReady,false);assert.equal(off.health().updateReady,false);await off.close();
  console.log('PASS control socket: permissions, health, invalid/partial/oversize commands, busy/idle monotonic drain, unresolved invocation, existing-path preservation, disabled default');
 }finally{await c.close();rmSync(dir,{recursive:true,force:true});}
