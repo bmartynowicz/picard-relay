@@ -32,3 +32,22 @@ Configure cloud ingress and guest firewall separately. Service startup is not pr
 ## Updates
 
 Deploy manually from a reviewed commit. Stop new claims, preserve database/credentials, test the candidate, restart under supervision, and verify actual signed requests/results. Do not roll back durable state blindly: doing so can re-invoke work already sent. Automatic updating is future work. No Actions workflows or webhook deployment mechanisms are included.
+
+## Signed requests and redirects
+
+`signRequest` uses `redirect: 'manual'` for Cloudflare Workers compatibility.
+Every caller **must reject all 3xx responses**, without following `Location` or
+resending signed headers/body. Never override this with `redirect: 'follow'`.
+For example, after `const response = await fetch(request)`:
+
+```js
+if (response.status >= 300 && response.status < 400) {
+  await response.body?.cancel();
+  throw new Error('relay_redirect_rejected');
+}
+// Then verify the response signature and validate the application result.
+```
+
+Manual mode prevents automatic forwarding; it does not itself turn a redirect
+into an exception. The offline localhost regression exercises 301/302/303/307/308
+and confirms the destination receives no request. No live provider is called.

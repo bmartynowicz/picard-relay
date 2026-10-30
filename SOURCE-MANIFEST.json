@@ -27,7 +27,7 @@
     },
     {
       "path": "docs/DEPLOYMENT.md",
-      "sha256": "b3f4fb3d8c95ea1b0505920ec147eaed4a437e33f2b8fee2684db90a37b8e1a2"
+      "sha256": "15b4804c0335a812f7c786117e1380fc0fff1f8c597917e3d02bb7c45e19f6ff"
     },
     {
       "path": "docs/STATUS.md",
@@ -195,7 +195,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "1f56e492ff1c1efc01ed223ac7c697a31a911561b36821aeb4263cba536c3109"
+      "sha256": "6914a91896a076715a20d4d105a99367160dc139f8cf54efe3a046c952c85635"
     },
     {
       "path": "src/adapters.mjs",
@@ -239,7 +239,7 @@
     },
     {
       "path": "src/protocol.mjs",
-      "sha256": "fb4a9b10830a84e6e94133e92bb838fee408dc5d9b497077b5ba5d792678ad4d"
+      "sha256": "8c53e6954a0999ee5827eac6bd637bc67eccecd2b8484affa35548cf9c2f412c"
     },
     {
       "path": "src/receiver.mjs",
@@ -280,6 +280,10 @@
     {
       "path": "test/process-tests.mjs",
       "sha256": "949f9980da956540045b49d4720590d1cc590d4d267884f71c1c8c17c8cd5869"
+    },
+    {
+      "path": "test/protocol-redirect.test.mjs",
+      "sha256": "b1a60f4c17d84c4d5edc8eb26ab62281c929bc96f2680feeb33b97f63dc927c1"
     },
     {
       "path": "test/relay-crash-child.mjs",
