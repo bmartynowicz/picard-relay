@@ -36,7 +36,7 @@ jobs:
           npm --prefix experimental/updater test
           npm --prefix experimental/runtime-control test
           npm --prefix experimental/runtime-control run test:socket
-      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac
+      - uses: sigstore/cosign-installer@b9c35392b7c1401bcc77d30c9b07cf4b1c7a7b07
         with:
           cosign-release: 'v3.1.4'
       - name: Build and sign source manifest with ephemeral identity

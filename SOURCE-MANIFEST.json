@@ -3,7 +3,7 @@
   "files": [
     {
       "path": ".github/workflows/sign-release.yml",
-      "sha256": "666f9f9fa3f4efea44aa6baffdd99b8e257439201e1bd18fa640b2fe60ad2e4e"
+      "sha256": "4dbefa0e5e011618c98b01aabadabd1d6fbd55e10f4e29295fe0192d7de97a9b"
     },
     {
       "path": ".gitignore",
