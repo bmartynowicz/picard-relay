@@ -8,9 +8,21 @@ const ENDPOINT='https://api.groq.com/openai/v1/chat/completions';
 const block=code=>new AdapterBlockedError(code,code);
 const uncertain=()=>Object.assign(new Error('groq_outcome_uncertain'),{code:'groq_outcome_uncertain'});
 export function inputDigest(input){return createHash('sha256').update(canonical({requestText:input.requestText,taskContext:input.context?.taskContext??null})).digest('hex');}
+const enrollmentFields='accountLabel,accountPlan,enrolledAt,evidenceRef,keyAssociationEvidenceRef,keySha256,model,noPaidFallback,organizationId,owner,projectId,provider,v,verifiedAt';
+const label=x=>typeof x==='string'&&x.trim().length>0&&x.length<=500;
+const timestamp=x=>Number.isSafeInteger(x)&&x>=0;
+export function costEnrollmentDigest(enrollment){return createHash('sha256').update(canonical(enrollment)).digest('hex');}
+// v3 retains the original observation; request creation never refreshes it.
+// The private enrollment binds configuration, not a current billing assertion.
+export function retainedCostScopeConfigured(gate,apiKey){
+ try{
+  const e=gate?.costEnrollment;
+  return gate?.v===3&&!!e&&typeof e==='object'&&!Array.isArray(e)&&Object.keys(e).sort().join(',')===enrollmentFields&&e.v===1&&e.provider==='groq'&&e.model===GROQ_MODEL&&e.owner===gate.owner&&e.accountPlan==='Free'&&e.noPaidFallback===true&&['owner','accountLabel','organizationId','projectId','evidenceRef','keyAssociationEvidenceRef'].every(k=>label(e[k]))&&/^[a-f0-9]{64}$/.test(e.keySha256)&&typeof apiKey==='string'&&e.keySha256===createHash('sha256').update(apiKey).digest('hex')&&timestamp(e.verifiedAt)&&timestamp(e.enrolledAt)&&e.verifiedAt<=e.enrolledAt&&timestamp(gate.requestIssuedAt)&&timestamp(gate.requestExpiresAt)&&e.enrolledAt<=gate.requestIssuedAt&&gate.requestExpiresAt>gate.requestIssuedAt&&gate.requestExpiresAt-gate.requestIssuedAt<=3600000&&/^[a-f0-9]{64}$/.test(gate.enrollmentId??'')&&gate.enrollmentId===costEnrollmentDigest(e);
+ }catch{return false;}
+}
 export function createGroqAdapter({enabled=false,apiKey='',gate=null,fetchImpl=globalThis.fetch,now=Date.now,timeoutMs=30000}={}){
  let consumed=false;
- const valid=()=>enabled===true&&typeof apiKey==='string'&&apiKey.length>0&&!/[\r\n]/.test(apiKey)&&gate?.provider==='groq'&&gate.model===GROQ_MODEL&&gate.accountPlan==='Free'&&gate.noPaidFallback===true&&gate.harmlessTestOnly===true&&gate.maxCalls===1&&typeof gate.evidenceRef==='string'&&gate.evidenceRef.length>0&&Number.isFinite(gate.verifiedAt)&&Number.isFinite(gate.validUntil)&&gate.verifiedAt<=now()&&gate.validUntil>now()&&gate.validUntil-gate.verifiedAt<=3600000&&['owner','task','requestId'].every(k=>typeof gate[k]==='string'&&gate[k].length>0)&&/^[a-f0-9]{64}$/.test(gate.inputSha256)&&Number.isSafeInteger(timeoutMs)&&timeoutMs>=1&&timeoutMs<=30000;
+ const valid=()=>enabled===true&&typeof apiKey==='string'&&apiKey.length>0&&!/[\r\n]/.test(apiKey)&&gate?.provider==='groq'&&gate.model===GROQ_MODEL&&gate.harmlessTestOnly===true&&gate.maxCalls===1&&(gate.v===3?retainedCostScopeConfigured(gate,apiKey)&&gate.requestIssuedAt<=now()&&gate.requestExpiresAt>now():gate.accountPlan==='Free'&&gate.noPaidFallback===true&&typeof gate.evidenceRef==='string'&&gate.evidenceRef.length>0&&Number.isFinite(gate.verifiedAt)&&Number.isFinite(gate.validUntil)&&gate.verifiedAt<=now()&&gate.validUntil>now()&&gate.validUntil-gate.verifiedAt<=3600000)&&['owner','task','requestId'].every(k=>typeof gate[k]==='string'&&gate[k].length>0)&&/^[a-f0-9]{64}$/.test(gate.inputSha256)&&Number.isSafeInteger(timeoutMs)&&timeoutMs>=1&&timeoutMs<=30000;
  return {kind:'groq-explicit-harmless-test',assistantId:GROQ_ID,get ready(){return valid()&&!consumed;},async answer(input){
   if(!valid()||consumed)throw block('groq_free_scope_unavailable');
   if(['owner','task','requestId'].some(k=>input[k]!==gate[k])||input.invocationId!==input.requestId||inputDigest(input)!==gate.inputSha256||!Number.isSafeInteger(input.attempt)||input.attempt<1)throw block('groq_scope_mismatch');

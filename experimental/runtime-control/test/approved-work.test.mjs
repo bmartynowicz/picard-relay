@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {mkdtempSync,rmSync,readFileSync,existsSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {createGroqOnceAdapter} from '../src/groq-once-adapter.mjs';
-import {GROQ_MODEL,inputDigest} from '../src/groq-adapter.mjs';
+import {GROQ_MODEL,inputDigest,costEnrollmentDigest} from '../src/groq-adapter.mjs';
 import {createRelayStore} from '../src/relay-store.mjs';
 import {createReceiver} from '../src/receiver.mjs';
 import {createDispatcher} from '../src/dispatcher.mjs';
@@ -60,6 +61,54 @@ await test('signed sanitized proposal uses unchanged v1 wire and saves inert res
   assert.equal((await dispatcher.runOnce()).status,'completed');assert.equal((await request(exchange)).body.state,'completed');assert.equal((await dispatcher.runOnce()).status,'idle');assert.equal(calls(),1);
   const result=await request({v:1,action:'result',ownerId:'owner',taskId:'task',eventId,payloadHash:proposalPayload.payloadHash});assert.equal(result.status,200);assert.equal(result.body.result.outcome.kind,'information');
   const changed={...proposalPayload,purpose:'sanitized-source-proposal'};changed.payloadHash=await payloadHash(changed);assert.notEqual((await request({...exchange,payload:changed})).status,200);assert.equal(calls(),1);
+ }finally{store.close();}
+});
+const costEnrollment={v:1,provider:'groq',model:GROQ_MODEL,owner:'owner',accountLabel:'Synthetic account',organizationId:'fixture-org',projectId:'fixture-project',keySha256:createHash('sha256').update('FIXTURE_ONLY').digest('hex'),accountPlan:'Free',noPaidFallback:true,verifiedAt:at-172800000,evidenceRef:'FIXTURE_ORIGINAL_OBSERVATION',keyAssociationEvidenceRef:'FIXTURE_OWNER_ASSOCIATION',enrolledAt:at-86400000};
+const retainedGate={...gate,v:3,costEnrollment,enrollmentId:costEnrollmentDigest(costEnrollment),requestIssuedAt:at-1000,requestExpiresAt:payload.grantExpiresAt};
+await test('v3 exact fresh request reuses original enrollment and consumes once',async({create,calls,dir})=>{
+ const original=JSON.stringify(costEnrollment),a=create({gate:retainedGate});assert.equal(a.ready,true);assert.equal(a.acceptsWorkScope(payload),true);
+ assert.equal(a.acceptsWorkScope({...payload,grantExpiresAt:payload.grantExpiresAt+1}),false);await a.answer(input);assert.equal(calls(),1);assert.equal(JSON.stringify(costEnrollment),original);
+ assert.equal(create({gate:retainedGate}).ready,false);const later=at+7200000,next={...retainedGate,grantId:'next-exact-grant',eventId:'b'.repeat(64),requestIssuedAt:later,requestExpiresAt:later+60000};
+ const b=create({gate:next,markerPath:join(dir,'next-exact-marker.json'),now:()=>later});assert.equal(b.ready,true);
+ await b.answer({...input,requestId:next.eventId,invocationId:next.eventId,context:{taskContext,grantId:next.grantId}});assert.equal(calls(),2);
+});
+await test('v3 rejects changed enrollment key identity scope and expired request without I/O',async({create,calls,markerPath})=>{
+ for(const patch of [{enrollmentId:'a'.repeat(64)},{costEnrollment:{...costEnrollment,projectId:'changed'}},{requestExpiresAt:at},{requestIssuedAt:at+1},{requestExpiresAt:at+3600001},{purpose:'arbitrary-execution'},{maxCalls:2}])assert.equal(create({gate:{...retainedGate,...patch}}).ready,false);
+ assert.equal(create({gate:retainedGate,apiKey:'OTHER_FIXTURE'}).ready,false);
+ const a=create({gate:retainedGate});for(const p of [{...payload,ownerId:'other'},{...payload,taskId:'other'},{...payload,eventId:'a'.repeat(64)},{...payload,grantId:'other'},{...payload,request:{...payload.request,text:'changed'}},{...payload,context:{...taskContext,title:'changed'}}])assert.equal(a.acceptsWorkScope(p),false);
+ for(const patch of [{owner:'other'},{task:'other'},{requestText:'changed'},{requestId:'b'.repeat(64),invocationId:'b'.repeat(64)},{context:{taskContext,grantId:'other'}}])await assert.rejects(()=>a.answer({...input,...patch}));assert.equal(calls(),0);assert.equal(existsSync(markerPath),false);
+});
+for(const status of [402,429,'network'])await test(`v3 ${status} durably stops same enrollment across distinct grants and restart`,async({create,dir,markerPath})=>{
+ let calls=0;const fetchImpl=async()=>{calls++;if(status==='network')throw Error('fixture ambiguity');return new Response('',{status});};
+ await assert.rejects(()=>create({gate:retainedGate,fetchImpl}).answer(input));assert.equal(calls,1);assert.equal(existsSync(markerPath),true);
+ const next={...retainedGate,grantId:'different-grant',eventId:'b'.repeat(64)},b=create({gate:next,markerPath:join(dir,'different-marker.json'),fetchImpl});assert.equal(b.ready,false);assert.equal(b.canServeResults,true);
+ await assert.rejects(()=>b.answer({...input,requestId:next.eventId,invocationId:next.eventId,context:{taskContext,grantId:next.grantId}}));assert.equal(calls,1);
+});
+await test('v3 concurrent distinct grants share durable enrollment stop before I/O',async({create,dir})=>{
+ let calls=0,finish;const fetchImpl=async()=>{calls++;await new Promise(r=>{finish=r;});return new Response(JSON.stringify({id:'fixture',model:GROQ_MODEL,choices:[{finish_reason:'stop',message:{role:'assistant',content:'Synthetic review.'}}]}));};
+ const a=create({gate:retainedGate,fetchImpl}),pending=a.answer(input);assert.equal(calls,1);
+ const next={...retainedGate,eventId:'b'.repeat(64),grantId:'other'},b=create({gate:next,markerPath:join(dir,'other.json'),fetchImpl});assert.equal(b.ready,false);await assert.rejects(()=>b.answer({...input,requestId:next.eventId,invocationId:next.eventId,context:{taskContext,grantId:next.grantId}}));
+ finish();await pending;assert.equal(calls,1);assert.equal(b.ready,true);
+});
+await test('v3 preexisting pending file and old consumed markers are preserved',async({create,dir,calls})=>{
+ const stop=join(dir,`.groq-cost-${retainedGate.enrollmentId}.pending`);writeFileSync(stop,'existing pending fixture');const old=join(dir,'old.json');writeFileSync(old,'old consumed fixture');
+ const a=create({gate:retainedGate});assert.equal(a.ready,false);assert.equal(a.canServeResults,true);await assert.rejects(()=>a.answer(input));assert.equal(calls(),0);assert.equal(readFileSync(stop,'utf8'),'existing pending fixture');assert.equal(readFileSync(old,'utf8'),'old consumed fixture');
+});
+await test('v3 configuration snapshot and expired saved-result readiness retain original evidence',async({create,calls})=>{
+ const mutable=structuredClone(retainedGate),a=create({gate:mutable});mutable.costEnrollment.projectId='changed';mutable.requestExpiresAt=at;
+ assert.equal(a.ready,true);assert.equal(a.acceptsWorkScope(payload),true);assert.equal(create({gate:mutable}).ready,false);
+ const expired=create({gate:retainedGate,now:()=>retainedGate.requestExpiresAt});assert.equal(expired.ready,false);assert.equal(expired.canServeResults,true);await assert.rejects(()=>expired.answer(input));assert.equal(calls(),0);
+});
+await test('v3 signed exchange preserves unchanged wire grant expiry and inert result history',async({dir,create,calls})=>{
+ const store=createRelayStore({dbPath:join(dir,'v3.sqlite')}),adapter=create({gate:retainedGate}),config={allowedTaskId:'task',ownerId:'owner',assistantId:'groq:'+GROQ_MODEL,keyId:'fixture',secret:'SYNTHETIC_ONLY_NOT_CREDENTIAL_1234567890'};
+ const receiver=createReceiver({store,config,assistantAdapter:adapter});
+ async function request(p){const s=await signRequest('https://relay.invalid/bridge/v1',p,config),r=await receiver(s.request);return {status:r.status,body:await verifyResponse(r,s.nonce,config)};}
+ try{
+  const exchange={v:1,action:'exchange',ownerId:'owner',payload};assert.equal((await request(exchange)).body.state,'queued');
+  const boardAdapter={kind:'signed-relay-result-ledger',scopeEnforced:true,getTaskContext:store.getTaskContext,appendReply:store.appendReply,getReplyByRequestId:store.getReplyByRequestId};
+  const d=createDispatcher({store,boardAdapter,assistantAdapter:adapter,enabled:true,production:true,dbPath:join(dir,'v3.sqlite'),workerId:'fixture'});assert.equal((await d.runOnce()).status,'completed');assert.equal((await d.runOnce()).status,'idle');assert.equal(calls(),1);
+  const result=await request({v:1,action:'result',ownerId:'owner',taskId:'task',eventId,payloadHash:payload.payloadHash});assert.equal(result.status,200);assert.equal(result.body.result.outcome.kind,'information');assert.equal(result.body.result.grantId,payload.grantId);
+  const changed={...payload,grantExpiresAt:payload.grantExpiresAt+1};changed.payloadHash=await payloadHash(changed);assert.notEqual((await request({...exchange,payload:changed})).status,200);assert.equal(calls(),1);
  }finally{store.close();}
 });
 console.log(`${n} approved-work offline cases passed; zero live calls.`);

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import {createGroqAdapter,inputDigest,GROQ_MODEL,GROQ_ID} from '../src/groq-adapter.mjs';
+import {createHash} from 'node:crypto';
+import {createGroqAdapter,inputDigest,GROQ_MODEL,GROQ_ID,costEnrollmentDigest,retainedCostScopeConfigured} from '../src/groq-adapter.mjs';
 import {createSelectedAssistantAdapter} from '../src/selected-assistant.mjs';
 import {createRelayStore} from '../src/relay-store.mjs';
 import {createDispatcher} from '../src/dispatcher.mjs';
@@ -36,4 +37,33 @@ await test('caller cancellation after send is uncertain',async()=>{const c=new A
 for(const [label,data] of [['wrong model',{...good,model:'different'}],['truncated',{...good,choices:[{...good.choices[0],finish_reason:'length'}]}],['tool call',{...good,choices:[{...good.choices[0],message:{role:'assistant',content:'hi',tool_calls:[{}]}}]}],['empty',{...good,choices:[{...good.choices[0],message:{role:'assistant',content:''}}]}],['overlong',{...good,choices:[{...good.choices[0],message:{role:'assistant',content:'x'.repeat(3701)}}]}]])await test(label+' response rejected',async()=>{await assert.rejects(()=>factory({fetchImpl:async()=>response(data)}).answer(input),{code:'groq_outcome_uncertain'});});
 await test('malformed JSON and oversized response rejected',async()=>{for(const text of ['not-json','x'.repeat(66000)])await assert.rejects(()=>factory({fetchImpl:async()=>new Response(text)}).answer(input),{code:'groq_outcome_uncertain'});});
 await test('durable ledger marks ambiguous Groq invocation uncertain, never reclaims',async()=>{const store=createRelayStore({dbPath:':memory:',now:()=>at});try{const p={v:1,eventId:await digest(canonical([input.owner,input.task,'msg'])),ownerId:input.owner,taskId:input.task,requestId:'msg',grantId:'grant',assistantId:GROQ_ID,grantExpiresAt:at+60000,request:{text:input.requestText,createdAt:new Date(at).toISOString(),answerTo:null},context:input.context.taskContext};p.payloadHash=await payloadHash(p);await store.accept(p);const g={...gate,requestId:p.eventId};let calls=0;const adapter=factory({gate:g,fetchImpl:async()=>{calls++;throw Error('transport interrupted');}});const board={kind:'signed-relay-result-ledger',scopeEnforced:true,getTaskContext:store.getTaskContext,appendReply:store.appendReply,getReplyByRequestId:store.getReplyByRequestId};const d=createDispatcher({store,boardAdapter:board,assistantAdapter:adapter,enabled:true,workerId:'fixture'});await d.runOnce();assert.equal(store.get(p.eventId).state,'uncertain');await d.runOnce();assert.equal(calls,1);}finally{store.close();}});
+const fixtureKey='SYNTHETIC_FIXTURE_NOT_A_KEY';
+const enrollment={v:1,provider:'groq',model:GROQ_MODEL,owner:input.owner,accountLabel:'Synthetic account',organizationId:'fixture-org',projectId:'fixture-project',keySha256:createHash('sha256').update(fixtureKey).digest('hex'),accountPlan:'Free',noPaidFallback:true,verifiedAt:at-172800000,evidenceRef:'FIXTURE_ORIGINAL_OBSERVATION',keyAssociationEvidenceRef:'FIXTURE_OWNER_ASSOCIATION',enrolledAt:at-86400000};
+const retainedGate={v:3,provider:'groq',model:GROQ_MODEL,harmlessTestOnly:true,maxCalls:1,owner:input.owner,task:input.task,requestId:input.requestId,inputSha256:inputDigest(input),enrollmentId:costEnrollmentDigest(enrollment),costEnrollment:enrollment,requestIssuedAt:at-1000,requestExpiresAt:at+60000};
+await test('v3 retains old Free evidence independently of a fresh short request',async()=>{
+ const original=JSON.stringify(enrollment);let calls=0;
+ const a=factory({gate:retainedGate,fetchImpl:async()=>{calls++;return response();}});
+ assert.equal(a.ready,true);await a.answer(input);assert.equal(calls,1);assert.equal(a.ready,false);assert.equal(JSON.stringify(enrollment),original);
+ const later=at+7200000,next={...retainedGate,requestIssuedAt:later,requestExpiresAt:later+60000};
+ assert.equal(factory({gate:next,now:()=>later}).ready,true);assert.equal(next.costEnrollment.verifiedAt,enrollment.verifiedAt);
+});
+await test('v3 requires exact enrollment reference and original account project key binding',async()=>{
+ for(const patch of [{enrollmentId:'a'.repeat(64)},{costEnrollment:null},{owner:'different'},{costEnrollment:{...enrollment,organizationId:'other'}},{costEnrollment:{...enrollment,projectId:'other'}},{costEnrollment:{...enrollment,keySha256:'a'.repeat(64)}}])assert.equal(factory({gate:{...retainedGate,...patch}}).ready,false);
+ assert.equal(factory({gate:retainedGate,apiKey:'DIFFERENT_SYNTHETIC_KEY'}).ready,false);
+ for(const field of Object.keys(enrollment)){const e={...enrollment};delete e[field];assert.equal(retainedCostScopeConfigured({...retainedGate,costEnrollment:e,enrollmentId:costEnrollmentDigest(e)},fixtureKey),false);}
+ const extra={...enrollment,unknown:true};assert.equal(retainedCostScopeConfigured({...retainedGate,costEnrollment:extra,enrollmentId:costEnrollmentDigest(extra)},fixtureKey),false);
+});
+await test('v3 paid missing provenance or invalid enrollment clocks fail closed even rehashed',async()=>{
+ for(const patch of [{v:2},{provider:'other'},{model:'other'},{accountPlan:'Developer'},{noPaidFallback:false},{evidenceRef:''},{keyAssociationEvidenceRef:''},{accountLabel:''},{organizationId:''},{projectId:''},{verifiedAt:-1},{verifiedAt:at},{enrolledAt:at+1},{enrolledAt:1.5}]){
+  const e={...enrollment,...patch};assert.equal(factory({gate:{...retainedGate,costEnrollment:e,enrollmentId:costEnrollmentDigest(e)}}).ready,false);
+ }
+});
+await test('v3 request expiry remains exact bounded and independent of evidence age',async()=>{
+ for(const patch of [{requestIssuedAt:at+1},{requestExpiresAt:at},{requestExpiresAt:retainedGate.requestIssuedAt+3600001},{requestExpiresAt:retainedGate.requestIssuedAt},{requestIssuedAt:-1},{requestIssuedAt:1.5},{requestExpiresAt:Infinity},{requestExpiresAt:undefined},{requestIssuedAt:undefined}])assert.equal(factory({gate:{...retainedGate,...patch}}).ready,false);
+ assert.equal(factory({gate:{...retainedGate,requestIssuedAt:at,requestExpiresAt:at+3600000}}).ready,true);
+});
+await test('v3 keeps exact identity input cap single call no tools retries or fallback',async()=>{
+ let calls=0;const a=factory({gate:retainedGate,fetchImpl:async(_,o)=>{calls++;const b=JSON.parse(o.body);assert.equal(b.max_completion_tokens,512);assert.equal(b.n,1);assert.equal(b.stream,false);assert.equal(b.tool_choice,'none');assert.equal(b.tools,undefined);return response();}});
+ await assert.rejects(()=>a.answer({...input,requestText:'changed'}),{code:'groq_scope_mismatch'});assert.equal(calls,0);await a.answer(input);await assert.rejects(()=>a.answer(input));assert.equal(calls,1);
+});
 console.log(`${passed} Groq fixture cases passed; ZERO live API calls.`);
