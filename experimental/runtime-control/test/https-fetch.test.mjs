@@ -27,7 +27,7 @@ try{
  const r=await loopbackHttpFixtureFetch(base+'/ok',opts);assert.equal(r.ok,true);assert.equal(r.status,200);const reader=r.body.getReader();let text='';while(true){const {value,done}=await reader.read();if(done)break;text+=Buffer.from(value);}
  assert.deepEqual(JSON.parse(text),{received:'harmless',method:'POST'});
  const q=await loopbackHttpFixtureFetch(base+'/quota',opts);assert.equal(q.status,429);assert.equal(q.ok,false);await q.body.cancel();
- const before=hits;await assert.rejects(loopbackHttpFixtureFetch(base+'/redirect',opts),/redirect_rejected/);assert.equal(hits,before+1);
+ const before=hits;await assert.rejects(loopbackHttpFixtureFetch(base+'/redirect',opts),e=>{assert.match(e.message,/redirect_rejected/);assert.deepEqual(e.diagnostic,{v:1,phase:'http',code:'transport_redirect_rejected',httpStatus:302,finishReason:'unknown'});return true;});assert.equal(hits,before+1);
  await assert.rejects(loopbackHttpFixtureFetch(base+'/slow',{...opts,signal:AbortSignal.timeout(10)}));
  const aborted=new AbortController();aborted.abort();const count=hits;await assert.rejects(loopbackHttpFixtureFetch(base+'/ok',{...opts,signal:aborted.signal}));assert.equal(hits,count);
  await assert.rejects(groqHttpsFetch(base+'/ok',opts),/endpoint_rejected/);
@@ -40,5 +40,7 @@ try{
  assert.match((await adapter.answer(input)).body,/Hello World/);
  const oversized=createGroqAdapter({enabled:true,apiKey:'nonsecret-fixture',gate,fetchImpl:(_url,options)=>loopbackHttpFixtureFetch(base+'/oversize',options)});
  await assert.rejects(oversized.answer(input),/groq_outcome_uncertain/);
+ const redirected=createGroqAdapter({enabled:true,apiKey:'nonsecret-fixture',gate,fetchImpl:(_url,options)=>loopbackHttpFixtureFetch(base+'/redirect',options)});
+ const redirectHits=hits;await assert.rejects(redirected.answer(input),e=>{assert.equal(e.code,'groq_outcome_uncertain');assert.deepEqual(e.diagnostic,{v:1,phase:'http',code:'transport_redirect_rejected',httpStatus:302,finishReason:'unknown'});return true;});assert.equal(hits,redirectHits+1);await assert.rejects(redirected.answer(input));assert.equal(hits,redirectHits+1);
  console.log('PASS native transport: actual verified loopback TLS I/O under --jitless; body, status, redirects, cancellation, endpoint/method limits');
 }finally{server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(certdir,{recursive:true,force:true});}

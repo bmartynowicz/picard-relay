@@ -1,5 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
 import {canonical,validateWork} from './protocol.mjs';
+import {encodeInvocationError,decodeInvocationError} from './adapters.mjs';
 // Production ledger contains immutable work/results, not replacement Board
 // messages, questions or approvals. The Board remains their only persistence owner.
 export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
@@ -29,7 +30,10 @@ export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
   const at=now();
   return transaction(()=>{
    // Unknown external outcome is a stop condition, never a second inference.
-   db.prepare("UPDATE relay_jobs SET state='uncertain',last_error='invocation_outcome_uncertain',updated_at=? WHERE state='invoking' AND claimed_until<=? AND result_json IS NULL").run(at,at);
+   for(const row of db.prepare("SELECT event_id,last_error FROM relay_jobs WHERE state='invoking' AND claimed_until<=? AND result_json IS NULL").all(at)){
+    const {diagnostic}=decodeInvocationError(row.last_error);
+    db.prepare("UPDATE relay_jobs SET state='uncertain',last_error=?,updated_at=? WHERE event_id=?").run(diagnostic?encodeInvocationError('invocation_outcome_uncertain',diagnostic):'invocation_outcome_uncertain',at,row.event_id);
+   }
    db.prepare("UPDATE relay_jobs SET state='blocked',last_error='scope_expired',updated_at=? WHERE state IN('queued','claimed','invoking') AND grant_expires<=?").run(at,at);
    const row=db.prepare("SELECT * FROM relay_jobs WHERE state='queued' OR (state IN('claimed','invoking') AND claimed_until<=? AND (state='claimed' OR result_json IS NOT NULL)) ORDER BY created_at,event_id LIMIT 1").get(at);
    if(!row)return null;
@@ -40,8 +44,9 @@ export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
  }
  function owned(input){const row=get(input.requestId);if(!row||!authorized(row)||!['claimed','invoking'].includes(row.state)||row.attempt!==input.attempt||row.claimed_by!==input.workerId||row.claimed_until<=now())throw error('claim_mismatch');return row;}
  function startInvocation(input){return transaction(()=>{owned(input);db.prepare("UPDATE relay_jobs SET state='invoking',updated_at=? WHERE event_id=?").run(now(),input.requestId);});}
+ function recordInvocationDiagnostic(input){return transaction(()=>{owned(input);db.prepare('UPDATE relay_jobs SET last_error=?,updated_at=? WHERE event_id=?').run(encodeInvocationError('invocation_in_progress',input.diagnostic),now(),input.requestId);});}
  function renewLease(input){return transaction(()=>{const row=owned(input);db.prepare('UPDATE relay_jobs SET claimed_until=?,updated_at=? WHERE event_id=?').run(Math.min(now()+input.claimTtlMs,row.grant_expires),now(),input.requestId);});}
- function transition(input,state,code=null){return transaction(()=>{const row=owned(input);if(state==='completed'&&!row.result_json)throw error('result_missing');if(state==='failed'&&row.state==='invoking'&&!row.result_json)state='uncertain';db.prepare('UPDATE relay_jobs SET state=?,last_error=?,claimed_by=NULL,claimed_until=NULL,updated_at=? WHERE event_id=?').run(state,code,now(),input.requestId);return get(input.requestId);});}
+ function transition(input,state,code=null){return transaction(()=>{const row=owned(input);if(state==='completed'&&!row.result_json)throw error('result_missing');if(state==='failed'&&row.state==='invoking'&&!row.result_json)state='uncertain';const lastError=code&&input.diagnostic?encodeInvocationError(code,input.diagnostic):code;db.prepare('UPDATE relay_jobs SET state=?,last_error=?,claimed_by=NULL,claimed_until=NULL,updated_at=? WHERE event_id=?').run(state,lastError,now(),input.requestId);return get(input.requestId);});}
  function getTaskContext({owner,task,requestId}){const row=get(requestId);if(!row||row.owner!==owner||row.task!==task||!authorized(row))throw error('identity_mismatch');const payload=JSON.parse(row.payload_json);return {owner,task,requestId,grantId:payload.grantId,requestText:payload.request.text,taskContext:payload.context,messageId:payload.requestId,attempt:row.attempt,payloadHash:row.payload_hash,responseId:row.response_id};}
  function appendReply(input){return transaction(()=>{
   const row=owned(input),p=JSON.parse(row.payload_json);
@@ -65,5 +70,5 @@ export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
    ?db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs WHERE owner=? AND task=? GROUP BY state').all(ownerId,allowedTaskId)
    :db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs WHERE owner=? GROUP BY state').all(ownerId);
  }
- return {accept,claimNext,startInvocation,renewLease,getTaskContext,appendReply,cancel,consumeNonce,get,scopedStats,close:()=>db.close(),getReplyByRequestId:id=>{const r=get(id);return r?.response_id?{reply_id:r.response_id}:null;},markCompleted:i=>transition(i,'completed'),markBlocked:i=>transition(i,'blocked',i.error),markFailed:i=>transition(i,'failed',i.error),stats:()=>db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs GROUP BY state').all()};
+ return {accept,claimNext,startInvocation,recordInvocationDiagnostic,renewLease,getTaskContext,appendReply,cancel,consumeNonce,get,scopedStats,close:()=>db.close(),getReplyByRequestId:id=>{const r=get(id);return r?.response_id?{reply_id:r.response_id}:null;},markCompleted:i=>transition(i,'completed'),markBlocked:i=>transition(i,'blocked',i.error),markFailed:i=>transition(i,'failed',i.error),stats:()=>db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs GROUP BY state').all()};
 }

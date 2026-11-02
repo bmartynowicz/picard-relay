@@ -6,6 +6,45 @@ export class AdapterBlockedError extends Error {
   constructor(code, message) { super(message); this.name = 'AdapterBlockedError'; this.code = code; }
 }
 
+// Local observations only: none of these codes proves remote execution.
+const DIAGNOSTIC_PHASES=Object.freeze({
+ pre_send:['scope_unavailable','scope_mismatch','cancelled_before_send','input_too_large','transport_scope_rejected','transport_endpoint_rejected','context_unavailable','context_validated','invocation_boundary_failed'],
+ reservation:['reservation_started','one_shot_reserved','cost_reservation_started','cost_reserved','reservation_failed','cost_release_started','cost_release_failed'],
+ network:['transport_call_pending','network_failed'],timeout:['deadline_exceeded'],cancel:['cancelled_after_start'],
+ http:['response_headers','http_rejected','transport_redirect_rejected'],
+ body:['body_read_started','body_read_failed','body_too_large','body_missing'],parse:['json_parse_failed'],
+ validation:['invalid_response','response_validated'],finish_reason:['finish_reason_rejected'],
+ result_commit:['result_commit_started','result_commit_failed'],completion_commit:['completion_commit_started','completion_commit_failed'],
+ unknown:['unknown','diagnostic_persistence_failed'],
+});
+const FAILURE_CODES=new Set(['dispatcher_error','invocation_in_progress','invocation_outcome_uncertain','identity_mismatch','scope_revoked_or_expired','scope_revoked','scope_expired','owner_revoked','status_change_forbidden','claim_mismatch','idempotency_conflict','duplicate_response','invalid_reply','invalid_outcome','result_missing','groq_free_scope_unavailable','groq_scope_mismatch','groq_cancelled_before_send','groq_input_too_large','groq_once_allowance_unavailable','groq_cost_enrollment_stopped','groq_quota_exhausted','groq_payment_required','groq_request_rejected','groq_outcome_uncertain']);
+const FINISH_REASONS=new Set(['stop','length','tool_calls','function_call','content_filter']);
+export const invocationFailureCode=value=>FAILURE_CODES.has(value)?value:'dispatcher_error';
+export function sanitizeInvocationDiagnostic(value){
+ let phase='unknown',code='unknown',httpStatus=null,finishReason='unknown';
+ try{
+  if(Object.hasOwn(DIAGNOSTIC_PHASES,value?.phase)&&DIAGNOSTIC_PHASES[value.phase].includes(value.code)){phase=value.phase;code=value.code;}
+  if(Number.isInteger(value?.httpStatus)&&value.httpStatus>=100&&value.httpStatus<=599)httpStatus=value.httpStatus;
+  if(FINISH_REASONS.has(value?.finishReason))finishReason=value.finishReason;
+ }catch{}
+ return Object.freeze({v:1,phase,code,httpStatus,finishReason});
+}
+const observedFailures=new WeakMap();
+export function withInvocationDiagnostic(error,value){const diagnostic=sanitizeInvocationDiagnostic(value);observedFailures.set(error,diagnostic);error.diagnostic=diagnostic;return error;}
+export const invocationDiagnostic=error=>observedFailures.get(error)??null;
+export function encodeInvocationError(code,diagnostic){return JSON.stringify({v:1,code:invocationFailureCode(code),diagnostic:sanitizeInvocationDiagnostic(diagnostic)});}
+export function decodeInvocationError(value){
+ if(typeof value!=='string'||value.length>1024)return {code:'dispatcher_error',diagnostic:null};
+ if(!value.startsWith('{'))return {code:invocationFailureCode(value),diagnostic:null}; // Existing known codes remain readable.
+ try{const p=JSON.parse(value);if(p.v===1&&Object.keys(p).sort().join(',')==='code,diagnostic,v')return {code:invocationFailureCode(p.code),diagnostic:sanitizeInvocationDiagnostic(p.diagnostic)};}catch{}
+ return {code:'dispatcher_error',diagnostic:null};
+}
+// Only this local transport type carries observations across the TLS boundary;
+// arbitrary provider/network exception properties are never copied.
+export class TransportObservationError extends Error {
+ constructor(code,httpStatus=null){super(code);withInvocationDiagnostic(this,{phase:code==='transport_timeout'?'timeout':code==='transport_redirect_rejected'?'http':'pre_send',code:code==='transport_timeout'?'deadline_exceeded':code,httpStatus});}
+}
+
 export function createLocalBoardAdapter(store, { scopeCheck } = {}) {
   return {
     kind: 'local',

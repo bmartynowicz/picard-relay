@@ -67,3 +67,4 @@ await test('v3 keeps exact identity input cap single call no tools retries or fa
  await assert.rejects(()=>a.answer({...input,requestText:'changed'}),{code:'groq_scope_mismatch'});assert.equal(calls,0);await a.answer(input);await assert.rejects(()=>a.answer(input));assert.equal(calls,1);
 });
 console.log(`${passed} Groq fixture cases passed; ZERO live API calls.`);
+await import('./invocation-diagnostics.test.mjs');

@@ -1,4 +1,6 @@
 import {verifyRequest,signedResponse,ProtocolError} from './protocol.mjs';
+import {decodeInvocationError} from './adapters.mjs';
+function resultError(value){const {code}=decodeInvocationError(value);return code==='invocation_in_progress'?{}:{code};}
 const STATES=['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain'];
 // Only aggregate allowlisted values cross the existing signed health boundary.
 // No row, task, owner, result, error text, pid, path or environment is copied.
@@ -35,7 +37,7 @@ export function createReceiver({store,config,assistantAdapter,canAccept=()=>true
     else {
      if(row.owner!==config.ownerId||row.task!==p.taskId||row.payload_hash!==p.payloadHash||JSON.parse(row.payload_json).assistantId!==config.assistantId)throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
      store.getTaskContext({owner:row.owner,task:row.task,requestId:row.event_id}); // retain expiry and revocation checks
-     result={state:row.state,...(row.state==='completed'?{result:JSON.parse(row.result_json)}:{}),...(row.last_error?{code:row.last_error}:{})};
+     result={state:row.state,...(row.state==='completed'?{result:JSON.parse(row.result_json)}:{}),...(row.last_error?resultError(row.last_error):{})};
     }
    }
    else if(p.action==='exchange'&&Object.keys(p).length===4){
@@ -46,7 +48,7 @@ export function createReceiver({store,config,assistantAdapter,canAccept=()=>true
     // Polling an authenticated existing immutable job never consumes provider capacity.
     // accept() still validates the entire payload and rejects altered replay content.
     if(!ready&&!store.get(p.payload.eventId))throw Object.assign(Error('assistant_invocation_unavailable'),{code:'assistant_invocation_unavailable'});
-    const row=await store.accept(p.payload);result={state:row.state,...(row.state==='completed'?{result:JSON.parse(row.result_json)}:{}),...(row.last_error?{code:row.last_error}:{})};
+    const row=await store.accept(p.payload);result={state:row.state,...(row.state==='completed'?{result:JSON.parse(row.result_json)}:{}),...(row.last_error?resultError(row.last_error):{})};
    }else throw new ProtocolError('invalid_request');
    return signedResponse(result,200,nonce,config);
   }catch(error){

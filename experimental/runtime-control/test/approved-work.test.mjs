@@ -7,6 +7,7 @@ import {GROQ_MODEL,inputDigest,costEnrollmentDigest} from '../src/groq-adapter.m
 import {createRelayStore} from '../src/relay-store.mjs';
 import {createReceiver} from '../src/receiver.mjs';
 import {createDispatcher} from '../src/dispatcher.mjs';
+import {decodeInvocationError} from '../src/adapters.mjs';
 import {canonical,digest,payloadHash,signRequest,verifyResponse} from '../src/protocol.mjs';
 const at=Date.now(),requestText='Review public routing code: propose three duplicate-invocation regression cases.',taskContext={title:'Public routing review',nextAction:'Save answer',latestFinding:'Public source only'};
 const eventId=await digest(canonical(['owner','task','message-2']));
@@ -85,8 +86,8 @@ for(const status of [402,429,'network'])await test(`v3 ${status} durably stops s
  await assert.rejects(()=>b.answer({...input,requestId:next.eventId,invocationId:next.eventId,context:{taskContext,grantId:next.grantId}}));assert.equal(calls,1);
 });
 await test('v3 concurrent distinct grants share durable enrollment stop before I/O',async({create,dir})=>{
- let calls=0,finish;const fetchImpl=async()=>{calls++;await new Promise(r=>{finish=r;});return new Response(JSON.stringify({id:'fixture',model:GROQ_MODEL,choices:[{finish_reason:'stop',message:{role:'assistant',content:'Synthetic review.'}}]}));};
- const a=create({gate:retainedGate,fetchImpl}),pending=a.answer(input);assert.equal(calls,1);
+ let calls=0,finish,entered;const started=new Promise(r=>{entered=r;});const fetchImpl=async()=>{calls++;entered();await new Promise(r=>{finish=r;});return new Response(JSON.stringify({id:'fixture',model:GROQ_MODEL,choices:[{finish_reason:'stop',message:{role:'assistant',content:'Synthetic review.'}}]}));};
+ const a=create({gate:retainedGate,fetchImpl}),pending=a.answer(input);await started;assert.equal(calls,1);
  const next={...retainedGate,eventId:'b'.repeat(64),grantId:'other'},b=create({gate:next,markerPath:join(dir,'other.json'),fetchImpl});assert.equal(b.ready,false);await assert.rejects(()=>b.answer({...input,requestId:next.eventId,invocationId:next.eventId,context:{taskContext,grantId:next.grantId}}));
  finish();await pending;assert.equal(calls,1);assert.equal(b.ready,true);
 });
@@ -110,5 +111,35 @@ await test('v3 signed exchange preserves unchanged wire grant expiry and inert r
   const result=await request({v:1,action:'result',ownerId:'owner',taskId:'task',eventId,payloadHash:payload.payloadHash});assert.equal(result.status,200);assert.equal(result.body.result.outcome.kind,'information');assert.equal(result.body.result.grantId,payload.grantId);
   const changed={...payload,grantExpiresAt:payload.grantExpiresAt+1};changed.payloadHash=await payloadHash(changed);assert.notEqual((await request({...exchange,payload:changed})).status,200);assert.equal(calls(),1);
  }finally{store.close();}
+});
+for(const outcome of ['network','parse','length',402,429])await test(`diagnostics ${outcome} preserves consumed marker and enrollment stop without retry`,async({dir,create,markerPath})=>{
+ const old=join(dir,'prior-unchanged.json');writeFileSync(old,'unchanged old marker');let calls=0,error;const observations=[];
+ const fetchImpl=async()=>{calls++;assert.equal(existsSync(markerPath),true);assert.equal(existsSync(join(dir,`.groq-cost-${retainedGate.enrollmentId}.pending`)),true);if(outcome==='network')throw Error('SYNTHETIC_REDACTION_SENTINEL');if(outcome==='parse')return new Response('{bad SYNTHETIC_REDACTION_SENTINEL');if(typeof outcome==='number')return new Response('SYNTHETIC_REDACTION_SENTINEL',{status:outcome});return new Response(JSON.stringify({id:'fixture',model:GROQ_MODEL,choices:[{finish_reason:'length',message:{role:'assistant',content:'SYNTHETIC_REDACTION_SENTINEL'}}]}));};
+ const a=create({gate:retainedGate,fetchImpl});try{await a.answer({...input,onDiagnostic:d=>observations.push(d)});}catch(e){error=e;}
+ assert.ok(error);assert.equal(error.diagnostic.phase,outcome==='network'?'network':outcome==='parse'?'parse':outcome==='length'?'finish_reason':'http');assert.equal(error.diagnostic.httpStatus,outcome==='network'?null:typeof outcome==='number'?outcome:200);assert.equal(error.diagnostic.finishReason,outcome==='length'?'length':'unknown');assert.equal(JSON.stringify({message:error.message,diagnostic:error.diagnostic,observations}).includes('SYNTHETIC_REDACTION_SENTINEL'),false);
+ assert.equal(observations.some(d=>d.code==='one_shot_reserved'),true);assert.equal(observations.some(d=>d.code==='cost_reserved'),true);assert.equal(JSON.parse(readFileSync(markerPath)).state,'consumed-before-io');assert.equal(readFileSync(old,'utf8'),'unchanged old marker');assert.equal(create({gate:retainedGate}).ready,false);
+ assert.equal(create({gate:{...retainedGate,grantId:'other',eventId:'b'.repeat(64)},markerPath:join(dir,'other-marker.json')}).ready,false);await assert.rejects(()=>a.answer(input));assert.equal(calls,1);
+});
+await test('diagnostic reservation race is pre-network and never replaces competing marker',async({create,markerPath,calls})=>{
+ let error;try{await create({gate:retainedGate}).answer({...input,onDiagnostic:d=>{if(d.code==='reservation_started')writeFileSync(markerPath,'competing consumed marker');}});}catch(e){error=e;}
+ assert.equal(error.code,'groq_once_allowance_unavailable');assert.equal(error.diagnostic.phase,'reservation');assert.equal(error.diagnostic.code,'reservation_failed');assert.equal(calls(),0);assert.equal(readFileSync(markerPath,'utf8'),'competing consumed marker');
+});
+await test('diagnostic cost-reservation race preserves both stop files before network',async({create,markerPath,dir,calls})=>{
+ const path=join(dir,`.groq-cost-${retainedGate.enrollmentId}.pending`);let error;
+ try{await create({gate:retainedGate}).answer({...input,onDiagnostic:d=>{if(d.code==='cost_reservation_started')writeFileSync(path,'competing enrollment stop');}});}catch(e){error=e;}
+ assert.equal(error.code,'groq_cost_enrollment_stopped');assert.equal(error.diagnostic.phase,'reservation');assert.equal(error.diagnostic.code,'reservation_failed');assert.equal(calls(),0);assert.equal(readFileSync(path,'utf8'),'competing enrollment stop');assert.equal(JSON.parse(readFileSync(markerPath)).state,'consumed-before-io');
+});
+await test('durable adapter forwards safe failure observation into unchanged ledger without resetting history',async({dir,create})=>{
+ const dbPath=join(dir,'diagnostic.sqlite');let store=createRelayStore({dbPath}),calls=0;
+ const adapter=create({gate:retainedGate,fetchImpl:async()=>{calls++;return new Response('{bad SYNTHETIC_REDACTION_SENTINEL');}});
+ try{
+  await store.accept(payload);const boardAdapter={kind:'signed-relay-result-ledger',scopeEnforced:true,getTaskContext:store.getTaskContext,appendReply:store.appendReply,getReplyByRequestId:store.getReplyByRequestId};
+  await createDispatcher({store,boardAdapter,assistantAdapter:adapter,enabled:true,production:true,dbPath,workerId:'fixture'}).runOnce();assert.equal(calls,1);assert.equal(store.get(eventId).state,'uncertain');const original=store.get(eventId).last_error;
+  store.close();store=createRelayStore({dbPath});const saved=decodeInvocationError(store.get(eventId).last_error);assert.equal(store.get(eventId).last_error,original);assert.equal(saved.code,'groq_outcome_uncertain');assert.equal(saved.diagnostic.phase,'parse');assert.equal(saved.diagnostic.httpStatus,200);assert.equal(original.includes('SYNTHETIC_REDACTION_SENTINEL'),false);assert.equal(create({gate:retainedGate}).ready,false);
+ }finally{store.close();}
+});
+for(const failAt of ['transport_call_pending','response_validated'])await test(`diagnostic persistence failure at ${failAt} never erases enrollment stop or authorizes retry`,async({create,markerPath,dir,calls})=>{
+ let error;try{await create({gate:retainedGate}).answer({...input,onDiagnostic:d=>{if(d.code===failAt)throw Error('SYNTHETIC_STORAGE_FAILURE_SENTINEL');}});}catch(e){error=e;}
+ assert.equal(error.code,'groq_outcome_uncertain');assert.equal(error.diagnostic.phase,'unknown');assert.equal(error.diagnostic.code,'diagnostic_persistence_failed');assert.equal(calls(),failAt==='transport_call_pending'?0:1);assert.equal(JSON.parse(readFileSync(markerPath)).state,'consumed-before-io');assert.equal(existsSync(join(dir,`.groq-cost-${retainedGate.enrollmentId}.pending`)),true);assert.equal(create({gate:retainedGate}).ready,false);assert.equal(create({gate:{...retainedGate,grantId:'other',eventId:'b'.repeat(64)},markerPath:join(dir,'other-marker.json')}).ready,false);
 });
 console.log(`${n} approved-work offline cases passed; zero live calls.`);

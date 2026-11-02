@@ -2,7 +2,7 @@ import {lstatSync,realpathSync,openSync,writeFileSync,fsyncSync,closeSync,fstatS
 import {dirname,isAbsolute,resolve,join} from 'node:path';
 import {createGroqAdapter,GROQ_ID,GROQ_MODEL,inputDigest,retainedCostScopeConfigured} from './groq-adapter.mjs';
 import {canonical} from './protocol.mjs';
-import {AdapterBlockedError} from './adapters.mjs';
+import {AdapterBlockedError,sanitizeInvocationDiagnostic,invocationFailureCode,withInvocationDiagnostic,invocationDiagnostic} from './adapters.mjs';
 export const PILOT_TEXT='Reply Hello World';
 export const PILOT_CONTEXT=Object.freeze({title:'Relay Hello World verification',nextAction:'',latestFinding:''});
 const blocked=code=>new AdapterBlockedError(code,code);
@@ -34,15 +34,26 @@ export function createGroqOnceAdapter({enabled=false,apiKey='',gate=null,markerP
  return {kind:'groq-durable-one-shot',assistantId:GROQ_ID,get ready(){return ready();},get canServeResults(){return configured();},
   acceptsWorkScope(payload){return configured()&&payload?.request?.answerTo===null&&matches(payload?.ownerId,payload?.taskId,payload?.request?.text,payload?.context)&&(gate.v===1||(payload?.eventId===gate.eventId&&payload?.grantId===gate.grantId))&&(gate.v!==3||payload?.grantExpiresAt===gate.requestExpiresAt);},
   async answer(input){
-   if(!ready())throw blocked('groq_free_scope_unavailable');
-   if(((gate.v===2||gate.v===3)&&(input.context?.grantId!==gate.grantId||input.requestId!==gate.eventId||inputDigest(input)!==gate.approvedInputSha256))||!matches(input.owner,input.task,input.requestText,input.context?.taskContext)||typeof input.requestId!=='string'||!/^[a-f0-9]{64}$/.test(input.requestId)||input.invocationId!==input.requestId||!Number.isSafeInteger(input.attempt)||input.attempt<1)throw blocked('groq_scope_mismatch');
-   if(input.signal?.aborted)throw blocked('groq_cancelled_before_send');
+   let diagnostic=sanitizeInvocationDiagnostic(null);
+   const report=async value=>{diagnostic=sanitizeInvocationDiagnostic({...diagnostic,...value});try{await input.onDiagnostic?.(diagnostic);}catch{throw withInvocationDiagnostic(Object.assign(Error('groq_outcome_uncertain'),{code:'groq_outcome_uncertain'}),{...diagnostic,phase:'unknown',code:'diagnostic_persistence_failed'});}};
+   const denied=(code,detail)=>withInvocationDiagnostic(blocked(code),{phase:'pre_send',code:detail});
+   try{
+   if(!ready())throw denied('groq_free_scope_unavailable','scope_unavailable');
+   if(((gate.v===2||gate.v===3)&&(input.context?.grantId!==gate.grantId||input.requestId!==gate.eventId||inputDigest(input)!==gate.approvedInputSha256))||!matches(input.owner,input.task,input.requestText,input.context?.taskContext)||typeof input.requestId!=='string'||!/^[a-f0-9]{64}$/.test(input.requestId)||input.invocationId!==input.requestId||!Number.isSafeInteger(input.attempt)||input.attempt<1)throw denied('groq_scope_mismatch','scope_mismatch');
+   if(input.signal?.aborted)throw denied('groq_cancelled_before_send','cancelled_before_send');
    const exactGate={...gate,requestId:input.requestId,inputSha256:inputDigest(input)};
    const adapter=createGroqAdapter({enabled:true,apiKey,gate:exactGate,fetchImpl,now,timeoutMs});
-   if(!adapter.ready)throw blocked('groq_free_scope_unavailable');
+   if(!adapter.ready)throw denied('groq_free_scope_unavailable','scope_unavailable');
+   await report({phase:'reservation',code:'reservation_started'});
    reserve(input); // Must be durable before the existing adapter can attempt network I/O.
-   if(gate.v===3){const identity=reserveCost();const result=await adapter.answer(input);releaseCost(identity);return result;}
-   return adapter.answer(input);
+   await report({phase:'reservation',code:'one_shot_reserved'});
+   const scopedInput={...input,onDiagnostic:report};
+   if(gate.v===3){await report({phase:'reservation',code:'cost_reservation_started'});const identity=reserveCost();await report({phase:'reservation',code:'cost_reserved'});const result=await adapter.answer(scopedInput);await report({phase:'reservation',code:'cost_release_started'});try{releaseCost(identity);}catch{throw withInvocationDiagnostic(Error('groq_outcome_uncertain'),{...diagnostic,phase:'reservation',code:'cost_release_failed'});}return result;}
+   return await adapter.answer(scopedInput);
+   }catch(e){
+    const error=e instanceof AdapterBlockedError?blocked(invocationFailureCode(e.code)):Object.assign(Error('groq_outcome_uncertain'),{code:'groq_outcome_uncertain'});
+    throw withInvocationDiagnostic(error,invocationDiagnostic(e)??{...diagnostic,phase:'reservation',code:'reservation_failed'});
+   }
   }
  };
 }

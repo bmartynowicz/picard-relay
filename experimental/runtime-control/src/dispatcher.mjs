@@ -8,7 +8,7 @@
 // - Non-production mode allows blocked adapters so fail-closed behaviour
 //   can be demonstrated, and allows the synthetic adapter only when it is
 //   explicitly enabled for local testing.
-import { AdapterBlockedError } from './adapters.mjs';
+import { AdapterBlockedError,sanitizeInvocationDiagnostic,invocationFailureCode,withInvocationDiagnostic,invocationDiagnostic } from './adapters.mjs';
 
 export function createDispatcher({
   store, boardAdapter, assistantAdapter, workerId = 'bridge-worker-1',
@@ -33,11 +33,15 @@ export function createDispatcher({
     if (!claim) return { status: 'idle' };
     const { request_id: requestId, owner, task, attempt } = claim;
     let heartbeat=null;const controller=new AbortController();
+    const groq=assistantAdapter.assistantId==='groq:openai/gpt-oss-20b';
+    let diagnostic=sanitizeInvocationDiagnostic({phase:'pre_send',code:'context_unavailable'});
+    const observe=value=>{diagnostic=sanitizeInvocationDiagnostic({...diagnostic,...value});try{if(groq&&store.recordInvocationDiagnostic)store.recordInvocationDiagnostic({requestId,attempt,workerId,diagnostic});}catch{diagnostic=sanitizeInvocationDiagnostic({...diagnostic,phase:'unknown',code:'diagnostic_persistence_failed'});throw withInvocationDiagnostic(Object.assign(Error('groq_outcome_uncertain'),{code:'groq_outcome_uncertain'}),diagnostic);}};
     try {
       const context = await boardAdapter.getTaskContext({ owner, task, requestId });
       // Reconciliation: reply already committed, completion was lost.
       // Do not re-invoke, do not create a second reply.
       if (context.responseId || claim.response_id) {
+        if(groq)observe({phase:'completion_commit',code:'completion_commit_started'});
         const existing = boardAdapter.getReplyByRequestId ? await boardAdapter.getReplyByRequestId(requestId) : null;
         await store.markCompleted({ requestId, attempt, workerId });
         return { status: 'reconciled', requestId, attempt, replyId: existing ? existing.reply_id : (context.responseId || claim.response_id) };
@@ -45,24 +49,29 @@ export function createDispatcher({
       // v3 production store records the invocation boundary before external I/O.
       // An expired invocation without a durable result becomes uncertain, never
       // an automatic second model call. The original local v2 fixtures omit it.
-      if(store.startInvocation)await store.startInvocation({requestId,attempt,workerId});
+      if(groq)observe({phase:'pre_send',code:'context_validated'});
+      try{if(store.startInvocation)await store.startInvocation({requestId,attempt,workerId});}catch(e){diagnostic=sanitizeInvocationDiagnostic({...diagnostic,phase:'pre_send',code:'invocation_boundary_failed'});throw e;}
       if(store.renewLease)heartbeat=setInterval(()=>{Promise.resolve(store.renewLease({requestId,attempt,workerId,claimTtlMs})).catch(()=>controller.abort());},Math.max(250,Math.floor(claimTtlMs/3)));
-      const answer = await assistantAdapter.answer({ owner, task, requestId, requestText: context.requestText, context, attempt, invocationId:requestId, signal:controller.signal });
+      const answer = await assistantAdapter.answer({ owner, task, requestId, requestText: context.requestText, context, attempt, invocationId:requestId, signal:controller.signal,...(groq?{onDiagnostic:observe}:{}) });
+      if(groq)observe({phase:'result_commit',code:'result_commit_started'});
       const persisted = await boardAdapter.appendReply({
         owner: answer.owner, task: answer.task, requestId: answer.requestId,
         attempt: answer.attempt, workerId, eventId: answer.eventId, kind: answer.kind,
         outcomeKind: answer.outcomeKind ?? null, body: answer.body, statusChange: answer.statusChange ?? null,
       });
+      if(groq)observe({phase:'completion_commit',code:'completion_commit_started'});
       await store.markCompleted({ requestId, attempt, workerId });
       return { status: 'completed', requestId, attempt, replayed: persisted.replayed, replyId: persisted.reply.reply_id };
     } catch (e) {
-      const code = e && e.code ? e.code : 'dispatcher_error';
+      const code = groq?invocationFailureCode(e?.code):(e && e.code ? e.code : 'dispatcher_error');
+      if(groq){diagnostic=sanitizeInvocationDiagnostic(invocationDiagnostic(e)??{...diagnostic,code:diagnostic.code==='result_commit_started'?'result_commit_failed':diagnostic.code==='completion_commit_started'?'completion_commit_failed':diagnostic.code});}
       const isBlocked = e instanceof AdapterBlockedError || ['identity_mismatch', 'scope_revoked_or_expired', 'status_change_forbidden', 'claim_mismatch', 'idempotency_conflict', 'duplicate_response'].includes(code);
       try {
-        if (isBlocked) await store.markBlocked({ requestId, attempt, workerId, error: code });
-        else await store.markFailed({ requestId, attempt, workerId, error: code });
+        const failure={requestId,attempt,workerId,error:code,...(groq?{diagnostic}:{})};
+        if (isBlocked) await store.markBlocked(failure);
+        else await store.markFailed(failure);
       } catch {}
-      return { status: isBlocked ? 'blocked' : 'failed', requestId, attempt, code, message: e ? e.message : 'Unknown error' };
+      return { status: isBlocked ? 'blocked' : 'failed', requestId, attempt, code, message: groq?code:(e ? e.message : 'Unknown error') };
     }finally{if(heartbeat!==null)clearInterval(heartbeat);}
   }
 
