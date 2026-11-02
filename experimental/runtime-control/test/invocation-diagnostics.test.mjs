@@ -73,7 +73,7 @@ async function withStore(fn){const dir=mkdtempSync(join(tmpdir(),'picard-diagnos
 await test('failure observations persist across restart and signed result keeps original code only',()=>withStore(async f=>{
  let calls=0;const a=f.adapter(async()=>{calls++;return new Response('{bad '+SECRET);});
  const d=createDispatcher({store:f.store,boardAdapter:f.board(),assistantAdapter:a,enabled:true,production:true,dbPath:f.dbPath,workerId:'fixture'});const outcome=await d.runOnce();assert.equal(outcome.code,'groq_outcome_uncertain');safe(outcome);
- let row=f.store.get(f.p.eventId);assert.equal(row.state,'uncertain');assert.equal(row.response_id,null);assert.equal(row.result_json,null);assert.equal(decodeInvocationError(row.last_error).diagnostic.phase,'parse');safe(row.last_error);
+ let row=f.store.get(f.p.eventId);assert.equal(row.state,'uncertain');assert.equal(outcome.status,row.state);assert.equal(row.response_id,null);assert.equal(row.result_json,null);assert.equal(decodeInvocationError(row.last_error).diagnostic.phase,'parse');safe(row.last_error);
  f.reopen();row=f.store.get(f.p.eventId);assert.equal(decodeInvocationError(row.last_error).diagnostic.code,'json_parse_failed');assert.equal((await createDispatcher({store:f.store,boardAdapter:f.board(),assistantAdapter:a,enabled:true}).runOnce()).status,'idle');assert.equal(calls,1);
  const config={ownerId:input.owner,allowedTaskId:input.task,assistantId:GROQ_ID,keyId:'fixture',secret:'SYNTHETIC_HMAC_NOT_A_REAL_CREDENTIAL_123456'};
  const receiver=createReceiver({store:f.store,config,assistantAdapter:a});

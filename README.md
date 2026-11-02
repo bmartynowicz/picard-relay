@@ -42,7 +42,7 @@ A lightweight, self-hosted relay for routing tasks to AI providers and reliably 
 
 Picard Relay is a lightweight Node.js + SQLite relay for bounded AI requests. It preserves request identity, claims work once, stores correlated responses, and refuses to automatically retry an invocation whose outcome is uncertain.
 
-**Status: early source preview.** The simplest working entry point is an offline demo. A separately gated Groq text-only adapter exists; a complete portable board application, universal AI-provider router, and production automatic updater do not. This repository stores code and signed source envelopes. **GitHub Actions tests, signs and publishes source releases only; it never deploys.**
+**Status: early source preview.** The simplest working entry point is an offline demo. The signed-runtime source supports an exact-scoped Groq text adapter, private authenticated console and opt-in signed updates after separately reviewed host enrollment. It is not a portable board application or universal provider router. This repository stores code and signed source envelopes. **GitHub Actions tests, signs and publishes source releases only; it never deploys.**
 
 ## Try it locally — no account or API key
 
@@ -64,7 +64,7 @@ Expected demo ending: `One synthetic request, one stored answer, duplicate repla
 - Durable SQLite outbox, leases, replay detection, crash reconciliation and signed request/response protocol.
 - Offline fixtures and real separate-process SQLite race/crash tests.
 - A fixed Groq `openai/gpt-oss-20b` text-only adapter, disabled by default. No tools, paid fallback, automatic model substitution or automatic inference retries.
-- A one-shot adapter limited to the exact harmless `Reply Hello World` pilot input and short-lived externally verified account gate.
+- A durable one-shot adapter with legacy `Reply Hello World` support and exact approved review/proposal requests. The v3 gate separates retained Free-policy enrollment from each request's short expiry; no arbitrary task or tool execution is enabled.
 - Loopback-only HTTP receiver suitable for a separately configured TLS reverse proxy.
 - Fixed-endpoint native HTTPS transport compatible with `node --jitless`; certificate verification stays on. A local TLS fixture tests the adapter without calling Groq.
 - [Manual deployment notes](docs/DEPLOYMENT.md), configuration templates and [verification boundaries](docs/STATUS.md).
@@ -77,8 +77,14 @@ tasks, sanitized diagnostics on the existing signed health action, and an offlin
 mission-control presentation. It adds no production executor or browser endpoint.
 Run `npm run demo:fixtures` or `node examples/mission-control.mjs --output preview.html`
 for synthetic local demonstrations; `npm run test:candidate` tests that candidate.
+See [the core improvement bundle](docs/CORE-IMPROVEMENT-BUNDLE.md) for the current
+local reliability, private-history and console candidate and its review boundaries.
 
-The [isolated updater and runtime-control candidates](experimental/README.md) preserve work toward signed, opt-in manual-host updates. **Disabled, not installed, not production-ready.** They do not replace this repository's normal runtime. See their explicit test results and Unix-socket/root-owned-release verification gaps before experimenting.
+The [updater and runtime-control source](experimental/README.md) is separate from
+the top-level offline preview. Example enrollment remains disabled by default.
+Every host requires explicit enrollment and verification of signature, immutable
+source identity, real Unix-socket controls and rollback behavior; this is not a
+one-command production installer.
 
 ## What is not here
 
@@ -88,7 +94,7 @@ A hosted service, your task board, provider credentials, an autonomous coding ag
 
 `npm start` is disabled unless explicitly configured. Keep the backend on loopback and use authenticated HTTPS in front of it. Never commit keys, HMAC secrets, credentials, runtime databases, certificate state or request content.
 
-A “Free” gate is an operator's external account-plan verification, **not a billing API check or a hard spending cap**. Free quotas and models can change. Reconfirm eligibility before a live call; do not upgrade billing or retry on quota/payment failure to make a demo pass. The code cannot promise zero cost for an upgraded account.
+A "Free" enrollment retains an operator's original account-plan evidence and exact account/project/key/model binding; it is **not a live billing API check or a monetary guarantee**. Each request still needs separate exact approval and expiry. Relevant configuration changes or payment/quota contradictions stop reuse for operator review. Do not upgrade billing, substitute a paid fallback or retry an uncertain call to make a demo pass.
 
 ## Reuse and contributions
 

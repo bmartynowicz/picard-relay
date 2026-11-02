@@ -1,5 +1,10 @@
 # Bounded source candidate
 
+Historical first bounded candidate. Later source releases added exact review/proposal
+grants, retained v3 cost enrollment and a private password-authenticated console.
+The literal pilot-only and browser-transport limits below describe that earlier
+candidate. See [the current core bundle](CORE-IMPROVEMENT-BUNDLE.md).
+
 Base main: `7aa57675f8113527aabdbdb64d506ecfac716b02`.
 This is a local review candidate, not a published or installed release. The
 fresh checkout contains no `AGENTS.md`, `.agents` directory or repository skills.

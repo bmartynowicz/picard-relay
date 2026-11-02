@@ -1,6 +1,21 @@
 import {DatabaseSync} from 'node:sqlite';
 import {canonical,validateWork} from './protocol.mjs';
 import {encodeInvocationError,decodeInvocationError} from './adapters.mjs';
+const JOB_STATES=['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain'];
+export const JOB_REASON_CODES=Object.freeze(['queued','claimed','invoking','completed','result_missing','outcome_uncertain','scope_expired','scope_revoked','provider_quota','provider_payment','approval_unavailable','request_rejected','recorded_failure','unknown']);
+export function recentJobReason(state,lastError,resultAvailable){
+ const {code}=decodeInvocationError(lastError);
+ if(state==='uncertain'||code==='groq_outcome_uncertain'||code==='invocation_outcome_uncertain')return 'outcome_uncertain';
+ if(['queued','claimed','invoking'].includes(state))return state;
+ if(state==='completed')return resultAvailable?'completed':'result_missing';
+ if(state==='cancelled'||['owner_revoked','scope_revoked','scope_revoked_or_expired'].includes(code))return 'scope_revoked';
+ if(code==='scope_expired')return 'scope_expired';
+ if(code==='groq_quota_exhausted')return 'provider_quota';
+ if(code==='groq_payment_required')return 'provider_payment';
+ if(['groq_free_scope_unavailable','groq_once_allowance_unavailable','groq_cost_enrollment_stopped'].includes(code))return 'approval_unavailable';
+ if(['groq_request_rejected','groq_scope_mismatch'].includes(code))return 'request_rejected';
+ return state==='failed'||state==='blocked'?'recorded_failure':'unknown';
+}
 // Production ledger contains immutable work/results, not replacement Board
 // messages, questions or approvals. The Board remains their only persistence owner.
 export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
@@ -70,5 +85,25 @@ export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
    ?db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs WHERE owner=? AND task=? GROUP BY state').all(ownerId,allowedTaskId)
    :db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs WHERE owner=? GROUP BY state').all(ownerId);
  }
- return {accept,claimNext,startInvocation,recordInvocationDiagnostic,renewLease,getTaskContext,appendReply,cancel,consumeNonce,get,scopedStats,close:()=>db.close(),getReplyByRequestId:id=>{const r=get(id);return r?.response_id?{reply_id:r.response_id}:null;},markCompleted:i=>transition(i,'completed'),markBlocked:i=>transition(i,'blocked',i.error),markFailed:i=>transition(i,'failed',i.error),stats:()=>db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs GROUP BY state').all()};
+ function recentJobs({ownerId,allowedTaskId='',limit=25,cursor=null}={}){
+  const deny=()=>{throw error('job_history_unavailable');};
+  if(typeof ownerId!=='string'||!ownerId||ownerId.length>200||typeof allowedTaskId!=='string'||allowedTaskId.length>200||!Number.isSafeInteger(limit)||limit<1||limit>50)deny();
+  const where='owner=?'+(allowedTaskId?' AND task=?':''),scope=allowedTaskId?[ownerId,allowedTaskId]:[ownerId];let boundary=null;
+  if(cursor!==null){
+   try{if(typeof cursor!=='string'||cursor.length>256||!/^[A-Za-z0-9_-]+$/.test(cursor))deny();const raw=Buffer.from(cursor,'base64url');if(raw.toString('base64url')!==cursor)deny();boundary=JSON.parse(raw.toString('utf8'));if(Object.keys(boundary).sort().join(',')!=='createdAt,ref,v'||boundary.v!==1||!Number.isSafeInteger(boundary.createdAt)||boundary.createdAt<0||boundary.createdAt>8640000000000000||!/^[a-f0-9]{64}$/.test(boundary.ref??'')||!db.prepare('SELECT 1 FROM relay_jobs WHERE '+where+' AND event_id=? AND created_at=?').get(...scope,boundary.ref,boundary.createdAt))deny();}catch{deny();}
+  }
+  // Project in SQLite: prompts, identities, bodies and provider metadata are
+  // never selected. The cursor row must belong to this exact configured scope.
+  const rows=db.prepare("SELECT substr(event_id,1,65) AS event_id,substr(state,1,32) AS state,CASE WHEN typeof(created_at)='integer' AND created_at BETWEEN 0 AND 8640000000000000 THEN created_at ELSE NULL END AS created_at,CASE WHEN typeof(updated_at)='integer' AND updated_at BETWEEN 0 AND 8640000000000000 THEN updated_at ELSE NULL END AS updated_at,CASE WHEN typeof(last_error)='text' AND length(last_error)<=1024 THEN last_error ELSE NULL END AS last_error,(response_id IS NOT NULL AND result_json IS NOT NULL) AS result_available FROM relay_jobs WHERE "+where+(boundary?' AND (created_at<? OR (created_at=? AND event_id<?))':'')+' ORDER BY relay_jobs.created_at DESC,relay_jobs.event_id DESC LIMIT ?').all(...scope,...(boundary?[boundary.createdAt,boundary.createdAt,boundary.ref]:[]),limit+1);
+  const page=rows.slice(0,limit).map(row=>{
+   if(!/^[a-f0-9]{64}$/.test(row.event_id??''))deny();
+   const state=JOB_STATES.includes(row.state)?row.state:'unknown',time=value=>Number.isSafeInteger(value)&&value>=0&&value<=8640000000000000?value:null;
+   const resultAvailable=state==='completed'&&row.result_available===1;
+   return {ref:row.event_id,state,createdAt:time(row.created_at),updatedAt:time(row.updated_at),resultAvailable,reasonCode:recentJobReason(state,row.last_error,resultAvailable)};
+  });
+  const last=page.at(-1);if(rows.length>limit&&last?.createdAt===null)deny();
+  const nextCursor=rows.length>limit?Buffer.from(JSON.stringify({v:1,createdAt:last.createdAt,ref:last.ref})).toString('base64url'):null;
+  const result={rows:page,nextCursor};if(Buffer.byteLength(JSON.stringify(result))>16384)deny();return result;
+ }
+ return {accept,claimNext,startInvocation,recordInvocationDiagnostic,renewLease,getTaskContext,appendReply,cancel,consumeNonce,get,scopedStats,recentJobs,close:()=>db.close(),getReplyByRequestId:id=>{const r=get(id);return r?.response_id?{reply_id:r.response_id}:null;},markCompleted:i=>transition(i,'completed'),markBlocked:i=>transition(i,'blocked',i.error),markFailed:i=>transition(i,'failed',i.error),stats:()=>db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs GROUP BY state').all()};
 }
