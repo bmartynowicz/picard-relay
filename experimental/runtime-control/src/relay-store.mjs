@@ -1,11 +1,17 @@
 import {DatabaseSync} from 'node:sqlite';
 import {canonical,validateWork} from './protocol.mjs';
-import {encodeInvocationError,decodeInvocationError} from './adapters.mjs';
+import {encodeInvocationError,decodeInvocationError,isIncompleteDiagnostic} from './adapters.mjs';
+// Unserializable proof: created only after the terminal SQLite transaction
+// commits. A row read back after restart, copied object or failed commit is not
+// authority to acknowledge an adapter's current reservation.
+const incompleteFailureReceipts=new WeakMap();
+export function isDurableIncompleteFailureReceipt(row,eventId){const proof=incompleteFailureReceipts.get(row);return !!proof&&proof.eventId===eventId&&row.event_id===eventId&&row.state==='failed'&&row.last_error===proof.lastError;}
 const JOB_STATES=['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain'];
-export const JOB_REASON_CODES=Object.freeze(['queued','claimed','invoking','completed','result_missing','outcome_uncertain','scope_expired','scope_revoked','provider_quota','provider_payment','approval_unavailable','request_rejected','recorded_failure','unknown']);
+export const JOB_REASON_CODES=Object.freeze(['queued','claimed','invoking','completed','result_missing','outcome_uncertain','output_incomplete','scope_expired','scope_revoked','provider_quota','provider_payment','approval_unavailable','request_rejected','recorded_failure','unknown']);
 export function recentJobReason(state,lastError,resultAvailable){
- const {code}=decodeInvocationError(lastError);
+ const {code,diagnostic}=decodeInvocationError(lastError);
  if(state==='uncertain'||code==='groq_outcome_uncertain'||code==='invocation_outcome_uncertain')return 'outcome_uncertain';
+ if(state==='failed'&&code==='groq_output_incomplete'&&isIncompleteDiagnostic(diagnostic))return 'output_incomplete';
  if(['queued','claimed','invoking'].includes(state))return state;
  if(state==='completed')return resultAvailable?'completed':'result_missing';
  if(state==='cancelled'||['owner_revoked','scope_revoked','scope_revoked_or_expired'].includes(code))return 'scope_revoked';
@@ -61,7 +67,11 @@ export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
  function startInvocation(input){return transaction(()=>{owned(input);db.prepare("UPDATE relay_jobs SET state='invoking',updated_at=? WHERE event_id=?").run(now(),input.requestId);});}
  function recordInvocationDiagnostic(input){return transaction(()=>{owned(input);db.prepare('UPDATE relay_jobs SET last_error=?,updated_at=? WHERE event_id=?').run(encodeInvocationError('invocation_in_progress',input.diagnostic),now(),input.requestId);});}
  function renewLease(input){return transaction(()=>{const row=owned(input);db.prepare('UPDATE relay_jobs SET claimed_until=?,updated_at=? WHERE event_id=?').run(Math.min(now()+input.claimTtlMs,row.grant_expires),now(),input.requestId);});}
- function transition(input,state,code=null){return transaction(()=>{const row=owned(input);if(state==='completed'&&!row.result_json)throw error('result_missing');if(state==='failed'&&row.state==='invoking'&&!row.result_json)state='uncertain';const lastError=code&&input.diagnostic?encodeInvocationError(code,input.diagnostic):code;db.prepare('UPDATE relay_jobs SET state=?,last_error=?,claimed_by=NULL,claimed_until=NULL,updated_at=? WHERE event_id=?').run(state,lastError,now(),input.requestId);return get(input.requestId);});}
+ function transition(input,state,code=null){
+  const row=transaction(()=>{const row=owned(input);if(state==='completed'&&!row.result_json)throw error('result_missing');if(state==='failed'&&row.state==='invoking'&&!row.result_json&&!(code==='groq_output_incomplete'&&isIncompleteDiagnostic(input.diagnostic)))state='uncertain';const lastError=code&&input.diagnostic?encodeInvocationError(code,input.diagnostic):code;db.prepare('UPDATE relay_jobs SET state=?,last_error=?,claimed_by=NULL,claimed_until=NULL,updated_at=? WHERE event_id=?').run(state,lastError,now(),input.requestId);return get(input.requestId);});
+  if(row.state==='failed'&&code==='groq_output_incomplete'&&isIncompleteDiagnostic(input.diagnostic))incompleteFailureReceipts.set(row,Object.freeze({eventId:row.event_id,lastError:row.last_error}));
+  return row;
+ }
  function getTaskContext({owner,task,requestId}){const row=get(requestId);if(!row||row.owner!==owner||row.task!==task||!authorized(row))throw error('identity_mismatch');const payload=JSON.parse(row.payload_json);return {owner,task,requestId,grantId:payload.grantId,requestText:payload.request.text,taskContext:payload.context,messageId:payload.requestId,attempt:row.attempt,payloadHash:row.payload_hash,responseId:row.response_id};}
  function appendReply(input){return transaction(()=>{
   const row=owned(input),p=JSON.parse(row.payload_json);

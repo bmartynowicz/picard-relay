@@ -1,7 +1,7 @@
 // Bounded Groq candidate. No SDK retries, fallback, tools, or identity substitution.
 import {createHash} from 'node:crypto';
 import {canonical} from './protocol.mjs';
-import {AdapterBlockedError,TransportObservationError,sanitizeInvocationDiagnostic,withInvocationDiagnostic,invocationDiagnostic} from './adapters.mjs';
+import {AdapterBlockedError,InvocationIncompleteError,TransportObservationError,sanitizeInvocationDiagnostic,withInvocationDiagnostic,invocationDiagnostic} from './adapters.mjs';
 export const GROQ_MODEL='openai/gpt-oss-20b';
 export const GROQ_ID='groq:openai/gpt-oss-20b';
 const ENDPOINT='https://api.groq.com/openai/v1/chat/completions';
@@ -25,7 +25,7 @@ export function createGroqAdapter({enabled=false,apiKey='',gate=null,fetchImpl=g
  const valid=()=>enabled===true&&typeof apiKey==='string'&&apiKey.length>0&&!/[\r\n]/.test(apiKey)&&gate?.provider==='groq'&&gate.model===GROQ_MODEL&&gate.harmlessTestOnly===true&&gate.maxCalls===1&&(gate.v===3?retainedCostScopeConfigured(gate,apiKey)&&gate.requestIssuedAt<=now()&&gate.requestExpiresAt>now():gate.accountPlan==='Free'&&gate.noPaidFallback===true&&typeof gate.evidenceRef==='string'&&gate.evidenceRef.length>0&&Number.isFinite(gate.verifiedAt)&&Number.isFinite(gate.validUntil)&&gate.verifiedAt<=now()&&gate.validUntil>now()&&gate.validUntil-gate.verifiedAt<=3600000)&&['owner','task','requestId'].every(k=>typeof gate[k]==='string'&&gate[k].length>0)&&/^[a-f0-9]{64}$/.test(gate.inputSha256)&&Number.isSafeInteger(timeoutMs)&&timeoutMs>=1&&timeoutMs<=30000;
  return {kind:'groq-explicit-harmless-test',assistantId:GROQ_ID,get ready(){return valid()&&!consumed;},async answer(input){
   let diagnostic=sanitizeInvocationDiagnostic(null);const ownErrors=new WeakSet();
-  const failure=(code,phase,detail)=>{const e=withInvocationDiagnostic(code==='groq_outcome_uncertain'?uncertain():block(code),{...diagnostic,phase,code:detail});ownErrors.add(e);return e;};
+  const failure=(code,phase,detail)=>{const e=withInvocationDiagnostic(code==='groq_outcome_uncertain'?uncertain():code==='groq_output_incomplete'?new InvocationIncompleteError():block(code),{...diagnostic,phase,code:detail});ownErrors.add(e);return e;};
   const observe=async value=>{diagnostic=sanitizeInvocationDiagnostic({...diagnostic,...value});try{await input.onDiagnostic?.(diagnostic);}catch{throw failure('groq_outcome_uncertain','unknown','diagnostic_persistence_failed');}};
   if(!valid()||consumed)throw failure('groq_free_scope_unavailable','pre_send','scope_unavailable');
   if(['owner','task','requestId'].some(k=>input[k]!==gate[k])||input.invocationId!==input.requestId||inputDigest(input)!==gate.inputSha256||!Number.isSafeInteger(input.attempt)||input.attempt<1)throw failure('groq_scope_mismatch','pre_send','scope_mismatch');
@@ -50,6 +50,11 @@ export function createGroqAdapter({enabled=false,apiKey='',gate=null,fetchImpl=g
    const choice=data?.choices?.[0];diagnostic=sanitizeInvocationDiagnostic({...diagnostic,finishReason:choice?.finish_reason});
    if(signal.aborted)throw failure('groq_outcome_uncertain',input.signal?.aborted?'cancel':'timeout',input.signal?.aborted?'cancelled_after_start':'deadline_exceeded');
    if(!data||data.model!==GROQ_MODEL||typeof data.id!=='string'||!data.id||data.choices?.length!==1)throw failure('groq_outcome_uncertain','validation','invalid_response');
+   // Malformed envelopes, tools, non-200 responses and aborted calls remain
+   // uncertain. Never return or persist the partial provider content.
+   const message=choice?.message;
+   const inertMessage=message&&message.role==='assistant'&&(typeof message.content==='string'&&message.content.length<=3700||message.content===null)&&(message.tool_calls==null||Array.isArray(message.tool_calls)&&message.tool_calls.length===0)&&message.function_call==null;
+   if(choice?.finish_reason==='length'&&diagnostic.httpStatus===200&&inertMessage)throw failure('groq_output_incomplete','finish_reason','finish_reason_rejected');
    if(choice?.finish_reason!=='stop')throw failure('groq_outcome_uncertain','finish_reason','finish_reason_rejected');
    if(choice.message?.role!=='assistant'||choice.message.tool_calls?.length||choice.message.function_call||typeof choice.message?.content!=='string'||!choice.message.content.trim()||choice.message.content.length>3700)throw failure('groq_outcome_uncertain','validation','invalid_response');
    await observe({phase:'validation',code:'response_validated'});

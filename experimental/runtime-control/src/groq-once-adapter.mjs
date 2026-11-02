@@ -2,7 +2,8 @@ import {lstatSync,realpathSync,openSync,writeFileSync,fsyncSync,closeSync,fstatS
 import {dirname,isAbsolute,resolve,join} from 'node:path';
 import {createGroqAdapter,GROQ_ID,GROQ_MODEL,inputDigest,retainedCostScopeConfigured} from './groq-adapter.mjs';
 import {canonical} from './protocol.mjs';
-import {AdapterBlockedError,sanitizeInvocationDiagnostic,invocationFailureCode,withInvocationDiagnostic,invocationDiagnostic} from './adapters.mjs';
+import {isDurableIncompleteFailureReceipt} from './relay-store.mjs';
+import {AdapterBlockedError,InvocationIncompleteError,isIncompleteInvocation,sanitizeInvocationDiagnostic,invocationFailureCode,withInvocationDiagnostic,invocationDiagnostic} from './adapters.mjs';
 export const PILOT_TEXT='Reply Hello World';
 export const PILOT_CONTEXT=Object.freeze({title:'Relay Hello World verification',nextAction:'',latestFinding:''});
 const blocked=code=>new AdapterBlockedError(code,code);
@@ -10,6 +11,7 @@ const blocked=code=>new AdapterBlockedError(code,code);
 const REVIEW_PURPOSES=Object.freeze(['public-source-review','sanitized-source-proposal']);
 /** One exact approved request, one durable allowance. Legacy pilot stays supported. */
 export function createGroqOnceAdapter({enabled=false,apiKey='',gate=null,markerPath='',fetchImpl=globalThis.fetch,now=Date.now,timeoutMs=30000}={}){
+ let pendingIncomplete=null;
  // Snapshot administrator configuration: later caller mutation cannot widen scope.
  try{gate=JSON.parse(JSON.stringify(gate));}catch{gate=null;}
  function reviewScope(){
@@ -28,11 +30,18 @@ export function createGroqOnceAdapter({enabled=false,apiKey='',gate=null,markerP
  function ready(){return configured()&&(gate.v===3?gate.requestIssuedAt<=now()&&now()<gate.requestExpiresAt:gate.verifiedAt<=now()&&now()<gate.validUntil)&&!spent()&&!costStopped();}
  function syncParent(){const fd=openSync(dirname(markerPath),'r');try{fsyncSync(fd);}finally{closeSync(fd);}}
  function reserveCost(){let fd;try{fd=openSync(costLatch(),'wx',0o600);writeFileSync(fd,JSON.stringify({v:1,enrollmentId:gate.enrollmentId,state:'pending-before-io'}));fsyncSync(fd);const identity=fstatSync(fd);syncParent();return identity;}catch{throw blocked('groq_cost_enrollment_stopped');}finally{if(fd!==undefined)closeSync(fd);}}
- function releaseCost(identity){const s=lstatSync(costLatch());if(s.dev!==identity.dev||s.ino!==identity.ino)throw Error('groq_outcome_uncertain');unlinkSync(costLatch());syncParent();}
+ function releaseCost(identity){const s=lstatSync(costLatch());if(['dev','ino','mode','uid','gid','nlink','size','mtimeMs','ctimeMs'].some(key=>s[key]!==identity[key]))throw Error('groq_outcome_uncertain');unlinkSync(costLatch());syncParent();}
  function matches(owner,task,text,context){return owner===gate?.owner&&task===gate?.task&&text===gate?.approvedRequestText&&canonical(context)===canonical(gate?.taskContext);}
  function reserve(input){let fd;try{fd=openSync(markerPath,'wx',0o600);writeFileSync(fd,JSON.stringify({v:1,provider:'groq',model:GROQ_MODEL,owner:input.owner,task:input.task,requestId:input.requestId,invocationId:input.invocationId,startedAt:new Date(now()).toISOString(),state:'consumed-before-io'}));fsyncSync(fd);}catch{throw blocked('groq_once_allowance_unavailable');}finally{if(fd!==undefined)closeSync(fd);}const directory=openSync(dirname(markerPath),'r');try{fsyncSync(directory);}finally{closeSync(directory);}}
  return {kind:'groq-durable-one-shot',assistantId:GROQ_ID,get ready(){return ready();},get canServeResults(){return configured();},
   acceptsWorkScope(payload){return configured()&&payload?.request?.answerTo===null&&matches(payload?.ownerId,payload?.taskId,payload?.request?.text,payload?.context)&&(gate.v===1||(payload?.eventId===gate.eventId&&payload?.grantId===gate.grantId))&&(gate.v!==3||payload?.grantExpiresAt===gate.requestExpiresAt);},
+  // Only the same live reservation may settle after durable terminal failure.
+  // Old stops and reconstructed adapters cannot acknowledge it.
+  async finalizeIncomplete({requestId,error,failureReceipt}={}){
+   if(gate?.v!==3)return false;
+   if(!pendingIncomplete||pendingIncomplete.requestId!==requestId||pendingIncomplete.error!==error||!isIncompleteInvocation(error)||!isDurableIncompleteFailureReceipt(failureReceipt,requestId))throw blocked('groq_cost_enrollment_stopped');
+   releaseCost(pendingIncomplete.identity);pendingIncomplete=null;return true;
+  },
   async answer(input){
    let diagnostic=sanitizeInvocationDiagnostic(null);
    const report=async value=>{diagnostic=sanitizeInvocationDiagnostic({...diagnostic,...value});try{await input.onDiagnostic?.(diagnostic);}catch{throw withInvocationDiagnostic(Object.assign(Error('groq_outcome_uncertain'),{code:'groq_outcome_uncertain'}),{...diagnostic,phase:'unknown',code:'diagnostic_persistence_failed'});}};
@@ -48,11 +57,13 @@ export function createGroqOnceAdapter({enabled=false,apiKey='',gate=null,markerP
    reserve(input); // Must be durable before the existing adapter can attempt network I/O.
    await report({phase:'reservation',code:'one_shot_reserved'});
    const scopedInput={...input,onDiagnostic:report};
-   if(gate.v===3){await report({phase:'reservation',code:'cost_reservation_started'});const identity=reserveCost();await report({phase:'reservation',code:'cost_reserved'});const result=await adapter.answer(scopedInput);await report({phase:'reservation',code:'cost_release_started'});try{releaseCost(identity);}catch{throw withInvocationDiagnostic(Error('groq_outcome_uncertain'),{...diagnostic,phase:'reservation',code:'cost_release_failed'});}return result;}
+   if(gate.v===3){await report({phase:'reservation',code:'cost_reservation_started'});const identity=reserveCost();await report({phase:'reservation',code:'cost_reserved'});let result;try{result=await adapter.answer(scopedInput);}catch(e){if(isIncompleteInvocation(e))pendingIncomplete={identity,requestId:input.requestId,error:null};throw e;}await report({phase:'reservation',code:'cost_release_started'});try{releaseCost(identity);}catch{throw withInvocationDiagnostic(Error('groq_outcome_uncertain'),{...diagnostic,phase:'reservation',code:'cost_release_failed'});}return result;}
    return await adapter.answer(scopedInput);
    }catch(e){
-    const error=e instanceof AdapterBlockedError?blocked(invocationFailureCode(e.code)):Object.assign(Error('groq_outcome_uncertain'),{code:'groq_outcome_uncertain'});
-    throw withInvocationDiagnostic(error,invocationDiagnostic(e)??{...diagnostic,phase:'reservation',code:'reservation_failed'});
+    const error=isIncompleteInvocation(e)?new InvocationIncompleteError():e instanceof AdapterBlockedError?blocked(invocationFailureCode(e.code)):Object.assign(Error('groq_outcome_uncertain'),{code:'groq_outcome_uncertain'});
+    withInvocationDiagnostic(error,invocationDiagnostic(e)??{...diagnostic,phase:'reservation',code:'reservation_failed'});
+    if(pendingIncomplete&&isIncompleteInvocation(error))pendingIncomplete.error=error;
+    throw error;
    }
   }
  };

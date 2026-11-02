@@ -23,6 +23,7 @@ export function createFreeOnlyRoutingAdapter(adapter){
   // Stored results remain recoverable when the allowance is spent or expired.
   get canServeResults(){return supported&&adapter.canServeResults===true;},
   acceptsWorkScope(payload){return supported&&adapter.acceptsWorkScope(payload)===true;},
+  async finalizeIncomplete(input){if(!supported||typeof adapter.finalizeIncomplete!=='function')throw denied();return adapter.finalizeIncomplete(input);},
   async answer(input){
    if(!ready())throw denied();
    // Reserve synchronously before awaiting the sole adapter. Rejections,

@@ -5,6 +5,11 @@
 export class AdapterBlockedError extends Error {
   constructor(code, message) { super(message); this.name = 'AdapterBlockedError'; this.code = code; }
 }
+// A parsed HTTP-200 completion explicitly ended at its output length limit.
+// It is consumed, incomplete work, not an unknown transport outcome.
+export class InvocationIncompleteError extends Error {
+ constructor(){super('groq_output_incomplete');this.name='InvocationIncompleteError';this.code='groq_output_incomplete';}
+}
 
 // Local observations only: none of these codes proves remote execution.
 const DIAGNOSTIC_PHASES=Object.freeze({
@@ -17,7 +22,7 @@ const DIAGNOSTIC_PHASES=Object.freeze({
  result_commit:['result_commit_started','result_commit_failed'],completion_commit:['completion_commit_started','completion_commit_failed'],
  unknown:['unknown','diagnostic_persistence_failed'],
 });
-const FAILURE_CODES=new Set(['dispatcher_error','invocation_in_progress','invocation_outcome_uncertain','identity_mismatch','scope_revoked_or_expired','scope_revoked','scope_expired','owner_revoked','status_change_forbidden','claim_mismatch','idempotency_conflict','duplicate_response','invalid_reply','invalid_outcome','result_missing','groq_free_scope_unavailable','groq_scope_mismatch','groq_cancelled_before_send','groq_input_too_large','groq_once_allowance_unavailable','groq_cost_enrollment_stopped','groq_quota_exhausted','groq_payment_required','groq_request_rejected','groq_outcome_uncertain']);
+const FAILURE_CODES=new Set(['dispatcher_error','invocation_in_progress','invocation_outcome_uncertain','identity_mismatch','scope_revoked_or_expired','scope_revoked','scope_expired','owner_revoked','status_change_forbidden','claim_mismatch','idempotency_conflict','duplicate_response','invalid_reply','invalid_outcome','result_missing','groq_free_scope_unavailable','groq_scope_mismatch','groq_cancelled_before_send','groq_input_too_large','groq_once_allowance_unavailable','groq_cost_enrollment_stopped','groq_quota_exhausted','groq_payment_required','groq_request_rejected','groq_outcome_uncertain','groq_output_incomplete']);
 const FINISH_REASONS=new Set(['stop','length','tool_calls','function_call','content_filter']);
 export const invocationFailureCode=value=>FAILURE_CODES.has(value)?value:'dispatcher_error';
 export function sanitizeInvocationDiagnostic(value){
@@ -32,6 +37,8 @@ export function sanitizeInvocationDiagnostic(value){
 const observedFailures=new WeakMap();
 export function withInvocationDiagnostic(error,value){const diagnostic=sanitizeInvocationDiagnostic(value);observedFailures.set(error,diagnostic);error.diagnostic=diagnostic;return error;}
 export const invocationDiagnostic=error=>observedFailures.get(error)??null;
+export function isIncompleteDiagnostic(value){const d=sanitizeInvocationDiagnostic(value);return d.phase==='finish_reason'&&d.code==='finish_reason_rejected'&&d.httpStatus===200&&d.finishReason==='length';}
+export const isIncompleteInvocation=error=>error instanceof InvocationIncompleteError&&isIncompleteDiagnostic(invocationDiagnostic(error));
 export function encodeInvocationError(code,diagnostic){return JSON.stringify({v:1,code:invocationFailureCode(code),diagnostic:sanitizeInvocationDiagnostic(diagnostic)});}
 export function decodeInvocationError(value){
  if(typeof value!=='string'||value.length>1024)return {code:'dispatcher_error',diagnostic:null};

@@ -8,7 +8,7 @@
 // - Non-production mode allows blocked adapters so fail-closed behaviour
 //   can be demonstrated, and allows the synthetic adapter only when it is
 //   explicitly enabled for local testing.
-import { AdapterBlockedError,sanitizeInvocationDiagnostic,invocationFailureCode,withInvocationDiagnostic,invocationDiagnostic } from './adapters.mjs';
+import { AdapterBlockedError,isIncompleteInvocation,isIncompleteDiagnostic,decodeInvocationError,sanitizeInvocationDiagnostic,invocationFailureCode,withInvocationDiagnostic,invocationDiagnostic } from './adapters.mjs';
 
 export function createDispatcher({
   store, boardAdapter, assistantAdapter, workerId = 'bridge-worker-1',
@@ -75,6 +75,15 @@ export function createDispatcher({
       // The durable state owns outcome semantics. In particular a failed call
       // with an unknown external outcome is persisted as uncertain, not failed.
       if(!persisted&&typeof store.get==='function'){try{persisted=await store.get(requestId);}catch{}}
+      // A known incomplete response may settle only after its terminal failure
+      // is durable. Persistence failure, spoofed errors and legacy uncertain
+      // records never acknowledge an enrollment stop or create retry authority.
+      if(groq&&isIncompleteInvocation(e)&&persisted?.state==='failed'&&persisted.event_id===requestId){
+        const saved=decodeInvocationError(persisted.last_error);
+        if(saved.code==='groq_output_incomplete'&&isIncompleteDiagnostic(saved.diagnostic)&&typeof assistantAdapter.finalizeIncomplete==='function'){
+          try{await assistantAdapter.finalizeIncomplete({requestId,error:e,failureReceipt:persisted});}catch{/* Preserve failure and any remaining stop; never retry. */}
+        }
+      }
       const states=['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain'];
       const status=states.includes(persisted?.state)?persisted.state:(groq&&!isBlocked?'uncertain':isBlocked?'blocked':'failed');
       return { status, requestId, attempt, code, message: groq?code:(e ? e.message : 'Unknown error') };

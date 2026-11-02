@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"600ce9845e4071e6af513f7acf8b8183b43f15955fac2f324b6c8f627bcdb59f");
+assert.equal(createHash('sha256').update(script).digest('hex'),"c619e4aaa44151aacf46b1f5dd941c4bb4e8a031f14de72bec72b8eb171f2797");
 assert.equal(createHash('sha256').update(html.match(/aria-label="Picard Relay ASCII Starfleet insignia">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|href=|@import|url\(/i.test(html));assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -82,3 +82,9 @@ for(const reset of ['logout','401','403','pagehide']){
  assert.equal(q.get('private').hidden,true);for(const id of ['queued','invoking','completed','uncertain']){assert.equal(q.get(id).textContent,'—');assert.equal(q.get(id).attrs['aria-label'],'Unknown',reset+' '+id);}
 }
 console.log('PASS privacy correction: logout,401,403,pagehide clear all numeric counter aria-labels as well as visible text.');
+
+{
+ const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health),{jobsHandler:async()=>ok(page([{...job,state:'failed',reasonCode:'output_incomplete'}]))});await flush();
+ assert.match(q.get('jobs-list').children[0].children[2].textContent,/response length limit/);assert.match(q.get('jobs-list').children[0].children[2].textContent,/consumed and will not retry/);
+}
+console.log('PASS known incomplete reason is actionable text with no retry or dispatch control.');
