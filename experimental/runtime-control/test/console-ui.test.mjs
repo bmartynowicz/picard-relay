@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"e8137d8b40a8579064ad617977269c56ff90f2b1b10e30d8d66cbaa025c5a0e7");
+assert.equal(createHash('sha256').update(script).digest('hex'),"7e3fb6912af108b7a96a189b48815858ccc4070409c3052f26bec0d9bcda7950");
 assert.equal(createHash('sha256').update(html.match(/aria-label="Picard Relay ASCII Starfleet insignia">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|@import|url\(/i.test(html));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -11,7 +11,7 @@ const health={v:1,observedAt:'2026-10-30T16:00:00Z',service:{ready:true,provider
 const ok=body=>({ok:true,status:200,json:async()=>body}),bad=(status,error)=>({ok:false,status,json:async()=>({error})});
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 function harness(handler,{jobsHandler,clock=Date}={}){
- const animations=[];const element=()=>({textContent:'',children:[],value:'',className:'',hidden:true,disabled:false,dataset:{},listeners:{},attrs:{},classList:{items:new Set(),toggle(n,v){v?this.items.add(n):this.items.delete(n)}},setAttribute(n,v){this.attrs[n]=v},addEventListener(n,fn){this.listeners[n]=fn},append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this.children=nodes;this.textContent=''},animate(frames,options){const a={frames,options,cancelled:false,cancel(){this.cancelled=true;this.oncancel?.()}};animations.push(a);return a}});
+ const animations=[];const element=()=>({_text:'',get textContent(){return this._text+this.children.map(n=>n.textContent).join('')},set textContent(v){this._text=String(v);this.children=[]},children:[],value:'',className:'',hidden:true,disabled:false,dataset:{},listeners:{},attrs:{},classList:{items:new Set(),toggle(n,v){v?this.items.add(n):this.items.delete(n)}},setAttribute(n,v){this.attrs[n]=v},addEventListener(n,fn){this.listeners[n]=fn},append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this._text='';this.children=nodes},animate(frames,options){const a={frames,options,cancelled:false,cancel(){this.cancelled=true;this.oncancel?.()}};animations.push(a);return a}});
  const els=new Map([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,element()]));
  const dl={},wl={},ml={},pref={matches:false,addEventListener:(n,fn)=>ml[n]=fn};
  const document={visibilityState:'visible',getElementById:id=>{assert.ok(els.has(id));return els.get(id)},createElement:()=>element(),addEventListener:(n,fn)=>dl[n]=fn};
@@ -70,7 +70,7 @@ hold=true;const refreshHistory=p.click('jobs-refresh');await p.click('jobs-refre
 for(const rows of [[{...job,body:'PRIVATE_HTML_SENTINEL',headers:{Authorization:'PRIVATE_HTML_SENTINEL'}}],[{...job,reasonCode:'<img src=x>'}],[job,job]]){
  const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health),{jobsHandler:async()=>ok(page(rows))});await flush();assert.equal(JSON.stringify([...q.els.values()]).includes('PRIVATE_HTML_SENTINEL'),false);assert.equal(q.get('jobs-list').children.length,rows[0].reasonCode===job.reasonCode&&rows.length===1?1:0);
 }
-let value=2;p=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,jobs:{...health.jobs,completed:value}}));await flush();assert.equal(p.animations.length,0);value=3;await p.click('refresh');assert.equal(p.animations.length,1);assert.equal(p.get('completed').textContent,'3');assert.equal(p.animations[0].options.duration,180);
+let value=2;p=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,jobs:{...health.jobs,completed:value}}));await flush();assert.equal(p.animations.length,0);value=3;await p.click('refresh');assert.equal(p.animations.length,1);assert.equal(p.get('completed').textContent,'3');assert.equal(p.animations[0].options.duration,520);
 p.pref.matches=true;p.ml.change();assert.equal(p.animations[0].cancelled,true);value=4;await p.click('refresh');assert.equal(p.animations.length,1);p.pref.matches=false;p.ml.change();await p.click('motion');value=5;await p.click('refresh');assert.equal(p.animations.length,1);await p.click('motion');value=6;await p.click('refresh');assert.equal(p.animations.length,2);p.document.visibilityState='hidden';p.dl.visibilitychange();assert.equal(p.animations[1].cancelled,true);value=7;await p.click('refresh');assert.equal(p.animations.length,2);p.wl.pagehide();assert.equal(p.get('completed').textContent,'—');assert.equal(p.get('jobs-list').children.length,0);
 let clockNow=100000;class Clock extends Date{constructor(...args){super(...(args.length?args:[clockNow]));}static now(){return clockNow;}}
 p=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,observedAt:new Date(100000).toISOString()}),{clock:Clock});await flush();assert.equal(p.get('notice').hidden,true);clockNow=160001;for(const callback of [...p.timers.values()])callback();assert.match(p.get('notice').textContent,/over a minute old/);
@@ -127,7 +127,7 @@ for(const failure of ['http503','invalid-json','network']){
 console.log('PASS independent freshness regression: stale timers preserve failed/unknown status after503, invalid projection or network error, with recovery only after a successful read.');
 
 // F05: real activity data is projected separately from release identity.
-const activityTime=1000000;
+const activityTime=10000;
 class ActivityClock extends Date{constructor(...args){super(...(args.length?args:[activityTime]));}static now(){return activityTime;}}
 const activity={state:'enabled',reasonCode:'none',configured:true,timerActive:true,observedAt:new Date(activityTime).toISOString(),lastAttemptAt:new Date(500000).toISOString(),lastFinishedAt:new Date(510000).toISOString(),lastOutcome:'check_succeeded'};
 for(const [state,reason,label] of [['enabled','none','Enabled'],['held','hold_present','On hold'],['disabled','policy_disabled','Disabled'],['checking','check_in_progress','Checking'],['error','fetch_failed','Error']]){
@@ -162,3 +162,19 @@ liveFailure=true;await tickLive(live);assert.equal(live.get('completed').textCon
 liveFailure=false;liveCompleted=15;await tickLive(live);assert.equal(live.get('completed').textContent,'15');assert.equal(live.get('groq-completed').textContent,'15');
 liveAuthLost=true;await tickLive(live);assert.equal(live.get('private').hidden,true);assert.equal(live.get('failed').textContent,'—');assert.equal(live.get('groq-failed').textContent,'—');assert.equal(live.get('groq-activity').children.length,0);assert.equal([...live.timers.values()].some(fn=>fn.name==='refreshLive'),false);
 console.log('PASS live data: current owner totals/failures match Groq activity; bounded read-only polling; hidden-tab pause/resume; failure stays unknown; recovery after actual read; auth loss clears data and timers.');
+
+// Mechanical counters show only actual target text, bound work to digit count,
+// cancel an interrupted roll, and clear old decorative glyphs with auth state.
+let rollingValue=9;
+const roll=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,jobs:{...health.jobs,completed:rollingValue}}));
+await flush();assert.equal(roll.get('completed').textContent,'9');assert.equal(roll.animations.length,0);
+rollingValue=10;await roll.click('refresh');assert.equal(roll.get('completed').textContent,'10');assert.equal(roll.get('completed').attrs['aria-label'],'10');assert.equal(roll.animations.length,2);
+assert.ok(roll.animations.every(a=>a.frames[0].transform==='translateY(100%)'&&a.options.duration+a.options.delay<=660));
+const carryAnimations=[...roll.animations];await roll.click('refresh');assert.equal(roll.animations.length,2);assert.ok(carryAnimations.every(a=>!a.cancelled));
+rollingValue=8;await roll.click('refresh');assert.ok(carryAnimations.every(a=>a.cancelled));assert.equal(roll.get('completed').textContent,'8');assert.equal(roll.animations.at(-1).frames[0].transform,'translateY(-100%)');
+rollingValue=10000;await roll.click('refresh');assert.equal(roll.get('completed').textContent,'10000');assert.ok(roll.animations.length<=10);
+await roll.click('motion');assert.ok(roll.animations.every(a=>a.cancelled));assert.equal(roll.get('completed').textContent,'10000');assert.ok(roll.get('completed').children.every(w=>w.children[0].dataset.from===undefined));
+rollingValue=null;await roll.click('refresh');assert.equal(roll.get('completed').textContent,'—');assert.equal(roll.get('completed').attrs['aria-label'],'Unknown');assert.equal(roll.get('completed').children.length,0);
+rollingValue=Number.MAX_SAFE_INTEGER;await roll.click('refresh');assert.equal(roll.get('completed').textContent,'—');assert.equal(roll.get('completed').attrs['aria-label'],'Unknown');
+roll.wl.pagehide();assert.equal(roll.get('completed').textContent,'—');assert.equal(roll.get('completed').children.length,0);assert.equal(roll.get('completed').dataset.counterValue,undefined);
+console.log('PASS mechanical counters: carry, decrease, unchanged read, interrupt, bounded large jump, exact accessible value, pause, unknown and auth clearing.');

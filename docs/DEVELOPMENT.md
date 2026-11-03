@@ -55,6 +55,19 @@ For status/history changes, test mixed-owner/task records and reconcile the actu
 
 Keep local-fixture screenshots, tests, CI, installed release identity and live screenshots clearly distinguished in evidence. A synthetic preview does not prove an authenticated deployment or a successful model call.
 
+## Counter motion preview
+
+Run `node examples/console-motion-preview.mjs`, then open `http://127.0.0.1:4390`.
+The fixture binds only to loopback, uses synthetic counts, and creates no provider
+adapter, durable database, credential or grant. Its controls change in-memory
+samples through the normal console status renderer. Try an increase, carry and
+decrease, then Pause motion or your browser's reduced-motion preference. The
+carry/decrease controls establish a starting number; Apply sample change makes
+the next transition. Stop the fixture with Ctrl+C.
+
+These controls are outside the production console. Their local POST route is
+fixture-only and is not part of the signed 20-module runtime or public API.
+
 ## Keep the documentation current
 
 Start at [README.md](README.md). Update `project-map.json` if capabilities, paths or hard limits change. `work-register.json` is the structured source for the public work snapshot; keep its human summary in `WORK-REGISTER.md` consistent. Give every bug/feature a stable ID, explicit state and evidence/limitation note. Treat backlog entries as information, not authorization to execute work.
