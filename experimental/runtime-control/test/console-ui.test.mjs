@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"79fa4c496fe760c9e5361f51d29aab823702b4d2fd3acd65fd2361a8da3165e7");
+assert.equal(createHash('sha256').update(script).digest('hex'),"d9d1baf7a6818ee82b64a75519203381bd7b42367cd900c34afcc15a550345c9");
 assert.equal(createHash('sha256').update(html.match(/aria-label="Picard Relay ASCII Starfleet insignia">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|href=|@import|url\(/i.test(html));assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -138,3 +138,14 @@ for(const offset of [-180001,5001]){
 }
 let activityFailed=false;const activityFailure=harness(async path=>path==='/auth/state'?ok({enrolled:true}):activityFailed?bad(503,'PRIVATE'):ok({...health,observedAt:activity.observedAt,updater:activity}),{clock:ActivityClock});await flush();activityFailed=true;await activityFailure.click('refresh');assert.equal(activityFailure.get('updater-state').textContent,'Unknown');assert.match(activityFailure.get('updater-explanation').textContent,/unknown/);
 console.log('PASS updater activity: enabled, held, disabled, running and failed states; dated outcome; stale/future/failure unknown; pagehide clears every activity field.');
+
+// Small server/device differences are tolerated consistently by health and
+// updater freshness checks. Material future observations must stay unknown.
+for(const [age,label,unknown] of [[-5001,'age unknown',true],[-5000,'0 seconds ago',false],[-1,'0 seconds ago',false],[0,'0 seconds ago',false],[1000,'1 seconds ago',false],[60000,'1 minutes ago',true]]){
+ const now=100000,observedAt=new Date(now-age).toISOString();
+ class SkewClock extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
+ const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,observedAt,updater:{...activity,observedAt}}),{clock:SkewClock});await flush();
+ assert.ok(q.get('checked').textContent.endsWith(label));assert.ok(q.get('updater-observed').textContent.endsWith(label));assert.equal(q.get('notice').hidden,!unknown);
+ if(age< -5000)assert.match(q.get('health-heading').textContent,/clock mismatch/);
+}
+console.log('PASS fresh observation: tolerated skew displays zero age; material future and stale observations retain their warnings.');
