@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"7c31d6fc2b4d3cf478afdaeacf0e3e8f3de33b15da95cdfb2b9082ee199f3597");
+assert.equal(createHash('sha256').update(script).digest('hex'),"79fa4c496fe760c9e5361f51d29aab823702b4d2fd3acd65fd2361a8da3165e7");
 assert.equal(createHash('sha256').update(html.match(/aria-label="Picard Relay ASCII Starfleet insignia">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|href=|@import|url\(/i.test(html));assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -125,3 +125,16 @@ for(const failure of ['http503','invalid-json','network']){
  failed=false;await q.click('refresh');assert.equal(q.get('health-heading').textContent,'Relay reachable - new work blocked');assert.equal(q.get('notice').hidden,true);
 }
 console.log('PASS independent freshness regression: stale timers preserve failed/unknown status after503, invalid projection or network error, with recovery only after a successful read.');
+
+// F05: real activity data is projected separately from release identity.
+const activityTime=1000000;
+class ActivityClock extends Date{constructor(...args){super(...(args.length?args:[activityTime]));}static now(){return activityTime;}}
+const activity={state:'enabled',reasonCode:'none',configured:true,timerActive:true,observedAt:new Date(activityTime).toISOString(),lastAttemptAt:new Date(500000).toISOString(),lastFinishedAt:new Date(510000).toISOString(),lastOutcome:'check_succeeded'};
+for(const [state,reason,label] of [['enabled','none','Enabled'],['held','hold_present','On hold'],['disabled','policy_disabled','Disabled'],['checking','check_in_progress','Checking'],['error','fetch_failed','Error']]){
+ const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,observedAt:activity.observedAt,updater:{...activity,state,reasonCode:reason}}),{clock:ActivityClock});await flush();await q.click('nav-system');assert.equal(q.get('updater-state').textContent,label);assert.match(q.get('updater-attempt').textContent,/1969|1970/);assert.match(q.get('updater-outcome').textContent,/succeeded/);assert.equal(q.get('updater-timer').textContent,'Running');q.wl.pagehide();for(const id of ['updater-state','updater-configured','updater-timer','updater-attempt','updater-outcome','updater-observed'])assert.equal(q.get(id).textContent,'Not checked');
+}
+for(const offset of [-180001,5001]){
+ const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,observedAt:activity.observedAt,updater:{...activity,observedAt:new Date(activityTime+offset).toISOString()}}),{clock:ActivityClock});await flush();assert.equal(q.get('updater-state').textContent,'Unknown');assert.match(q.get('updater-explanation').textContent,/unknown/);
+}
+let activityFailed=false;const activityFailure=harness(async path=>path==='/auth/state'?ok({enrolled:true}):activityFailed?bad(503,'PRIVATE'):ok({...health,observedAt:activity.observedAt,updater:activity}),{clock:ActivityClock});await flush();activityFailed=true;await activityFailure.click('refresh');assert.equal(activityFailure.get('updater-state').textContent,'Unknown');assert.match(activityFailure.get('updater-explanation').textContent,/unknown/);
+console.log('PASS updater activity: enabled, held, disabled, running and failed states; dated outcome; stale/future/failure unknown; pagehide clears every activity field.');

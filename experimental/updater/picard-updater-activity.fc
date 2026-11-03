@@ -1,0 +1,1 @@
+/var/lib/picard-updater-status(/.*)? system_u:object_r:picard_updater_status_t:s0

@@ -1,10 +1,26 @@
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {createServer} from 'node:net';
-import {lstatSync,realpathSync,chmodSync,unlinkSync,readFileSync,readdirSync} from 'node:fs';
+import {lstatSync,realpathSync,chmodSync,unlinkSync,readFileSync,readdirSync,openSync,fstatSync,closeSync,constants} from 'node:fs';
 import {dirname,basename,isAbsolute,resolve} from 'node:path';
 const STATES=new Set(['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain']);
 export const AVAILABILITY_CODES=Object.freeze(['ready','pending_uncertainty','catalogue_expired','catalogue_unavailable','configuration_unavailable','relay_busy_or_draining','allowance_unavailable','legacy_review_required','unknown']);
+const UPDATER_STATES=['enabled','disabled','held','checking','error','unknown'];
+const UPDATER_REASONS=['none','policy_disabled','hold_present','check_in_progress','fetch_failed','check_failed','timer_disabled','never_checked','metadata_unavailable'];
+const UPDATER_OUTCOMES=['never_checked','fetch_failed','check_failed','check_succeeded','unknown'];
+export function projectUpdaterActivity(value,now=Date.now()){
+ const unknown=reasonCode=>({state:'unknown',reasonCode,observedAt:null,configured:null,timerEnabled:null,timerActive:null,lastAttemptAt:null,lastFinishedAt:null,lastOutcome:'unknown',lastReportedState:null});
+ if(!value||value.v!==1||!UPDATER_STATES.includes(value.state)||!UPDATER_REASONS.includes(value.reasonCode)||!UPDATER_OUTCOMES.includes(value.lastOutcome)||['configured','timerEnabled','timerActive'].some(key=>value[key]!==null&&typeof value[key]!=='boolean'))return unknown('activity_invalid');
+ const observed=typeof value.observedAt==='string'?Date.parse(value.observedAt):NaN;
+ if(!Number.isFinite(observed)||observed<0)return unknown('activity_invalid');
+ const time=key=>value[key]===null?null:typeof value[key]==='string'&&Number.isFinite(Date.parse(value[key]))&&Date.parse(value[key])>=0&&Date.parse(value[key])<=observed+5000?new Date(value[key]).toISOString():false;
+ const lastAttemptAt=time('lastAttemptAt'),lastFinishedAt=time('lastFinishedAt');if(lastAttemptAt===false||lastFinishedAt===false)return unknown('activity_invalid');
+ const reasonCode=observed>now+5000?'activity_clock_mismatch':now-observed>180000?'activity_stale':value.reasonCode;
+ return {state:['activity_clock_mismatch','activity_stale'].includes(reasonCode)?'unknown':value.state,reasonCode,observedAt:new Date(observed).toISOString(),configured:value.configured,timerEnabled:value.timerEnabled,timerActive:value.timerActive,lastAttemptAt,lastFinishedAt,lastOutcome:value.lastOutcome,lastReportedState:value.state};
+}
+export function readUpdaterActivity({root='/var/lib/picard-updater-status',expectedUid=0,now=Date.now()}={}){
+ let fd;try{const before=lstatSync(root);if(!before.isDirectory()||before.isSymbolicLink()||before.uid!==expectedUid||(before.mode&0o022)||realpathSync(root)!==root)throw Error();fd=openSync(root+'/status.json',constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);const stat=fstatSync(fd);if(!stat.isFile()||stat.nlink!==1||stat.uid!==expectedUid||(stat.mode&0o022)||stat.size>4096)throw Error();const bytes=readFileSync(fd),after=lstatSync(root),end=fstatSync(fd);if(bytes.length>4096||after.ino!==before.ino||after.dev!==before.dev||stat.ino!==end.ino||stat.size!==end.size||stat.mtimeMs!==end.mtimeMs)throw Error();return projectUpdaterActivity(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)),now);}catch(e){const result=projectUpdaterActivity(null,now);result.reasonCode=e.code==='ENOENT'?'activity_not_connected':'activity_unavailable';return result;}finally{if(fd!==undefined)closeSync(fd);}
+}
 export function physicalReleaseIdentity(moduleUrl=import.meta.url,expected=''){
  const file=realpathSync(fileURLToPath(moduleUrl)),src=dirname(file),releaseDir=dirname(src),actual=basename(releaseDir);
  if(basename(src)!=='src'||basename(dirname(releaseDir))!=='releases'||!/^[a-f0-9]{64}$/.test(actual))return {release:'unversioned-flat',updateReady:false};

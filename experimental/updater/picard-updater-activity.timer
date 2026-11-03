@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh read-only Picard updater activity every minute
+[Timer]
+OnBootSec=15s
+OnUnitInactiveSec=60s
+AccuracySec=5s
+Unit=picard-updater-activity.service
+[Install]
+WantedBy=timers.target
