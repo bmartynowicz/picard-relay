@@ -63,7 +63,7 @@ export function createDispatcher({
       await store.markCompleted({ requestId, attempt, workerId });
       return { status: 'completed', requestId, attempt, replayed: persisted.replayed, replyId: persisted.reply.reply_id };
     } catch (e) {
-      const code = groq?invocationFailureCode(e?.code):(e && e.code ? e.code : 'dispatcher_error');
+      const code = invocationFailureCode(e?.code);
       if(groq){diagnostic=sanitizeInvocationDiagnostic(invocationDiagnostic(e)??{...diagnostic,code:diagnostic.code==='result_commit_started'?'result_commit_failed':diagnostic.code==='completion_commit_started'?'completion_commit_failed':diagnostic.code});}
       const isBlocked = e instanceof AdapterBlockedError || ['identity_mismatch', 'scope_revoked_or_expired', 'status_change_forbidden', 'claim_mismatch', 'idempotency_conflict', 'duplicate_response'].includes(code);
       let persisted=null;
@@ -85,8 +85,11 @@ export function createDispatcher({
         }
       }
       const states=['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain'];
-      const status=states.includes(persisted?.state)?persisted.state:(groq&&!isBlocked?'uncertain':isBlocked?'blocked':'failed');
-      return { status, requestId, attempt, code, message: groq?code:(e ? e.message : 'Unknown error') };
+      const sameRequest=persisted&&(persisted.event_id??persisted.request_id)===requestId&&persisted.owner===owner&&persisted.task===task;
+      // A failed write plus unavailable readback proves no new terminal state.
+      // Report unknown rather than guessing failed, blocked or uncertain.
+      const status=sameRequest&&states.includes(persisted.state)?persisted.state:'unknown';
+      return { status, requestId, attempt, code, message: 'Review the saved job before taking further action. Do not resubmit this request.' };
     }finally{if(heartbeat!==null)clearInterval(heartbeat);}
   }
 

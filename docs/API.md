@@ -32,6 +32,12 @@ Protocol v1 binds a key ID, timestamp, nonce and SHA-256 of the exact body. Work
 
 Reject every HTTP 3xx without following `Location` or forwarding the signed request. Result retrieval is a separate action from registering work and must preserve the original identity. HMAC transport authentication does not bypass catalogue, gate, enrollment, expiry, marker or uncertainty checks.
 
+## Dispatcher outcome reporting
+
+The internal dispatcher's error result and the service's structured log use the confirmed ledger state for that exact owner/task/request. An unknown external result remains `uncertain`; an unavailable outcome write and readback return `unknown`. A successful readback may still report the last confirmed nonterminal state, such as `invoking`; it does not prove that the attempted failure write committed or that a provider is still running.
+
+Error codes are allowlisted. Raw adapter messages are excluded, and the dispatcher gives a fixed instruction to review the saved job without resubmitting it. Reporting `unknown` does not create a new ledger state, change grants or add retry authority. Saved-result reconciliation still avoids another provider call. Offline regressions are in [dispatcher-outcomes.test.mjs](../experimental/runtime-control/test/dispatcher-outcomes.test.mjs).
+
 ## Private Unix control socket
 
 The runtime uses the operator-configured absolute `BRIDGE_CONTROL_SOCKET`. The installed fixed-service adapter must agree with that host's socket path. There is no public control endpoint.
