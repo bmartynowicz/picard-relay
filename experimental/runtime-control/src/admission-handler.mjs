@@ -52,7 +52,7 @@ function createHandler({auth,store,loadPolicy,binding,origins=[],now=Date.now,cu
     const body={v:1,ref,state:row.state,mayInvoke:false,resultAvailable:false,reasonCode:recentJobReason(row.state,row.last_error,row.state==='completed'&&!!row.result_json)};
     if(row.state==='completed'){
      let result;try{result=JSON.parse(row.result_json);}catch{stop('existing_record_invalid');}
-     if(result?.v!==1||result.eventId!==ref||result.ownerId!==work.ownerId||result.taskId!==work.taskId||result.requestId!==work.requestId||result.grantId!==work.grantId||result.payloadHash!==work.payloadHash||result.assistantId!==work.assistantId||result.responseId!=='resp:'+ref||typeof result.body!=='string'||!result.body.trim()||result.body.length>4000||!['information','question'].includes(result.outcome?.kind))stop('existing_record_invalid');
+     if(result?.v!==1||result.eventId!==ref||result.ownerId!==work.ownerId||result.taskId!==work.taskId||result.requestId!==work.requestId||result.grantId!==work.grantId||result.payloadHash!==work.payloadHash||result.assistantId!==work.assistantId||result.responseId!=='resp:'+ref||typeof result.body!=='string'||!result.body.trim()||result.body.length>16000||!['information','question'].includes(result.outcome?.kind))stop('existing_record_invalid');
      body.resultAvailable=true;body.result={body:result.body,kind:result.outcome.kind};
     }
     return reply(200,body);

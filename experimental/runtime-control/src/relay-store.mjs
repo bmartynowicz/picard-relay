@@ -76,7 +76,7 @@ export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
  function appendReply(input){return transaction(()=>{
   const row=owned(input),p=JSON.parse(row.payload_json);
   if(input.owner!==row.owner||input.task!==row.task||input.requestId!==row.event_id||input.eventId!==`resp:${row.event_id}`)throw error('identity_mismatch');
-  if(input.kind!=='answer'&&input.kind!=='question'||input.statusChange!==null||typeof input.body!=='string'||!input.body.trim()||input.body.length>4000)throw error('invalid_reply');
+  if(input.kind!=='answer'&&input.kind!=='question'||input.statusChange!==null||typeof input.body!=='string'||!input.body.trim()||input.body.length>16000)throw error('invalid_reply');
   const outcome=input.kind==='question'?{kind:'question',question:input.body.trim()}:{kind:'information'};
   if(input.kind==='question'&&input.body.trim().length>2000||input.outcomeKind!==outcome.kind)throw error('invalid_outcome');
   const result={v:1,eventId:p.eventId,ownerId:p.ownerId,taskId:p.taskId,requestId:p.requestId,grantId:p.grantId,assistantId:p.assistantId,payloadHash:p.payloadHash,responseId:`resp:${p.eventId}`,body:input.body.trim(),outcome};

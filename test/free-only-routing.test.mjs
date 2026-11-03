@@ -14,7 +14,7 @@ const fixture=answer=>({kind:'groq-durable-one-shot',assistantId:GROQ_ID,ready:t
 
 test('policy is immutable, fixed provider/model and bounded with zero retries or fallbacks',()=>{
  assert.equal(Object.isFrozen(FREE_ONLY_ROUTING_POLICY),true);
- assert.deepEqual(FREE_ONLY_ROUTING_POLICY,{id:'free-only-one-shot-v1',provider:'groq',model:GROQ_MODEL,maxCalls:1,maxInputBytes:12000,maxResponseBytes:65536,maxCompletionTokens:512,timeoutMs:30000,retries:0,fallbacks:0,productionTaskExecution:false});
+ assert.deepEqual(FREE_ONLY_ROUTING_POLICY,{id:'free-only-one-shot-v1',provider:'groq',model:GROQ_MODEL,maxCalls:1,maxInputBytes:12000,maxResponseBytes:131072,maxCompletionTokens:4096,defaultCompletionTokens:512,timeoutMs:30000,retries:0,fallbacks:0,productionTaskExecution:false});
 });
 test('missing, unknown, disabled or non-durable selection never reads credentials',async()=>{
  for(const env of [{},{BRIDGE_PROVIDER:'other'},{BRIDGE_PROVIDER:'groq'},{BRIDGE_PROVIDER:'groq',GROQ_ENABLED:'true',BRIDGE_ASSISTANT_ID:GROQ_ID},{BRIDGE_PROVIDER:'groq',GROQ_ENABLED:'true',BRIDGE_ASSISTANT_ID:'other',GROQ_ONE_SHOT:'true'}]){

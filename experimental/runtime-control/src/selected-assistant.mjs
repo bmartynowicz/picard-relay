@@ -8,8 +8,8 @@ import {createGroqOnceAdapter} from './groq-once-adapter.mjs';
 // API or a grant. This policy cannot replenish the durable one-use marker.
 export const FREE_ONLY_ROUTING_POLICY=Object.freeze({
  id:'free-only-one-shot-v1',provider:'groq',model:GROQ_MODEL,
- maxCalls:1,maxInputBytes:12000,maxResponseBytes:65536,
- maxCompletionTokens:512,timeoutMs:30000,retries:0,fallbacks:0,
+ maxCalls:1,maxInputBytes:12000,maxResponseBytes:131072,
+ maxCompletionTokens:4096,defaultCompletionTokens:512,timeoutMs:30000,retries:0,fallbacks:0,
  productionTaskExecution:false,
 });
 const denied=()=>new AdapterBlockedError('groq_free_scope_unavailable','groq_free_scope_unavailable');
