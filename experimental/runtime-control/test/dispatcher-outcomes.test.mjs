@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createRelayStore} from '../src/relay-store.mjs';
 import {createDispatcher} from '../src/dispatcher.mjs';
-import {AdapterBlockedError} from '../src/adapters.mjs';
+import {AdapterBlockedError, withInvocationDiagnostic, decodeInvocationError} from '../src/adapters.mjs';
 import {canonical, digest, payloadHash} from '../src/protocol.mjs';
 import {startOracleService} from '../src/oracle-service.mjs';
 
@@ -18,7 +18,7 @@ async function payload(at) {
   p.payloadHash = await payloadHash(p);
   return p;
 }
-async function fixture(t, {groq = true} = {}) {
+async function fixture(t, {groq = true, timeout = false} = {}) {
   let clock = Date.now(), calls = 0;
   const dir = mkdtempSync(join(tmpdir(), 'picard-outcomes-')), dbPath = join(dir, 'ledger.sqlite');
   let store = createRelayStore({dbPath, now:()=>clock});
@@ -26,19 +26,19 @@ async function fixture(t, {groq = true} = {}) {
   await store.accept(p);
   t.after(()=>{store.close(); rmSync(dir,{recursive:true,force:true});});
   const board = {scopeEnforced:true, getTaskContext:i=>store.getTaskContext(i), appendReply:i=>store.appendReply(i), getReplyByRequestId:id=>store.getReplyByRequestId(id)};
-  const adapter = {kind:'offline-reporting-fixture', ...(groq?{assistantId}:{}), async answer(){calls++; throw Object.assign(Error(secretText), {code:'groq_outcome_uncertain'});}};
+  const adapter = {kind:'offline-reporting-fixture', ...(groq?{assistantId}:{}), async answer(){calls++; throw withInvocationDiagnostic(Object.assign(Error(secretText), {code:'groq_outcome_uncertain'}), timeout?{phase:'timeout',code:'deadline_exceeded'}:{phase:'network',code:'network_failed'});}};
   return {p, board, adapter, get store(){return store;}, get calls(){return calls;}, advance(ms){clock+=ms;},
     reopen(){store.close();store=createRelayStore({dbPath,now:()=>clock});},
     run(overrides={}){return createDispatcher({store:{...store,...overrides}, boardAdapter:board, assistantAdapter:adapter, enabled:true, workerId:'fixture', claimTtlMs:1000}).runOnce();}};
 }
 
-test('unknown external outcome reports the committed uncertain state, including the service log projection, and never reclaims', async t=>{
-  const f=await fixture(t), result=await f.run();
+for(const timeout of [false,true])test((timeout?'timeout':'unknown network outcome')+' reports the committed uncertain state and never reclaims', async t=>{
+  const f=await fixture(t,{timeout}), result=await f.run();
   assert.equal(result.status,'uncertain');
   assert.equal(result.status,f.store.get(f.p.eventId).state);
   assert.equal(result.code,'groq_outcome_uncertain');
   assert.equal(JSON.stringify(result).includes(secretText),false);
-  assert.equal(JSON.parse(JSON.stringify({state:result.status,eventId:result.requestId,attempt:result.attempt,code:result.code})).state,'uncertain');
+  assert.equal(decodeInvocationError(f.store.get(f.p.eventId).last_error).diagnostic.phase,timeout?'timeout':'network');
   f.reopen();f.advance(1001);
   assert.equal((await f.run()).status,'idle');
   assert.equal(f.store.get(f.p.eventId).state,'uncertain');
