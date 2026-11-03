@@ -11,6 +11,31 @@ const slug=v=>typeof v==='string'&&/^[a-z0-9-]{1,50}$/.test(v);
 const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(v);
 const hex=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
 const stop=code=>{throw Object.assign(new Error(code),{code});};
+
+// The caller must first verify the HMAC over the entire exchange, and the
+// trusted Board must have revalidated its durable owner-approved grant. This
+// function checks binding only; the object alone is not authorization.
+export async function validateReusableBoardAttestation({payload,approval,ownerId,enrollmentId,at}={}){
+ if(!exact(approval,['v','purpose','enrollmentId','inputSha256','issuedAt','expiresAt'])||approval.v!==1||!['public-source-review','sanitized-source-proposal'].includes(approval.purpose)||!hex(enrollmentId)||approval.enrollmentId!==enrollmentId||!hex(approval.inputSha256)||!integer(approval.issuedAt)||!integer(approval.expiresAt)||!integer(at)||approval.issuedAt>at||approval.expiresAt<=at||approval.expiresAt-approval.issuedAt<1000||approval.expiresAt-approval.issuedAt>3600000)stop('approval_invalid');
+ try{await validateWork(payload);}catch{stop('work_invalid');}
+ const created=Date.parse(payload.request.createdAt),inputSha256=hash(canonical({requestText:payload.request.text,taskContext:payload.context}));
+ if(payload.ownerId!==ownerId||payload.assistantId!=='groq:openai/gpt-oss-20b'||payload.request.answerTo!==null||created<approval.issuedAt||created>at||payload.grantExpiresAt!==approval.expiresAt||inputSha256!==approval.inputSha256)stop('scope_mismatch');
+ return {purpose:approval.purpose,enrollmentId,inputSha256,issuedAt:approval.issuedAt,expiresAt:approval.expiresAt};
+}
+
+// Local design fixture only. A production caller must authenticate the Board,
+// establish owner approval independently, and persist consumption atomically.
+// An object passed as `actor` is a test precondition, not an auth credential.
+export async function planReusableBoardApproval({mode,ownerId,enrollmentId,actor,grant,payload,at,seenGrantIds=[],seenEventIds=[]}={}){
+ if(mode!=='synthetic-review-only')stop('production_admission_not_implemented');
+ if(!text(ownerId,200)||!hex(enrollmentId)||!exact(actor,['ownerId','approvedInputSha256','approvedAt'])||actor.ownerId!==ownerId||!integer(actor.approvedAt)||!integer(at)||actor.approvedAt>at||at-actor.approvedAt>60000)stop('owner_approval_required');
+ if(!exact(grant,['ownerId','taskId','requestId','grantId','eventId','inputSha256','enrollmentId','issuedAt','expiresAt'])||grant.ownerId!==ownerId||grant.enrollmentId!==enrollmentId||!text(grant.taskId,200)||!uuid(grant.requestId)||!uuid(grant.grantId)||!hex(grant.eventId)||!hex(grant.inputSha256)||!integer(grant.issuedAt)||!integer(grant.expiresAt)||grant.issuedAt>at||grant.expiresAt<=at||grant.expiresAt-grant.issuedAt<1000||grant.expiresAt-grant.issuedAt>3600000)stop('grant_invalid');
+ if(!Array.isArray(seenGrantIds)||!Array.isArray(seenEventIds)||seenGrantIds.includes(grant.grantId)||seenEventIds.includes(grant.eventId))stop('grant_spent');
+ try{await validateWork(payload);}catch{stop('work_invalid');}
+ const inputSha256=hash(canonical({requestText:payload.request.text,taskContext:payload.context}));
+ if(actor.approvedInputSha256!==inputSha256||grant.inputSha256!==inputSha256||payload.ownerId!==ownerId||payload.taskId!==grant.taskId||payload.requestId!==grant.requestId||payload.grantId!==grant.grantId||payload.eventId!==grant.eventId||Date.parse(payload.request.createdAt)!==grant.issuedAt||payload.grantExpiresAt!==grant.expiresAt||hash(canonical([ownerId,grant.taskId,grant.requestId]))!==grant.eventId)stop('scope_mismatch');
+ return {kind:'synthetic_reusable_approval_only',mayInvoke:false,ownerId,taskId:grant.taskId,eventId:grant.eventId,inputSha256,enrollmentId};
+}
 export function validateCatalogueSync(c){
  if(!exact(c,['v','kind','ownerId','taskId','assistantId','enrollmentId','notBefore','expiresAt','maxRequestLifetimeMs','entries'])||c.v!==1||c.kind!=='FINITE_ADMISSION_PROTOTYPE_ONLY'||!text(c.ownerId,200)||!text(c.taskId,200)||c.assistantId!=='groq:openai/gpt-oss-20b'||!hex(c.enrollmentId)||!integer(c.notBefore)||!integer(c.expiresAt)||c.expiresAt<=c.notBefore||c.expiresAt-c.notBefore>86400000||!integer(c.maxRequestLifetimeMs)||c.maxRequestLifetimeMs<1000||c.maxRequestLifetimeMs>3600000||!Array.isArray(c.entries)||c.entries.length>8||new TextEncoder().encode(canonical(c)).length>16384)stop('catalogue_invalid');
  const entryIds=new Set(),requests=new Set(),grants=new Set(),events=new Set();let total=0;

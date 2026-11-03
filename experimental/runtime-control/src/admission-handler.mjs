@@ -61,7 +61,7 @@ function createHandler({auth,store,loadPolicy,binding,origins=[],now=Date.now,cu
    if(!Number.isSafeInteger(at)||at<c.notBefore||at>=c.expiresAt)stop('catalogue_unavailable');
    if(req.method==='GET'){
     const entries=[];for(const e of c.entries){const slots=[];for(const s of e.slots){const old=await ownedSlot(c,e,s),state=old?.state??'available';slots.push({slotId:s.slotId,ref:s.eventId,state:['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain','available'].includes(state)?state:'unknown'});}entries.push({entryId:e.entryId,purpose:e.purpose,requestText:e.requestText,taskContext:e.taskContext,inputSha256:e.inputSha256,slots});}
-    const ready=currentAvailability(),admissionReady=!fixture&&ready?.acceptingRequests===true&&ready.pendingUncertainty===false&&ready.costContradiction===false;
+    const ready=currentAvailability(),admissionReady=!fixture&&ready?.acceptingRequests===true&&(ready.pendingUncertainty===false||ready.isolatedFailures===true)&&ready.costContradiction===false;
     const codes=['ready','pending_uncertainty','catalogue_expired','catalogue_unavailable','configuration_unavailable','relay_busy_or_draining','allowance_unavailable','legacy_review_required'];
     return reply(200,{v:1,mode:fixture?'synthetic-integration-only':'enabled',mayInvoke:admissionReady,admissionReady,blockingCode:codes.includes(ready?.code)?ready.code:'configuration_unavailable',catalogueSha256:p.catalogueSha256,expiresAt:c.expiresAt,policy:{maxCallsPerSlot:1,totalSlots:p.slotCount,maxOutputTokens:512,budgetUsd:0,tools:false,retries:0,paidFallback:false},entries});
    }
@@ -77,7 +77,7 @@ function createHandler({auth,store,loadPolicy,binding,origins=[],now=Date.now,cu
    if(req.url==='/request-approvals'){
     // Reopening an already registered slot never creates a fresh nonce or grant.
     const old=await ownedSlot(c,entry,slot);if(old){const state=['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain'].includes(old.state)?old.state:'unknown';return reply(200,{v:1,mode:fixture?'synthetic-integration-only':'enabled',mayInvoke:false,existing:true,ref:slot.eventId,state});}
-    const ready=currentAvailability();if(ready?.acceptingRequests!==true||ready.pendingUncertainty!==false||ready.costContradiction!==false)stop('admission_blocked');
+    const ready=currentAvailability();if(ready?.acceptingRequests!==true||(ready.pendingUncertainty!==false&&ready.isolatedFailures!==true)||ready.costContradiction!==false)stop('admission_blocked');
     const challenge=store.issue({scope,sessionSha256,catalogueSha256:p.catalogueSha256,...selection,inputSha256:entry.inputSha256,catalogueExpiresAt:c.expiresAt});
     return reply(200,{v:1,mode:fixture?'synthetic-integration-only':'enabled',mayInvoke:false,...selection,approvedInputSha256:entry.inputSha256,...challenge});
    }

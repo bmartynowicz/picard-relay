@@ -1,0 +1,9 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createReceiver} from '../experimental/runtime-control/src/receiver.mjs';
+import {signRequest,verifyResponse} from '../experimental/runtime-control/src/protocol.mjs';
+const base={keyId:'fixture',secret:'SYNTHETIC_SECRET_ONLY_01234567890123456789',ownerId:'owner',allowedTaskId:'task-a',assistantId:'groq:openai/gpt-oss-20b'};
+async function send(config,adapter,payload){const seen=new Set(),store={consumeNonce:n=>!seen.has(n)&&!!seen.add(n),get:()=>null};const handle=createReceiver({store,config,assistantAdapter:adapter});const {request,nonce}=await signRequest('https://fixture.invalid/bridge/v1',payload,config);const res=await handle(request);return {status:res.status,body:res.headers.has('x-bridge-response')?await verifyResponse(res,nonce,config):await res.json()};}
+const result={v:1,action:'result',ownerId:'owner',taskId:'task-b',eventId:'a'.repeat(64),payloadHash:'b'.repeat(64)};
+test('cross-task signed requests stay denied by default or without both guarded adapter signals',async()=>{for(const [config,adapter] of [[base,{}],[{...base,admissionReusableBoardEnabled:true},{}],[base,{reusableBoardEnabled:true,permitsBoardTask:()=>true}],[{...base,admissionReusableBoardEnabled:true},{reusableBoardEnabled:true,permitsBoardTask:()=>false}]])assert.equal((await send(config,adapter,result)).status,403);});
+test('enabled adapter can allow a same-owner task result lookup; other owners stay denied',async()=>{const config={...base,admissionReusableBoardEnabled:true},adapter={reusableBoardEnabled:true,permitsBoardTask:x=>x.ownerId==='owner'&&x.taskId==='task-b'&&x.action==='result'};assert.equal((await send(config,adapter,result)).status,200);assert.equal((await send(config,adapter,{...result,ownerId:'other'})).status,403);});

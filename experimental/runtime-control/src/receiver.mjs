@@ -22,13 +22,15 @@ export function createReceiver({store,config,assistantAdapter,canAccept=()=>true
    const checked=await verifyRequest(request,config,(n,e)=>store.consumeNonce(n,e));nonce=checked.nonce;const p=checked.payload;
    if(!p||p.v!==1||p.ownerId!==config.ownerId)throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
    const pilot=config.assistantId.startsWith('groq:');
-   if(pilot&&(!config.allowedTaskId||(p.action!=='health'&&(p.action==='exchange'?p.payload?.taskId:p.taskId)!==config.allowedTaskId)))throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
+   const requestedTask=p.action==='exchange'?p.payload?.taskId:p.taskId;
+   const reusableAllowed=config.admissionReusableBoardEnabled===true&&assistantAdapter.reusableBoardEnabled===true&&typeof assistantAdapter.permitsBoardTask==='function'&&assistantAdapter.permitsBoardTask({ownerId:p.ownerId,taskId:requestedTask,action:p.action})===true;
+   if(pilot&&(!config.allowedTaskId||(p.action!=='health'&&requestedTask!==config.allowedTaskId&&!reusableAllowed)))throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
    const ready=canAccept()&&assistantAdapter.ready===true&&assistantAdapter.assistantId===config.assistantId&&assistantAdapter.localTestOnly!==true&&!['synthetic-local-test-only','controlled-local-fixture-only'].includes(assistantAdapter.kind);
    let result;
    if(p.action==='health'&&Object.keys(p).length===3){
     let rows=null,health=null;try{rows=store.scopedStats({ownerId:p.ownerId,allowedTaskId:config.allowedTaskId});}catch{}
     try{health=runtimeHealth();}catch{}
-    result={ready,assistantId:config.assistantId,code:ready?'ready':'assistant_invocation_unavailable',diagnostics:healthDiagnostics({rows,runtimeHealth:health,providerReady:assistantAdapter.ready===true&&assistantAdapter.localTestOnly!==true&&!['synthetic-local-test-only','controlled-local-fixture-only'].includes(assistantAdapter.kind)&&assistantAdapter.assistantId===config.assistantId,accepting:ready})};
+    result={ready,assistantId:config.assistantId,code:ready?'ready':'assistant_invocation_unavailable',...(config.admissionReusableBoardEnabled===true&&assistantAdapter.reusableBoardEnabled===true?{reusableBoard:true}:{}),diagnostics:healthDiagnostics({rows,runtimeHealth:health,providerReady:assistantAdapter.ready===true&&assistantAdapter.localTestOnly!==true&&!['synthetic-local-test-only','controlled-local-fixture-only'].includes(assistantAdapter.kind)&&assistantAdapter.assistantId===config.assistantId,accepting:ready})};
    }
    else if(p.action==='cancel'&&Object.keys(p).length===5&&typeof p.taskId==='string'&&p.taskId.length<=200&&typeof p.grantId==='string'&&p.grantId.length<=200){store.cancel(p.ownerId,p.taskId,p.grantId);result={state:'cancelled'};}
    else if(p.action==='result'&&Object.keys(p).length===6&&typeof p.taskId==='string'&&p.taskId.length>0&&p.taskId.length<=200&&typeof p.eventId==='string'&&/^[a-f0-9]{64}$/.test(p.eventId)&&typeof p.payloadHash==='string'&&/^[a-f0-9]{64}$/.test(p.payloadHash)){
@@ -40,11 +42,11 @@ export function createReceiver({store,config,assistantAdapter,canAccept=()=>true
      result={state:row.state,...(row.state==='completed'?{result:JSON.parse(row.result_json)}:{}),...(row.last_error?resultError(row.last_error):{})};
     }
    }
-   else if(p.action==='exchange'&&Object.keys(p).length===4){
+   else if(p.action==='exchange'&&(Object.keys(p).length===4||(Object.keys(p).length===5&&Object.hasOwn(p,'approval')&&config.admissionReusableBoardEnabled===true&&assistantAdapter.reusableBoardEnabled===true))){
     if(p.payload?.ownerId!==config.ownerId||p.payload?.assistantId!==config.assistantId)throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
     await validateWork(p.payload);
     if(ready&&!store.get(p.payload.eventId)&&typeof assistantAdapter.registerSignedWork==='function'){
-     try{await assistantAdapter.registerSignedWork(p.payload,{ownerId:p.ownerId,keyId:config.keyId});}
+     try{await assistantAdapter.registerSignedWork(p.payload,{ownerId:p.ownerId,keyId:config.keyId},p.approval);}
      catch{throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});}
     }
     // Groq admission is exact administrator-approved scope, never arbitrary text.

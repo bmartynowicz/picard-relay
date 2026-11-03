@@ -1,0 +1,18 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {canonical,payloadHash} from '../experimental/runtime-control/src/protocol.mjs';
+import {planReusableBoardApproval,validateReusableBoardAttestation} from '../experimental/runtime-control/src/admission-plan.mjs';
+const hash=x=>createHash('sha256').update(canonical(x)).digest('hex');
+async function fixture(taskId='task-a'){
+ const ownerId='owner',enrollmentId='a'.repeat(64),requestId='11111111-1111-4111-8111-111111111111',grantId='22222222-2222-4222-8222-222222222222',at=1700000000000,eventId=hash([ownerId,taskId,requestId]);
+ const payload={v:1,eventId,ownerId,taskId,requestId,grantId,assistantId:'groq:openai/gpt-oss-20b',grantExpiresAt:at+60000,request:{text:'Review this generic checklist.',createdAt:new Date(at).toISOString(),answerTo:null},context:{title:'Checklist',nextAction:'Review',latestFinding:'No private data'}};payload.payloadHash=await payloadHash(payload);
+ const inputSha256=hash({requestText:payload.request.text,taskContext:payload.context});
+ return {mode:'synthetic-review-only',ownerId,enrollmentId,actor:{ownerId,approvedInputSha256:inputSha256,approvedAt:at},grant:{ownerId,taskId,requestId,grantId,eventId,inputSha256,enrollmentId,issuedAt:at,expiresAt:at+60000},payload,at};
+}
+test('distinct tasks can be planned but fixture never invokes',async()=>{for(const name of ['task-a','task-b'])assert.equal((await planReusableBoardApproval(await fixture(name))).mayInvoke,false);});
+test('production mode is rejected',async()=>{const f=await fixture();f.mode='production';await assert.rejects(()=>planReusableBoardApproval(f),/production_admission_not_implemented/);});
+test('task, owner and input substitution are rejected',async()=>{for(const mutate of [f=>f.payload.taskId='task-b',f=>f.grant.ownerId='other',f=>f.actor.approvedInputSha256='b'.repeat(64),f=>f.payload.request.text='changed']){const f=await fixture();mutate(f);await assert.rejects(()=>planReusableBoardApproval(f));}});
+test('expiry and one-use markers fail closed',async()=>{for(const mutate of [f=>f.at=f.grant.expiresAt,f=>f.seenGrantIds=[f.grant.grantId],f=>f.seenEventIds=[f.grant.eventId],f=>f.grant.expiresAt=f.at+3600001]){const f=await fixture();mutate(f);await assert.rejects(()=>planReusableBoardApproval(f));}});
+test('the grant issuance time cannot be substituted independently of the work',async()=>{const f=await fixture();f.grant.issuedAt-=1000;await assert.rejects(()=>planReusableBoardApproval(f),/scope_mismatch/);});
+test('signed-exchange attestation binds exact input, owner, enrollment and expiry',async()=>{const f=await fixture(),approval={v:1,purpose:'sanitized-source-proposal',enrollmentId:f.enrollmentId,inputSha256:f.grant.inputSha256,issuedAt:f.at,expiresAt:f.grant.expiresAt},input={payload:f.payload,approval,ownerId:f.ownerId,enrollmentId:f.enrollmentId,at:f.at};assert.equal((await validateReusableBoardAttestation(input)).inputSha256,approval.inputSha256);for(const change of [{...approval,inputSha256:'b'.repeat(64)},{...approval,enrollmentId:'b'.repeat(64)},{...approval,expiresAt:f.at+3600001},{...approval,purpose:'arbitrary'}])await assert.rejects(()=>validateReusableBoardAttestation({...input,approval:change}));await assert.rejects(()=>validateReusableBoardAttestation({...input,ownerId:'other'}));});

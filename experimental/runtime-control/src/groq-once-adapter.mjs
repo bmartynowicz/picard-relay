@@ -10,7 +10,7 @@ const blocked=code=>new AdapterBlockedError(code,code);
 // Purpose describes input provenance; both values retain the same exact scope.
 const REVIEW_PURPOSES=Object.freeze(['public-source-review','sanitized-source-proposal']);
 /** One exact approved request, one durable allowance. Legacy pilot stays supported. */
-export function createGroqOnceAdapter({enabled=false,apiKey='',gate=null,markerPath='',fetchImpl=globalThis.fetch,now=Date.now,timeoutMs=30000}={}){
+export function createGroqOnceAdapter({enabled=false,apiKey='',gate=null,markerPath='',fetchImpl=globalThis.fetch,now=Date.now,timeoutMs=30000,perGrantCostLatch=false}={}){
  let pendingIncomplete=null;
  // Snapshot administrator configuration: later caller mutation cannot widen scope.
  try{gate=JSON.parse(JSON.stringify(gate));}catch{gate=null;}
@@ -22,10 +22,10 @@ export function createGroqOnceAdapter({enabled=false,apiKey='',gate=null,markerP
  function privateParent(){try{if(!isAbsolute(markerPath)||resolve(markerPath)!==markerPath)return false;const parent=dirname(markerPath),s=lstatSync(parent);return s.isDirectory()&&!s.isSymbolicLink()&&(s.mode&0o077)===0&&s.uid===process.getuid()&&realpathSync(parent)===parent;}catch{return false;}}
  function spent(){try{lstatSync(markerPath);return true;}catch(e){return e.code!=='ENOENT';}}
  function configured(){return enabled===true&&typeof apiKey==='string'&&!!apiKey.trim()&&!/[\r\n]/.test(apiKey)&&approvedScope()&&gate.provider==='groq'&&gate.model===GROQ_MODEL&&gate.harmlessTestOnly===true&&gate.maxCalls===1&&(gate.v===3?retainedCostScopeConfigured(gate,apiKey):gate.accountPlan==='Free'&&gate.noPaidFallback===true&&typeof gate.evidenceRef==='string'&&!!gate.evidenceRef&&Number.isFinite(gate.verifiedAt)&&Number.isFinite(gate.validUntil)&&gate.validUntil>gate.verifiedAt&&gate.validUntil-gate.verifiedAt<=3600000)&&['owner','task'].every(k=>typeof gate[k]==='string'&&gate[k].length>0&&gate[k].length<=200)&&Number.isSafeInteger(timeoutMs)&&timeoutMs>=1&&timeoutMs<=30000&&privateParent();}
- // Reserve shared enrollment before I/O. A crash, rejection (including 402/429)
- // or uncertain response keeps this stop across later grants and restarts.
- // Clearing/re-enrolling requires explicit operator review, never an auto retry.
- function costLatch(){return join(dirname(markerPath),`.groq-cost-${gate.enrollmentId}.pending`);}
+ // Legacy v3 uses an enrollment-wide reservation. Reusable Board work can
+ // isolate the reservation to its own grant; its consumed marker remains durable.
+ // No reservation is automatically reused or retried.
+ function costLatch(){return perGrantCostLatch===true?`${markerPath}.pending`:join(dirname(markerPath),`.groq-cost-${gate.enrollmentId}.pending`);}
  function costStopped(){if(gate?.v!==3)return false;try{lstatSync(costLatch());return true;}catch(e){return e.code!=='ENOENT';}}
  function ready(){return configured()&&(gate.v===3?gate.requestIssuedAt<=now()&&now()<gate.requestExpiresAt:gate.verifiedAt<=now()&&now()<gate.validUntil)&&!spent()&&!costStopped();}
  function syncParent(){const fd=openSync(dirname(markerPath),'r');try{fsyncSync(fd);}finally{closeSync(fd);}}
