@@ -1,3 +1,5 @@
+> Design/review checkpoint. For current behavior, limitations and operations, start with the [documentation index](README.md). Earlier scope and verification statements below describe their checkpoint, not every later release.
+
 # Bounded source candidate
 
 Historical first bounded candidate. Later source releases added exact review/proposal

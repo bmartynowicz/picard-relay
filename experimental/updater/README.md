@@ -1,37 +1,31 @@
-# Picard Relay signed updater — experimental
+# Signed source updater
 
-**Source candidate only. Not installed or activated by this repository.**
+The updater is host support code, installed/enrolled independently of the replaceable runtime source. Disabled repository examples do not activate it. Use the [operations runbook](../../docs/OPERATIONS.md) for current installation, verification, troubleshooting and recovery.
 
-GitHub Actions may test, build, sign with Sigstore ephemeral identity, and publish a source envelope. It never deploys, SSHs into a host, or receives VM/provider credentials. Standard public runners only; no paid runner or provider call.
+![Source publication and host installation](../../docs/images/releases.svg)
 
-The fixed source is `releases/stable.json`. `policy.example.json` stays disabled. The verifier pins the workflow identity, repository, main ref, issuer, and source commit. A separately installed root-owned cosign binary and trust root are required. No long-lived publisher private key lives on the VM.
+## Publication and trust
 
-## Local verification
+The fixed publication is `releases/stable.json`. GitHub Actions tests on Node 24.22.1, builds the 20-module runtime allowlist, signs the manifest using ephemeral Sigstore identity and publishes the source envelope. It never deploys, SSHs or receives VM/provider credentials.
 
-Run `npm test` (Node 24 and OpenSSL). The core, bounded pull, fixed-service-adapter mocks, and verifier-argument tests pass locally. These tests do not establish real Sigstore issuance, production bootstrap, or VM crash safety. Unix socket tests in the separate runtime-control package are blocked by this development sandbox and must pass on the public runner.
+The verifier pins repository, main workflow identity and issuer, and verifies source commit, hashes, schema, expiry and monotonic sequence. A root-controlled cosign binary and trust root are installed separately. A valid signature identifies trusted publication; it is not a proof that code is safe or that a host has installed it.
 
-## Deployment is a separate enrollment
+## Host transaction
 
-`run-once.mjs`, `launch-versioned.mjs`, and systemd files are prepared source, not an installer. `applyPreparedUpdate` requires root, enabled administrator policy, pinned administrator UID and Sigstore mode. The default example cannot activate it. Do not install or enable the timer until host layout, root ownership, immutable releases, service-account separation, control socket, trust root and rollback are verified.
+The separately configured unprivileged fetch service downloads a bounded untrusted envelope into its private inbox. The privileged installation unit allows Unix sockets and denies IP networking. It verifies the envelope before staging, confirms drain before stopping the one fixed service, journals before switching the current source link and verifies readiness. Failed candidate readiness triggers code-only rollback; uncertain drain does not force a stop.
 
-The fixed adapter drains the exact local service before stopping it; an unconfirmed drain never forces a stop. It accepts no remote shell commands or service names. The transaction verifies the complete 11-file allowlist, signature, hashes, schema, expiry and monotonic sequence; journals before switching a same-filesystem current link; and rolls back code only on failed readiness. Durable databases, credentials, invocation markers, grants, firewall, Caddy, SELinux, Node and schema migrations are outside its scope.
+Pending journal, unsafe ownership, operator HOLD, invalid source or verification failure stops progress for review. Never clear these automatically to retry. Do not restore a database or consumed invocation marker during rollback.
 
-Uncertain provider invocations must never be retried because of an update. Pending journal, unsafe ownership, stale lock or failed verification stops progress and requires review. Signed code still requires trusted publisher review: a valid signature is not a safety proof.
+The conventional updater timer checks every five minutes with up to 30 seconds of randomized delay. This schedule exists only on enrolled hosts; publication alone does not activate it.
 
-Production crash/power-loss/disk-full behavior and actual host enrollment remain unverified. GitHub publication is not VM activation.
+## Read-only activity
 
-## Split network / privileged installation
+`activity-report.mjs` and its separate one-minute timer publish `/var/lib/picard-updater-status/status.json`. The observer reads only enabled policy, HOLD presence and fixed systemd metadata. It writes typed state, flags and attempt/outcome timestamps; it cannot start an update and exposes no private logs or credentials.
 
-The prepared host path now separates fetching from installation. `fetch-release.mjs` runs as the verified existing relay account and atomically writes an **untrusted** bounded envelope into a private inbox. `run-once.mjs` opens that inbox file without following symlinks, then performs signature and source verification before staging. The privileged service permits AF_UNIX only and denies IP networking. The fetch unit requires an explicit verified service-user substitution; it is not directly installable as shipped.
+The authenticated console rejects unsafe, oversized, malformed, stale or materially future observations. Installed source identity and last-check success remain separate. The observer script, units and precise SELinux read-only metadata labels are host support outside the 20-module runtime bundle.
 
-Cosign binary and trust-root checks include every ancestor directory: root-owned, nonsymlink and not group/world-writable. Real deployment and enrollment remain separately controlled; committing these templates does not install units, change host settings or authorize a provider request.
+## Qualification
 
-## Read-only console activity
+Run `npm --prefix experimental/updater test` with Node 24 and OpenSSL on Linux. Tests use mocked provider behavior and local TLS/transaction fixtures; no live model is called. Dated installed-source evidence belongs in [Status](../../docs/STATUS.md). Arbitrary crash/power-loss/disk-full behavior and general host bootstrapping are not established by synthetic transaction tests.
 
-`activity-report.mjs` and `picard-updater-activity.service` / `.timer` publish a bounded status observation every minute. The observer only reads the enabled policy, HOLD presence, and fixed systemd metadata for the existing fetch, updater and updater timer units. It cannot invoke an update or change those units. It writes only `/var/lib/picard-updater-status/status.json`, atomically, root-owned and readable as metadata. The file contains typed state, policy/timer flags and attempt/outcome timestamps; no credentials, request text, private logs, paths or raw errors are published.
-
-The runtime reads this fixed file through its existing authenticated status projection. Unsafe ownership, links, writable metadata, malformed/oversized data, observations older than three minutes and future clocks produce an unknown state. Installed release identity is separate from last-check success: a successful check does not necessarily install a new release.
-
-The observer is fixed host support code outside the replaceable 20-module runtime bundle. Deploying its script and units, creating the status directory and enabling its timer require installation authorization. Hosts enforcing SELinux must grant the existing relay domain read-only access to this metadata path; no policy, HOLD, journal, invocation marker or credential access is added to the relay.
-
-The supplied SELinux module labels the metadata directory and exactly the three observed updater unit files. It grants the updater domain `status` on those units, with no new start/stop permission, and grants systemd the directory access needed for the service's protected mount namespace. The observer unit reuses the existing updater's public OpenSSL configuration at `/etc/picard-updater/openssl.cnf`.
+Host configuration, credentials, grants, ledger, firewall/proxy/SELinux configuration, Node binary and schema migration are outside the source update scope.

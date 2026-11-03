@@ -1,3 +1,5 @@
+> Design/review checkpoint. For current behavior, limitations and operations, start with the [documentation index](README.md). Earlier scope and verification statements below describe their checkpoint, not every later release.
+
 # Picard-only completion candidate
 
 Preparation only. No publication, preview hosting, production mutation or model

@@ -1,3 +1,5 @@
+> Design/review checkpoint. For current behavior, limitations and operations, start with the [documentation index](README.md). Earlier scope and verification statements below describe their checkpoint, not every later release.
+
 # Known incomplete responses
 
 A new invocation with a parsed, valid HTTP-200 envelope, the exact configured

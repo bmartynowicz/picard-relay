@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-03",
+  "scope": "Sanitized Picard product work known from the live audit and existing project backlog. Not a complete export of the private owner board.",
+  "operationalRecord": "Owner private task board",
+  "statusGuide": {
+    "implemented_pending_deployment": "Source and targeted regression checks exist; installation/live verification not yet asserted.",
+    "verified_on_deployment": "Fix installed and exact behavior checked on the recorded host release; owner acceptance is separate.",
+    "planned": "Requested or documented unfinished work; no implementation/delivery claim.",
+    "paused": "Existing work deliberately paused; no new authority inferred.",
+    "fixture_only": "Available only as an offline test/design fixture; production enablement is not claimed.",
+    "needs_design": "Scope or authority contract needs design before implementation."
+  },
+  "verification": {
+    "baselineRelease": "0.1.17",
+    "baselineDate": "2026-11-03",
+    "scopeLimit": "Two visible completed jobs; synthetic tests cover additional states. Not an exhaustive defect inventory.",
+    "fixRelease": null,
+    "sourceCommit": null,
+    "workflow": null,
+    "ownerAcceptance": false
+  },
+  "items": [
+    {
+      "id": "PR-BUG-001",
+      "auditId": "R01",
+      "kind": "bug",
+      "severity": "P2",
+      "title": "Browser Back restores a selected job hidden by a retained filter",
+      "status": "implemented_pending_deployment",
+      "behavior": "When history restores a loaded selected job that the filter excludes, Show resets to All loaded jobs and displays its details. Explicit filter changes still clear selection normally.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/oracle-service.mjs"
+      ],
+      "tests": [
+        "test/admission-ui.test.mjs"
+      ],
+      "remaining": "Verify Back/Forward, reload and saved-result access on the installed release."
+    },
+    {
+      "id": "PR-BUG-002",
+      "auditId": "R02",
+      "kind": "bug",
+      "severity": "P3",
+      "title": "Fresh observations briefly say age unknown",
+      "status": "implemented_pending_deployment",
+      "behavior": "Health and updater age display zero seconds for tolerated future skew up to five seconds; stale, invalid and material future-time states remain distinct.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/oracle-service.mjs"
+      ],
+      "tests": [
+        "experimental/runtime-control/test/console-ui.test.mjs"
+      ],
+      "remaining": "Verify a real successful refresh and retained failure/staleness warnings."
+    },
+    {
+      "id": "PR-BUG-003",
+      "auditId": "R03",
+      "kind": "bug",
+      "severity": "P2",
+      "title": "Known reviewed correction is missing beside the original saved proposal",
+      "status": "implemented_pending_deployment",
+      "behavior": "A read-only note and pinned correction link accompany the exact affected original response, matched by entry, input hash, result reference and body. Original text remains unchanged.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/admission-ui.mjs"
+      ],
+      "tests": [
+        "test/admission-ui.test.mjs"
+      ],
+      "remaining": "Verify the note and original response through authenticated HTTPS on desktop and narrow screens."
+    },
+    {
+      "id": "PR-FTR-001",
+      "kind": "feature",
+      "title": "Additional provider connectors",
+      "status": "paused",
+      "currentLimit": "Only the fixed Groq contract is live-supported. No fallback or provider activation is implied.",
+      "next": "Review separate provider identity, costs, scope and uncertainty semantics before activation."
+    },
+    {
+      "id": "PR-FTR-002",
+      "kind": "feature",
+      "title": "Portable host onboarding and installation",
+      "status": "planned",
+      "currentLimit": "Manual advanced host enrollment; no general one-command installer or cross-platform qualification.",
+      "next": "Design and qualify clean-host installation without weakening state, signature or ownership checks."
+    },
+    {
+      "id": "PR-FTR-003",
+      "kind": "feature",
+      "title": "Broader routine request enrollment",
+      "status": "needs_design",
+      "currentLimit": "Only independently enrolled finite catalogue inputs/slots may be approved. Arbitrary new prompts are unsupported.",
+      "next": "Design the smallest supported enrollment workflow and its exact authorization/persistence contract."
+    },
+    {
+      "id": "PR-FTR-004",
+      "kind": "feature",
+      "title": "Controlled execution of generated work",
+      "status": "fixture_only",
+      "currentLimit": "Offline deterministic executor fixtures exist. Live output remains inert text/code.",
+      "next": "Keep production execution disabled until a separately reviewed scope and permission model exists."
+    },
+    {
+      "id": "PR-FTR-005",
+      "kind": "feature",
+      "title": "Portable consuming task-board integration",
+      "status": "planned",
+      "currentLimit": "The original Board integration is application-specific and is not bundled with this repository.",
+      "next": "Define and qualify a consuming client using the existing signed protocol and exact server scope."
+    }
+  ]
+}

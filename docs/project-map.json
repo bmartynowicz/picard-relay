@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-03",
+  "project": "Picard Relay",
+  "summary": "Self-hosted Node.js and SQLite delivery layer for exact approved AI requests, durable one-shot invocation and saved-result recovery.",
+  "documentationIndex": "docs/README.md",
+  "aiEntry": "llms.txt",
+  "contributorInstructions": "AGENTS.md",
+  "sourceOfTruth": {
+    "behavior": "Source and tests at the selected commit",
+    "deployment": "Physical installed manifest/source identity and authenticated host observations",
+    "backlog": "Owner private task board; docs/work-register.json is a sanitized dated snapshot",
+    "historicalDocs": "Checkpoint statements apply to their original date"
+  },
+  "entrypoints": [
+    {
+      "kind": "offline_demo",
+      "command": "npm run demo",
+      "requiresProvider": false,
+      "opensListener": false
+    },
+    {
+      "kind": "preview_runtime",
+      "command": "npm start",
+      "source": "src/oracle-service.mjs",
+      "enabledByDefault": false
+    },
+    {
+      "kind": "signed_runtime",
+      "source": "experimental/runtime-control/src/oracle-service.mjs",
+      "enabledByDefault": false,
+      "requiresHostEnrollment": true
+    }
+  ],
+  "runtime": {
+    "nodeMajor": 24,
+    "ciNodeVersion": "24.22.1",
+    "sourceRoot": "experimental/runtime-control/src",
+    "previewSourceRoot": "src",
+    "moduleCount": 20,
+    "allowlist": "experimental/updater/policy.example.json",
+    "stateSchema": 1
+  },
+  "provider": {
+    "id": "groq:openai/gpt-oss-20b",
+    "model": "openai/gpt-oss-20b",
+    "maxCallsPerGrant": 1,
+    "maxOutputTokens": 512,
+    "tools": false,
+    "executesGeneratedCode": false,
+    "automaticInferenceRetries": 0,
+    "paidFallback": false,
+    "liveBillingVerification": false
+  },
+  "limits": {
+    "catalogueEntries": 8,
+    "catalogueSlotsTotal": 8,
+    "catalogueMaxLifetimeMs": 86400000,
+    "requestMaxLifetimeMs": 3600000,
+    "requestTextMaxCharacters": 4000,
+    "loadedHistoryRows": 100,
+    "ownerSessions": 1,
+    "ownerSessionLifetimeMs": 28800000,
+    "statusStaleAfterMs": 60000,
+    "updaterActivityStaleAfterMs": 180000,
+    "toleratedFutureSkewMs": 5000
+  },
+  "interfaces": {
+    "browser": "docs/API.md",
+    "signedBridgePath": "/bridge/v1",
+    "controlSocket": "operator-configured BRIDGE_CONTROL_SOCKET; no public control route",
+    "controlActions": [
+      "health",
+      "drain"
+    ]
+  },
+  "components": [
+    {
+      "path": "experimental/runtime-control/src/oracle-service.mjs",
+      "role": "service, configuration, owner auth, typed status, base console"
+    },
+    {
+      "path": "experimental/runtime-control/src/admission-ui.mjs",
+      "role": "optional Requests view and inert saved-result display"
+    },
+    {
+      "path": "experimental/runtime-control/src/relay-store.mjs",
+      "role": "durable request and invocation ledger"
+    },
+    {
+      "path": "experimental/runtime-control/src/dispatcher.mjs",
+      "role": "lease/claim, invoke once and reconcile saved reply"
+    },
+    {
+      "path": "experimental/runtime-control/src/receiver.mjs",
+      "role": "signed request action validation"
+    },
+    {
+      "path": "experimental/runtime-control/src/protocol.mjs",
+      "role": "HMAC request/response protocol"
+    },
+    {
+      "path": "experimental/runtime-control/src/admission-runtime.mjs",
+      "role": "finite catalogue and production admission wiring"
+    },
+    {
+      "path": "experimental/updater/updater.mjs",
+      "role": "verified source update transaction"
+    },
+    {
+      "path": "experimental/updater/activity-report.mjs",
+      "role": "read-only updater metadata observer"
+    }
+  ],
+  "release": {
+    "workflow": ".github/workflows/sign-release.yml",
+    "envelope": "releases/stable.json",
+    "githubDeploysHosts": false,
+    "enrolledHostTimerMayInstall": true,
+    "updatesOnly": "allowed runtime source; no database, credentials, grants, host configuration or Node migration"
+  },
+  "checks": [
+    "npm run demo",
+    "npm test",
+    "npm --prefix experimental/updater test",
+    "npm --prefix experimental/runtime-control test",
+    "npm --prefix experimental/runtime-control run test:socket",
+    "npm run docs:check"
+  ],
+  "guides": [
+    "docs/QUICKSTART.md",
+    "docs/CONSOLE-WORKSPACE.md",
+    "docs/ARCHITECTURE.md",
+    "docs/API.md",
+    "docs/OPERATIONS.md",
+    "docs/DEVELOPMENT.md",
+    "docs/LIMITATIONS.md",
+    "docs/WORK-REGISTER.md",
+    "docs/STATUS.md"
+  ],
+  "workRegister": "docs/work-register.json",
+  "illustrations": [
+    {"path":"docs/images/request-flow.svg","textEquivalent":"docs/ARCHITECTURE.md","purpose":"Exact approved request, durable ledger, one provider call and saved result"},
+    {"path":"docs/images/using-picard.svg","textEquivalent":"docs/CONSOLE-WORKSPACE.md","purpose":"New-work approval versus saved-result recovery"},
+    {"path":"docs/images/releases.svg","textEquivalent":"docs/OPERATIONS.md","purpose":"Source publication versus enrolled host installation and state preservation"}
+  ],
+  "unsupported": [
+    "arbitrary prompt submission",
+    "autonomous coding or tool execution",
+    "automatic uncertain invocation replay",
+    "multiple live providers",
+    "live billing/quota verification",
+    "multiuser/SSO/MFA account UI",
+    "portable one-command production installation",
+    "bundled production task-board application"
+  ]
+}

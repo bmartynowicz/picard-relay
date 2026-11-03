@@ -1,0 +1,23 @@
+# Picard Relay
+
+> Small Node.js + SQLite relay for exact approved, bounded AI requests and durable saved results. The current live-provider contract is Groq openai/gpt-oss-20b, one call per grant, no tools/execution/retries/paid fallback. This is not an autonomous coding agent or general task board.
+
+## Read first
+- [Documentation index](docs/README.md): reading order and source-of-truth rules.
+- [Quickstart](docs/QUICKSTART.md): what the relay does, offline demo, console workflow.
+- [AI contributor instructions](AGENTS.md): source trees, checks and operating boundaries.
+- [Structured project map](docs/project-map.json): capabilities, constraints, paths and entrypoints.
+- [Structured work register](docs/work-register.json): known bugs and feature requests with dated states.
+
+## Use and maintain
+- [Console guide](docs/CONSOLE-WORKSPACE.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [API reference](docs/API.md)
+- [Operations and recovery](docs/OPERATIONS.md)
+- [Development](docs/DEVELOPMENT.md)
+- [Limitations](docs/LIMITATIONS.md)
+- [Known work](docs/WORK-REGISTER.md)
+- [Dated verification status](docs/STATUS.md)
+
+## Interpretation
+Top-level src is the offline/preview tree. experimental/runtime-control/src is the complete signed-runtime source. Their roles differ; do not assume a root source edit updates an enrolled host. GitHub signs/publishes source; separately enrolled hosts install it. Completed means saved response, not correct/executed/deployed/accepted work. Free-policy enrollment is retained configuration evidence, not a current billing check. Uncertain invocations remain spent and must not be automatically replayed. Older checkpoint documents are historical; use the current index, actual source/tests and dated host evidence.

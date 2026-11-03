@@ -1,41 +1,39 @@
-# Private console workspace
+# Owner console guide
 
-The existing authenticated console is organized into four client-side views:
+The authenticated console has five views when finite admission is enabled. A host without that feature has four views and no Requests submission controls.
 
-- **Overview:** observed service/readiness state, scoped counters and recent
-  activity. Operational service health does not imply provider capacity.
-- **Jobs:** existing bounded history, aligned rows and a metadata-only inspector.
-  Filters apply only to loaded rows; pagination remains manual and capped at 100.
-- **Groq:** observed availability and the existing Free-only, exact one-request
-  policy. No other provider or request-submission control is introduced.
-- **System:** observed release fingerprint and honestly unknown version/updater
-  information where the runtime does not supply evidence.
+| View | What to use it for |
+| --- | --- |
+| Overview | Check service reachability, provider/new-work availability, result recovery, scoped job counts and recent activity. Read the blocking reason and observation age. |
+| Jobs | Inspect recorded job metadata. Choose a completed row and Open saved result when its result is recoverable from the current catalogue. |
+| Requests | Review one enrolled exact input/hash and slot, approve and queue available work, or check an existing saved result. |
+| Groq | Understand the configured model, Free-only enrollment, output limit, one-use approval and uncertainty/no-retry rules. |
+| System | Inspect readable version, sequence, source commit, physical release fingerprint and dated updater activity. |
 
-Navigation, filtering and inspection make no network requests. Refresh uses the
-existing authenticated `/status` and `/jobs` reads. No backend route, session,
-password, grant, selector, marker, ledger schema or execution authority changes.
-Only the embedded `CONSOLE_HTML` value changes in the signed runtime source.
+![Choose new work or recover a saved result](images/using-picard.svg)
 
-The exact insignia is preserved. Counter motion remains bounded, pausable and
-disabled by reduced-motion preference or hidden visibility. Every added private
-field, selection and accessibility label is cleared on logout, 401, 403 and
-pagehide. Failed reads retain the last actual observation and report uncertainty
-about current availability. Uncertain jobs never acquire a retry action.
+## New work versus recovery
 
-## Synthetic visual qualification
+Reading status, browsing job metadata, refreshing and checking a saved result do not make an AI call. Approve and queue can register one exact available request for a bounded provider invocation. It is disabled for spent or unavailable authority.
 
-Run `node examples/console-preview.mjs <output.html>` to generate one complete
-preview from the exact embedded production HTML. The preview intercepts all data
-requests with deterministic synthetic responses and never falls back to network.
-It contains no owner session, real data, password, provider key or live connection.
-Serve only through an approved preview workflow; the generator starts no server.
-Do not treat this fixture as proof of a real authenticated session, TLS, filesystem
-authorization, native OS reduced-motion preference or successful provider call.
+In Requests, distinguish the input label/source, full exact input, input hash and request slot. Two requests can have the same task title and still be different inputs. The persistent availability explanation remains visible while a saved result is recovered.
 
-The fixture supports responsive widths, stale/unavailable reads, 401/403 privacy
-reset, bounded pagination, motion and count changes. The runtime test harness
-also verifies four-view navigation, loaded-row filters, inspector projection,
-privacy clearing and absence of request-dispatch controls.
+The UI shows the recorded state, formatted inert code/tables and an expandable Original saved text. Completed means a reply was saved; review its contents independently. The narrowly bound Reviewed correction note identifies a known equality-case problem in one historical regression proposal, links to the reviewed cases, and preserves the original response. Other proposals are not automatically reviewed.
 
-Routine-request admission simplification remains separate local work. This
-console does not issue gates, approve jobs, change enrollment or run AI requests.
+## Navigation and history
+
+Views use hash routes; selected jobs/results use `#jobs/<ref>` and `#requests/<ref>`. Reload and successful sign-in preserve the intended destination. If browser history restores a loaded selected job that the retained filter would hide, Show changes to All loaded jobs so the job remains inspectable. Explicitly choosing a filter clears selection normally.
+
+Jobs filters apply to loaded rows only. Paging is manual and capped at 100 loaded rows. The current enrolled request catalogue may not include every job in metadata history. A result outside that catalogue is explained; a different result is never substituted.
+
+## Time, failure and privacy
+
+Times include date/timezone. Observations are manually refreshed. Status older than a minute becomes unknown/stale; updater activity older than three minutes becomes unknown. Up to five seconds of future skew is tolerated as zero age, while a materially future timestamp remains unknown.
+
+A failed refresh can retain the last actual values but must label current health/availability unknown. Saved responses survive allowance exhaustion; new-work readiness and result recovery are separate.
+
+Logout, authentication loss and pagehide clear private inputs/results, selections, counters and accessibility labels. There is one active owner session, with an eight-hour absolute lifetime. Another login can replace it. No browser local/session storage holds tokens.
+
+The insignia and counter animations are bounded and pausable, respect reduced motion and stop when the page is hidden. On narrow screens the input/result disclosures and normal page flow reduce nested scrolling. The complete live workflow should be checked at desktop, 390px and 320px widths after UI changes.
+
+See [Quickstart](QUICKSTART.md), [limitations](LIMITATIONS.md), [API](API.md) and [known work](WORK-REGISTER.md). The synthetic console preview is useful for layout/regression tests; it does not prove live authentication, TLS or provider behavior.

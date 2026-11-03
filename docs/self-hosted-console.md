@@ -1,29 +1,31 @@
-# Self-hosted owner console (candidate)
+# Self-hosted owner authentication
 
-The optional console uses the existing Node loopback listener and HTTPS reverse proxy. It adds no web framework, daemon, provider capability, port or database migration. It is disabled by default. This source is not proof of an activated or qualified deployment.
+The optional console shares the existing loopback Node listener and trusted HTTPS reverse proxy. It is disabled by default and adds no framework or database migration. An enrolled host can activate it independently of the reusable preview.
 
-The public root is an empty setup/login shell. Private status requires an owner session. First-run setup requires a random32-byte, expiring owner proof provisioned through an existing trusted administrator channel; a missing state file is an error, NOT first-visitor enrollment. The owner chooses a password in the HTTPS UI. Successful enrollment atomically disables setup. There is no web password-reset or reinitialization endpoint.
+## Configure an authorized host
 
-## Administrator-reviewed configuration
+- Set `BRIDGE_CONSOLE_ENABLED=true`.
+- `BRIDGE_CONSOLE_AUTH_DIR` must name a real private 0700 runtime-service-owned directory. Its pre-provisioned `auth-state.json` is a 0600 regular single-link file. Keep it separate from provider credentials and the request ledger, and preserve it across updates.
+- `BRIDGE_CONSOLE_ORIGINS` is a JSON array of exact HTTPS origins, without wildcard/HTTP origins. The proxy preserves Host, Origin and cookies.
+- Expose only the routes documented in [API](API.md). The finite-admission routes exist only when that feature is independently configured; preserve the signed bridge route and normal 404 behavior.
+- Verify directory-FD anchored state access under the actual Linux service restrictions and SELinux policy. Do not disable enforcement to make setup succeed.
 
-- `BRIDGE_CONSOLE_ENABLED=true` opts in.
-- `BRIDGE_CONSOLE_AUTH_DIR` is an existing private0700 directory owned by the runtime service; `auth-state.json` must already be a valid0600 regular single-link file. Keep it separate from provider keys and request ledger. Preserve it across signed updates.
-- `BRIDGE_CONSOLE_ORIGINS` is JSON containing exact HTTPS origins, e.g. `["https://relay.example"]`; no wildcard or HTTP origins. The proxy must preserve Host/Origin/cookies.
-- Route only GET `/`, `/status`, `/auth/state` and POST `/auth/setup`, `/auth/login`, `/auth/logout` to the existing loopback service. Preserve the signed bridge route and fallback404. Do not expose the listener directly or give the web process proxy/root write permissions.
-- The deployment owner must review auth-directory labels/permissions, bootstrap delivery and rollback. Linux directory-FD anchored state access must work under the actual service sandbox/SELinux policy. Do not relax enforcement to make it work.
+## First enrollment
 
-`createBootstrapState` is a pure administrator/test schema builder, not an HTTP initializer. It hashes a canonical base64url32-byte code and accepts a bounded time window. Provision proof only when the owner is ready;15minutes is recommended. Do not put plaintext setup code/password/session token in a repository, shared logs, URL query, assistant chat or process arguments. Never reinitialize existing/enrolled state automatically.
+The public root is a setup/login shell. First setup requires a random 32-byte expiring administrator-provisioned proof. A missing or invalid auth-state file is an error, not permission for the first visitor to enroll. The owner enters the proof and chooses a password over HTTPS; successful enrollment durably disables setup.
 
-## Authentication properties and limits
+`createBootstrapState` is an administrator/test schema builder, not a web initializer. It accepts a bounded proof window, at most one hour; a short handoff window is preferable. There is no unauthenticated reset/reinitialization endpoint. Keep proof, passwords and session tokens out of source control, logs, URLs, process arguments and assistant chat.
 
-Password hashing uses native async scrypt, one concurrent operation, persistent5-attempt/minute budget. Sessions are random, stored only as a hash, eight-hour absolute lifetime, one active session. Secure/HttpOnly/SameSite=Strict host-only cookies and exact-origin POST checks are mandatory. Logout durably revokes the current session; failed revocation reports an error rather than success. Lost/expired sessions require login. This is one-owner authentication, not SSO/MFA or multiuser authorization.
+## Passwords and sessions
 
-The global login budget can be abused to deny login temporarily; it bounds CPU/memory, not DDoS resilience. Stale state locks and corruption fail closed and require an administrator diagnosis, never an unauthenticated reset. Password12..128UTF8bytes; choose a strong unique password.
+Passwords accept **8–128 UTF-8 bytes**, with no character-mix rule. The UI explains the byte bound; non-ASCII characters may use multiple bytes. Hashing uses native asynchronous scrypt, one concurrent operation and a persistent five-attempt/minute budget.
 
-## Read-only data and UI
+Sessions use random tokens stored only as hashes on the server. Cookies are Secure, HttpOnly, SameSite=Strict and host-only. The absolute session lifetime is eight hours, with one active owner session. A new login can invalidate an older one. Logout is confirmed only after durable revocation; a failed revocation reports uncertainty.
 
-Only configured owner/task aggregate counts, readiness and verified release identity are projected. No messages, results, owner/task IDs, provider keys or arbitrary runtime objects reach the page. Unknown fields remain unknown. Status snapshot time is not last provider activity. UI uses exact small README insignia, optional reduced-motion-aware animation and manual refresh; no polling service/external assets or browser token storage.
+This is one-owner password authentication, not SSO, MFA, multiuser authorization or DDoS protection. Rate limits can temporarily deny login. Locks/corrupt state fail closed and need operator diagnosis rather than automatic repair.
 
-## Verification
+## What authentication permits
 
-Run `npm run test:console` under `experimental/runtime-control` and the full runtime suite. Tests cover proof replay/expiry/concurrent enrollment, filesystem tampering, bounded hashing, session restart/logout, Origin/Host/cookies, exact routes, UI interruption/stale/error behavior and zero-provider loopback lifecycle. Actual deployment also requires trustedTLS, both-origin proxy/auth behavior, SELinux filesystem access and real desktop/mobile browser inspection. Do not mark those proven from local tests alone.
+Status and Jobs expose typed scoped metadata rather than request/result bodies. When finite admission is enabled, authenticated Requests exposes the enrolled exact input and its saved result through separate scoped routes. Session authentication does not authorize arbitrary prompts, tools, providers or grants.
+
+See [Console guide](CONSOLE-WORKSPACE.md), [Operations](OPERATIONS.md) and the source/tests in `experimental/runtime-control/`. Local tests and a valid cookie do not by themselves prove trusted public TLS or the target host's filesystem policy.
