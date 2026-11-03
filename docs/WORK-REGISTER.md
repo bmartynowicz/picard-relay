@@ -26,13 +26,21 @@ The original failed-versus-uncertain mismatch was already corrected in earlier s
 
 The [PR #3](https://github.com/bmartynowicz/picard-relay/pull/3) [signed release](https://github.com/bmartynowicz/picard-relay/actions/runs/41731254396) was installed and verified on November 3, 2026. Configuration, all 18 historical markers and ledger counts were preserved. No real provider failure or replay was manufactured; see [Status](STATUS.md) for the exact installed-code fixture and live-check boundaries. Owner acceptance is separate.
 
+## Live-data follow-up
+
+| ID | Priority | Issue | Current state |
+| --- | --- | --- | --- |
+| PR-BUG-005 | P1 | The console retains the legacy catalogue-task filter and requires manual refresh, hiding other real jobs and failed outcomes. | Candidate implemented with owner/task isolation, live-refresh and browser regressions; deployment/live reconciliation pending. |
+
+A read-only live comparison on November 3, 2026 showed two completed jobs in the old console scope versus 13 completed, 1 failed and 3 uncertain jobs for the configured owner. The correction uses the scope of the already-enabled reusable Board workflow, keeps other owners excluded, adds read-only visible-tab refresh and moves static request policy below current data. No provider call, grant renewal or access for another owner is added.
+
 ## Requested or unfinished features
 
 | ID | Feature | State / limitation |
 | --- | --- | --- |
 | PR-FTR-001 | Additional provider connectors | Paused. Groq remains the only supported live provider; there is no paid fallback. |
 | PR-FTR-002 | Portable host onboarding/installer | Planned. Current deployment needs explicit Linux host enrollment and verification. |
-| PR-FTR-003 | Broader routine request enrollment | Needs design. Finite exact catalogue requests work; arbitrary new prompts do not. |
+| PR-FTR-003 | Broader routine request enrollment | Needs design for general console enrollment. Finite console requests and separately enabled exact approved signed Board work exist; an arbitrary console prompt form does not. |
 | PR-FTR-004 | Controlled execution | Offline fixtures only. No live generated code, shell or tools are executed. |
 | PR-FTR-005 | Portable task-board integration | Planned. The original consuming Board app is not included in this repository. |
 

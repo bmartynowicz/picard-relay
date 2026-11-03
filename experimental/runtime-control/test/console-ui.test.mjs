@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"d9d1baf7a6818ee82b64a75519203381bd7b42367cd900c34afcc15a550345c9");
+assert.equal(createHash('sha256').update(script).digest('hex'),"e8137d8b40a8579064ad617977269c56ff90f2b1b10e30d8d66cbaa025c5a0e7");
 assert.equal(createHash('sha256').update(html.match(/aria-label="Picard Relay ASCII Starfleet insignia">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|@import|url\(/i.test(html));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -101,7 +101,7 @@ await app.get('jobs-list').children[0].children[0].listeners.click();assert.equa
 for(const [filter,expected] of [['completed',1],['active',1],['attention',1],['all',3]]){app.get('jobs-filter').value=filter;app.get('jobs-filter').listeners.change();assert.equal(app.get('jobs-list').children.length,expected);assert.equal(app.get('job-details').hidden,true);assert.equal(app.get('detail-ref').textContent,'-');}
 assert.equal(app.requests.length,requestsBeforeNavigation);assert.equal(app.get('activity-list').children.length,3);
 assert.equal(app.get('groq-availability').textContent,'Not available for new work');assert.match(app.get('groq-blocking').textContent,/unavailable|not supplied|not reported/i);
-assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.ok(!/<details|<summary/.test(html));
+assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.match(html,/<details class="technical"><summary>Request limits and safeguards<\/summary>/);assert.equal((html.match(/<details/g)||[]).length,1);
 
 for(const event of ['logout','401','403','pagehide']){
  let lost=false;const code=event==='403'?403:401;
@@ -120,7 +120,7 @@ for(const failure of ['http503','invalid-json','network']){
  const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):failed?(failure==='http503'?bad(503,'PRIVATE_READ_ERROR'):failure==='invalid-json'?ok({v:1}):Promise.reject(Error('PRIVATE_NETWORK_ERROR'))):ok({...health,observedAt:new Date(time).toISOString()}),{clock:FreshnessClock});
  await flush();const oldTimers=[...q.timers.values()];assert.equal(q.get('health-heading').textContent,'Relay reachable - new work blocked');failed=true;await q.click('refresh');
  assert.equal(q.get('health-heading').textContent,'Current health unknown');assert.equal(q.get('health-heading').dataset.tone,'unknown');const failureNotice=q.get('notice').textContent;
- time+=61000;for(const callback of oldTimers)callback();for(const callback of [...q.timers.values()])callback();
+ time+=61000;for(const callback of oldTimers)await callback();for(const callback of [...q.timers.values()])await callback();
  assert.equal(q.get('notice').textContent,failureNotice);assert.match(failureNotice,/Current health is unknown/);assert.equal(q.get('completed').textContent,'2');assert.equal(q.get('groq-availability').textContent,'Current availability unknown');assert.equal(JSON.stringify([...q.els.values()]).includes('PRIVATE_'),false);
  failed=false;await q.click('refresh');assert.equal(q.get('health-heading').textContent,'Relay reachable - new work blocked');assert.equal(q.get('notice').hidden,true);
 }
@@ -149,3 +149,16 @@ for(const [age,label,unknown] of [[-5001,'age unknown',true],[-5000,'0 seconds a
  if(age< -5000)assert.match(q.get('health-heading').textContent,/clock mismatch/);
 }
 console.log('PASS fresh observation: tolerated skew displays zero age; material future and stale observations retain their warnings.');
+
+// Live updates read only current status/history. Owner totals, failures and
+// provider activity must stay aligned, and private data clears on auth loss.
+let liveCompleted=13,liveFailure=false,liveAuthLost=false;
+const live=harness(async path=>path==='/auth/state'?ok({enrolled:true}):liveAuthLost?bad(401,'auth_failed'):liveFailure?bad(503,'PRIVATE_LIVE_ERROR'):ok({...health,scope:'owner',observedAt:new Date().toISOString(),jobs:{...health.jobs,claimed:1,invoking:2,completed:liveCompleted,failed:1,uncertain:3}}),{jobsHandler:async()=>ok(page([completedJob,job]))});
+await flush();assert.equal(live.get('completed').textContent,'13');assert.equal(live.get('failed').textContent,'1');assert.equal(live.get('invoking').textContent,'3');assert.equal(live.get('groq-completed').textContent,'13');assert.equal(live.get('groq-failed').textContent,'1');assert.match(live.get('data-scope').textContent,/across approved tasks/);assert.match(live.get('live-feed').textContent,/every 15 seconds/);assert.equal(live.get('groq-activity').children.length,2);
+async function tickLive(h){const timer=[...h.timers].find(([,fn])=>fn.name==='refreshLive');assert.ok(timer,'a bounded live refresh is scheduled');h.timers.delete(timer[0]);await timer[1]();await flush();}
+liveCompleted=14;await tickLive(live);assert.equal(live.get('completed').textContent,'14');assert.equal(live.get('groq-completed').textContent,'14');assert.ok(live.requests.every(r=>r.options.method==='GET'));assert.ok(live.requests.filter(r=>r.path==='/status').length===2);
+live.document.visibilityState='hidden';live.dl.visibilitychange();assert.equal([...live.timers.values()].some(fn=>fn.name==='refreshLive'),false);live.document.visibilityState='visible';live.dl.visibilitychange();await tickLive(live);
+liveFailure=true;await tickLive(live);assert.equal(live.get('completed').textContent,'14');assert.equal(live.get('groq-completed').textContent,'14');assert.match(live.get('live-feed').textContent,/connection unavailable/);assert.match(live.get('health-heading').textContent,/unknown/);assert.equal(JSON.stringify([...live.els.values()]).includes('PRIVATE_LIVE_ERROR'),false);
+liveFailure=false;liveCompleted=15;await tickLive(live);assert.equal(live.get('completed').textContent,'15');assert.equal(live.get('groq-completed').textContent,'15');
+liveAuthLost=true;await tickLive(live);assert.equal(live.get('private').hidden,true);assert.equal(live.get('failed').textContent,'—');assert.equal(live.get('groq-failed').textContent,'—');assert.equal(live.get('groq-activity').children.length,0);assert.equal([...live.timers.values()].some(fn=>fn.name==='refreshLive'),false);
+console.log('PASS live data: current owner totals/failures match Groq activity; bounded read-only polling; hidden-tab pause/resume; failure stays unknown; recovery after actual read; auth loss clears data and timers.');

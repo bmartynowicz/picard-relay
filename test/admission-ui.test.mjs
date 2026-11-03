@@ -97,6 +97,10 @@ for(const state of ['uncertain','failed'])test('terminal '+state+' reads never o
 test('saved result does not replace the persistent availability reason',async()=>{
  const h=harness({cataloguePatch:{admissionReady:false,blockingCode:'allowance_unavailable'}});await flush();h.setJob('completed');await h.click('nav-requests');const reason=h.get('admission-capability').textContent;assert.match(reason,/allowance|spent|used/i);await h.click('admission-check');assert.equal(h.get('admission-capability').textContent,reason);assert.equal(h.get('admission-notice').textContent,'Saved result ready.');assert.equal(h.get('admission-approve').disabled,true);
 });
+
+test('spent console examples have no prominent slot warning and cannot submit work',async()=>{
+ const h=harness();await flush();h.setJob('completed');await h.click('nav-requests');assert.equal(h.get('admission-capability').hidden,true);assert.equal(h.get('admission-approve').disabled,true);assert.equal(h.get('admission-capability').textContent.includes('No available enrolled slots'),false);await h.click('admission-check');assert.equal(h.get('admission-result').hidden,false);assert.equal(h.requests.some(r=>r.options.method==='POST'),false);
+});
 test('duplicate task titles retain distinct input labels and hashes',async()=>{
  const entry=(entryId,ref)=>({entryId,requestText:entryId,inputSha256,taskContext:{title:'Same task',nextAction:'',latestFinding:''},slots:[{slotId:'slot',ref,state:'completed'}]});
  const h=harness({cataloguePatch:{entries:[entry('function',ref),entry('regression','d'.repeat(64))]}});await flush();await h.click('nav-requests');const labels=h.get('admission-entry').children.map(n=>n.textContent);assert.equal(new Set(labels).size,2);assert.match(labels[0],/function/);assert.match(labels[1],/regression/);assert.match(h.get('admission-identity').textContent,new RegExp(inputSha256));

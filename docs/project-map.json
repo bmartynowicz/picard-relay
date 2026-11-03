@@ -63,7 +63,8 @@
     "ownerSessionLifetimeMs": 28800000,
     "statusStaleAfterMs": 60000,
     "updaterActivityStaleAfterMs": 180000,
-    "toleratedFutureSkewMs": 5000
+    "toleratedFutureSkewMs": 5000,
+    "visibleConsoleRefreshIntervalMs": 15000
   },
   "interfaces": {
     "browser": "docs/API.md",
@@ -72,7 +73,12 @@
     "controlActions": [
       "health",
       "drain"
-    ]
+    ],
+    "consoleHistoryScope": {
+      "reusableBoardAdmissionEnabled": "configured owner across approved tasks",
+      "otherwise": "configured owner and allowed task",
+      "crossOwnerAccess": false
+    }
   },
   "components": [
     {
@@ -140,9 +146,21 @@
   ],
   "workRegister": "docs/work-register.json",
   "illustrations": [
-    {"path":"docs/images/request-flow.svg","textEquivalent":"docs/ARCHITECTURE.md","purpose":"Exact approved request, durable ledger, one provider call and saved result"},
-    {"path":"docs/images/using-picard.svg","textEquivalent":"docs/CONSOLE-WORKSPACE.md","purpose":"New-work approval versus saved-result recovery"},
-    {"path":"docs/images/releases.svg","textEquivalent":"docs/OPERATIONS.md","purpose":"Source publication versus enrolled host installation and state preservation"}
+    {
+      "path": "docs/images/request-flow.svg",
+      "textEquivalent": "docs/ARCHITECTURE.md",
+      "purpose": "Exact approved request, durable ledger, one provider call and saved result"
+    },
+    {
+      "path": "docs/images/using-picard.svg",
+      "textEquivalent": "docs/CONSOLE-WORKSPACE.md",
+      "purpose": "New-work approval versus saved-result recovery"
+    },
+    {
+      "path": "docs/images/releases.svg",
+      "textEquivalent": "docs/OPERATIONS.md",
+      "purpose": "Source publication versus enrolled host installation and state preservation"
+    }
   ],
   "unsupported": [
     "arbitrary prompt submission",

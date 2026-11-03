@@ -120,6 +120,24 @@
       }
     },
     {
+      "id": "PR-BUG-005",
+      "kind": "bug",
+      "severity": "P1",
+      "title": "Live console retains a legacy task filter and static observations",
+      "status": "implemented_pending_deployment",
+      "behavior": "For already-enabled reusable Board admission, show owner-wide metadata and failed counts; automatically read status/latest history every15seconds while visible, pause hidden/auth-lost pages, and show live Groq activity. Quiet the spent console catalogue without changing approval controls.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/oracle-service.mjs",
+        "experimental/runtime-control/src/admission-ui.mjs"
+      ],
+      "tests": [
+        "experimental/runtime-control/test/console-live-data.test.mjs",
+        "experimental/runtime-control/test/console-ui.test.mjs",
+        "test/admission-ui.test.mjs"
+      ],
+      "remaining": "Candidate source with regression and browser checks; deployment and live ledger reconciliation remain to be completed."
+    },
+    {
       "id": "PR-FTR-001",
       "kind": "feature",
       "title": "Additional provider connectors",
@@ -140,7 +158,7 @@
       "kind": "feature",
       "title": "Broader routine request enrollment",
       "status": "needs_design",
-      "currentLimit": "Only independently enrolled finite catalogue inputs/slots may be approved. Arbitrary new prompts are unsupported.",
+      "currentLimit": "The console accepts only finite pre-enrolled inputs/slots. Separately enabled signed Board workflows may register exact approved work across the same owner's tasks; a general console enrollment workflow remains unimplemented.",
       "next": "Design the smallest supported enrollment workflow and its exact authorization/persistence contract."
     },
     {
