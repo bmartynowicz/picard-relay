@@ -39,12 +39,13 @@ export async function writeUpdaterActivity(value,{root=ROOT,uid=0}={}){
 }
 export async function collectUpdaterActivity(){
  if(process.getuid()!==0)throw Error('administrator_required');
- let report;try{
+ let report,phase='policy';try{
   const policy=await safeJson('/etc/picard-updater/policy.json',0,16384);
-  let held=false;try{const s=await fs.lstat('/var/lib/picard-updater/HOLD');if(!s.isFile()||s.isSymbolicLink()||s.uid!==0||(s.mode&0o077))throw Error('unsafe_evidence');held=true;}catch(e){if(e.code!=='ENOENT')throw e;}
-  const metadata={};for(const [kind,unit] of Object.entries(units)){const raw=execFileSync('/usr/bin/systemctl',['show',unit,'--property='+fields.join(',')],{encoding:'utf8',timeout:1500,maxBuffer:16384,env:{PATH:'/usr/bin:/bin',LANG:'C',TZ:'UTC'}});metadata[kind]=Object.fromEntries(raw.trim().split('\n').map(line=>{const at=line.indexOf('=');return [line.slice(0,at),line.slice(at+1)];}).filter(([key])=>fields.includes(key)));}
+  phase='hold';let held=false;try{const s=await fs.lstat('/var/lib/picard-updater/HOLD');if(!s.isFile()||s.isSymbolicLink()||s.uid!==0||(s.mode&0o077))throw Error('unsafe_evidence');held=true;}catch(e){if(e.code!=='ENOENT')throw e;}
+  const metadata={};for(const [kind,unit] of Object.entries(units)){phase=kind;const raw=execFileSync('/usr/bin/systemctl',['show',unit,'--property='+fields.join(',')],{encoding:'utf8',timeout:1500,maxBuffer:16384,env:{PATH:'/usr/bin:/bin',LANG:'C',TZ:'UTC'}});metadata[kind]=Object.fromEntries(raw.trim().split('\n').map(line=>{const at=line.indexOf('=');return [line.slice(0,at),line.slice(at+1)];}).filter(([key])=>fields.includes(key)));}
+  phase='projection';
   report=summarizeUpdaterActivity({policyEnabled:policy.enabled,held,...metadata});
- }catch{report={v:1,state:'unknown',reasonCode:'metadata_unavailable',observedAt:new Date().toISOString(),configured:null,timerEnabled:null,timerActive:null,lastAttemptAt:null,lastFinishedAt:null,lastOutcome:'unknown'};}
+ }catch(error){console.error(JSON.stringify({state:'observation_unavailable',phase,code:typeof error.code==='string'&&/^[A-Z_]{1,30}$/.test(error.code)?error.code:'metadata_unavailable'}));report={v:1,state:'unknown',reasonCode:'metadata_unavailable',observedAt:new Date().toISOString(),configured:null,timerEnabled:null,timerActive:null,lastAttemptAt:null,lastFinishedAt:null,lastOutcome:'unknown'};}
  await writeUpdaterActivity(report);console.log(JSON.stringify({state:report.state,reasonCode:report.reasonCode}));
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)await collectUpdaterActivity();

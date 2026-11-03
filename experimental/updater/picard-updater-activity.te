@@ -1,16 +1,21 @@
-module picard_updater_activity 1.1;
+module picard_updater_activity 1.2;
 
 require {
  type picard_updater_t;
  type httpd_t;
  type init_t;
  attribute file_type;
+ attribute systemd_unit_file_type;
  class dir { add_name remove_name search open read getattr write setattr mounton };
  class file { create open read write getattr setattr rename unlink };
+ class service { status };
 }
 
 type picard_updater_status_t;
 typeattribute picard_updater_status_t file_type;
+type picard_updater_observed_unit_t;
+typeattribute picard_updater_observed_unit_t file_type;
+typeattribute picard_updater_observed_unit_t systemd_unit_file_type;
 
 # The observer can publish only its dedicated metadata type.
 allow picard_updater_t picard_updater_status_t:dir { search open read getattr write add_name remove_name };
@@ -20,4 +25,5 @@ allow httpd_t picard_updater_status_t:dir { search open read getattr };
 allow httpd_t picard_updater_status_t:file { open read getattr };
 # systemd checks the StateDirectory and bind-mounts it into the read-only namespace.
 allow init_t picard_updater_status_t:dir { search open read getattr setattr mounton };
-
+# Read metadata for the three fixed updater units; grant no start/stop permission.
+allow picard_updater_t picard_updater_observed_unit_t:service status;
