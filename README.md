@@ -1,5 +1,11 @@
 # PICARD RELAY
 
+A small Node.js + SQLite relay that takes an exact approved AI request, sends it once, and preserves the saved result for recovery. It does not execute generated code.
+
+**Start here:** [What it does and how to use it](docs/QUICKSTART.md) · [Documentation](docs/README.md) · [Limitations](docs/LIMITATIONS.md) · [Known bugs and features](docs/WORK-REGISTER.md) · [For AI tools](llms.txt)
+
+![How a Picard request travels](docs/images/request-flow.svg)
+
 ```text
                     ###
                    ## ##
@@ -42,7 +48,7 @@ A lightweight, self-hosted relay for routing tasks to AI providers and reliably 
 
 Picard Relay is a lightweight Node.js + SQLite relay for bounded AI requests. It preserves request identity, claims work once, stores correlated responses, and refuses to automatically retry an invocation whose outcome is uncertain.
 
-**Status: early source preview.** The simplest working entry point is an offline demo. The signed-runtime source supports an exact-scoped Groq text adapter, private authenticated console and opt-in signed updates after separately reviewed host enrollment. It is not a portable board application or universal provider router. This repository stores code and signed source envelopes. **GitHub Actions tests, signs and publishes source releases only; it never deploys.**
+**Status: offline preview plus separately enrolled signed runtime.** The simplest working entry point is an offline demo. The signed-runtime source supports an exact-scoped Groq text adapter, private authenticated console and opt-in signed updates after separately reviewed host enrollment. It is not a portable board application or universal provider router. This repository stores code and signed source envelopes. **GitHub Actions tests, signs and publishes source releases only; it never deploys.**
 
 ## Try it locally — no account or API key
 

@@ -1,32 +1,20 @@
-> Signing-only GitHub Actions now builds and publishes signed source envelopes. No workflow deploys or contacts the VM. The updater remains disabled until separately enrolled; see [updated updater documentation](updater/README.md). Earlier offline-snapshot statements below describe the initial checkpoint.
+# Signed runtime and updater source
 
-# Experimental updates and runtime control
+This directory contains the complete signed-runtime source and separately installed updater support. The name `experimental` reflects its origin; it is not a claim that every current host is uninstalled. Repository templates remain disabled by default, and a working enrolled host does not qualify arbitrary fresh installations.
 
-**NOT PRODUCTION-READY. NOT INSTALLED. DISABLED BY DEFAULT.**
+Start with the [current documentation index](../docs/README.md), [architecture](../docs/ARCHITECTURE.md), [operations](../docs/OPERATIONS.md), [limitations](../docs/LIMITATIONS.md) and [dated status](../docs/STATUS.md).
 
-These are isolated design/test checkpoints, not replacements for the top-level `src/` runtime. Publishing this directory does not enable updates, install a scheduler, alter a running service, authorize a model call, or deploy anything through GitHub Actions.
+- [runtime-control](runtime-control/README.md): the complete 20-module source tree packaged for an enrolled host, including the private console, finite admission and durable request lifecycle.
+- [updater](updater/README.md): bounded download, Sigstore/source verification, fixed local service control, code-switch/rollback transaction and read-only activity observer.
 
-- [`updater/`](updater/README.md): signed-manifest/source verification, bounded HTTPS retrieval, offline code-switch/rollback transactions and disabled administrator policy. Only an explicit `offline-test` adapter is accepted. No production privileged service-control adapter exists.
-- [`runtime-control/`](runtime-control/README.md): separate complete runtime snapshot with proposed private health/drain socket, durable admission stop, busy-invocation settlement, and physical release/source identity checks. The current top-level runtime remains unchanged.
+GitHub Actions tests, signs and publishes a source envelope. It does not receive host/provider credentials or deploy. An independently enabled host timer can consume a valid publication.
 
-## Test locally (Linux, Node 24, OpenSSL)
-
-From the repository root:
+Run the exact release checks on Linux with Node 24 and OpenSSL:
 
 ```sh
 npm --prefix experimental/updater test
 npm --prefix experimental/runtime-control test
+npm --prefix experimental/runtime-control run test:socket
 ```
 
-These use synthetic work and local temporary storage/TLS fixtures, not live providers. The separate `npm --prefix experimental/runtime-control run test:socket` requires an environment that permits Unix-domain sockets. A sandbox denial is not a passing socket test.
-
-## Production gates still open
-
-1. Independently review a narrowly privileged, fixed local service-control adapter and administrator/publisher key custody.
-2. Validate a one-time migration from a flat runtime directory to immutable versioned releases; do not assume an existing service follows the candidate layout.
-3. Prove real Unix-socket permissions, SELinux policy and positive root-owned release identity in the intended environment.
-4. Validate real process/power-loss, disk-full, rollback and journal recovery behavior. Simulated persisted state is not a power-loss test.
-5. Confirm drain before stopping; stop grace must exceed the provider timeout (at least 45 seconds for a 30-second bound). Preserve all ledgers, queued work and consumed/uncertain invocation markers.
-6. Explicitly enroll the update source, public signing key, complete file allowlist and any schedule. None is enrolled here.
-
-Credentials, authorization grants, databases, certificate state, firewall, Node binary and system service configuration are outside replaceable runtime source. Rollback never means restoring a database or retrying an uncertain provider invocation.
+They use synthetic work and local fixtures, not live provider calls. Preserve all ledgers, consumed/uncertain markers, grants, auth state and operator checkpoints during updates. Source replacement does not change credentials, host policy, Node or schemas. Power-loss, disk-full and new-host qualification limits remain explicit; see [Status](../docs/STATUS.md). The older [verification checkpoint](VERIFICATION.md) retains its original October 29 scope.

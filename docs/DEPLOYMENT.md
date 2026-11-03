@@ -31,7 +31,7 @@ Configure cloud ingress and guest firewall separately. Service startup is not pr
 
 ## Updates
 
-Deploy manually from a reviewed commit. Stop new claims, preserve database/credentials, test the candidate, restart under supervision, and verify actual signed requests/results. Do not roll back durable state blindly: doing so can re-invoke work already sent. Automatic updating is future work. No Actions workflows or webhook deployment mechanisms are included.
+Deploy manually from a reviewed commit. Stop new claims, preserve database/credentials, test the candidate, restart under supervision, and verify actual signed requests/results. Do not roll back durable state blindly: doing so can re-invoke work already sent. The separately enrolled signed updater and signing-only GitHub workflow now exist. GitHub publishes source; it does not deploy. Use [Operations](OPERATIONS.md) for the current update, verification and recovery procedure.
 
 ## Signed requests and redirects
 

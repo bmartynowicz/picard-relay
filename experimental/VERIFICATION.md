@@ -1,3 +1,5 @@
+> Historical October 29 checkpoint. See the [current dated status](../docs/STATUS.md) for later qualification; retain the original limits below for this checkpoint.
+
 # Experimental snapshot verification
 
 Rerun against the sanitized public candidate on 2026-10-29, Linux, Node 24.22.1.
