@@ -62,6 +62,7 @@ Afterwards, independently verify:
 - Service and result recovery are ready; no unexpected busy/draining or unresolved-invocation state exists. Provider readiness may intentionally be false when allowances are spent.
 - Configuration, historical markers and ledger counts are preserved unless an independently authorized request explains a change.
 - Authenticated System, Jobs and Requests work through real HTTPS. Reproduce the changed behavior at desktop and narrow widths.
+- Reconcile console counts and loaded job references/states with the matching configured owner/task ledger query. Check scope and automatic observation updates; host-global health totals can include a different scope.
 - The updater reports its actual last attempt/outcome. A successful check can mean no newer release was installed.
 
 Record code tested, source merged, envelope published, host installed, live behavior verified and owner acceptance separately.

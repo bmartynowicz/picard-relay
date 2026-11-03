@@ -9,7 +9,8 @@
     "planned": "Requested or documented unfinished work; no implementation/delivery claim.",
     "paused": "Existing work deliberately paused; no new authority inferred.",
     "fixture_only": "Available only as an offline test/design fixture; production enablement is not claimed.",
-    "needs_design": "Scope or authority contract needs design before implementation."
+    "needs_design": "Scope or authority contract needs design before implementation.",
+    "installed_pending_live_verification": "Signed source is installed and its code/state checks passed; final authenticated production browser comparison is still pending."
   },
   "verification": {
     "baselineRelease": "0.1.17",
@@ -124,7 +125,7 @@
       "kind": "bug",
       "severity": "P1",
       "title": "Live console retains a legacy task filter and static observations",
-      "status": "implemented_pending_deployment",
+      "status": "installed_pending_live_verification",
       "behavior": "For already-enabled reusable Board admission, show owner-wide metadata and failed counts; automatically read status/latest history every15seconds while visible, pause hidden/auth-lost pages, and show live Groq activity. Quiet the spent console catalogue without changing approval controls.",
       "sourceFiles": [
         "experimental/runtime-control/src/oracle-service.mjs",
@@ -135,7 +136,41 @@
         "experimental/runtime-control/test/console-ui.test.mjs",
         "test/admission-ui.test.mjs"
       ],
-      "remaining": "Candidate source with regression and browser checks; deployment and live ledger reconciliation remain to be completed."
+      "remaining": "Restore the owner review session and reconcile the authenticated production counters/history with the same owner ledger; local browser and installed-source checks passed.",
+      "verification": {
+        "verifiedAt": "2026-11-03",
+        "release": "0.1.22",
+        "sequence": 22001,
+        "sourceCommit": "f20c1194895074dc8f4633d84ebeff7d28526a75",
+        "releaseHash": "62127b8e10e1fa3298636b29b03431b7f039e4fbabdb3a9f6954b1af1274ca9c",
+        "workflow": "https://github.com/bmartynowicz/picard-relay/actions/runs/41734484111",
+        "pullRequest": "https://github.com/bmartynowicz/picard-relay/pull/4",
+        "installedModuleCount": 20,
+        "allInstalledBytesMatchSignedManifestAndMergedSource": true,
+        "installedScopeFixtureCases": 3,
+        "fixtureModes": [
+          "normal",
+          "--jitless"
+        ],
+        "candidateBrowserChecks": [
+          "desktop",
+          "390px and320px without overflow",
+          "automatic observation updates",
+          "failed/uncertain history",
+          "quiet spent catalogue and disabled approval",
+          "saved result recovery"
+        ],
+        "ownerLedgerCounts": {
+          "completed": 13,
+          "failed": 1,
+          "uncertain": 3
+        },
+        "ownerRecentJobCount": 17,
+        "baselineInvocationMarkersPreserved": 18,
+        "providerCalls": 0,
+        "productionBrowser": "Final authenticated production visual ledger reconciliation pending.",
+        "ownerAcceptance": false
+      }
     },
     {
       "id": "PR-FTR-001",

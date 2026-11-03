@@ -30,9 +30,11 @@ The [PR #3](https://github.com/bmartynowicz/picard-relay/pull/3) [signed release
 
 | ID | Priority | Issue | Current state |
 | --- | --- | --- | --- |
-| PR-BUG-005 | P1 | The console retains the legacy catalogue-task filter and requires manual refresh, hiding other real jobs and failed outcomes. | Candidate implemented with owner/task isolation, live-refresh and browser regressions; deployment/live reconciliation pending. |
+| PR-BUG-005 | P1 | The console retains the legacy catalogue-task filter and requires manual refresh, hiding other real jobs and failed outcomes. | Installed on v0.1.22. Signed source, installed-code isolation and local browser checks passed; final authenticated production visual reconciliation awaits owner sign-in. |
 
 A read-only live comparison on November 3, 2026 showed two completed jobs in the old console scope versus 13 completed, 1 failed and 3 uncertain jobs for the configured owner. The correction uses the scope of the already-enabled reusable Board workflow, keeps other owners excluded, adds read-only visible-tab refresh and moves static request policy below current data. No provider call, grant renewal or access for another owner is added.
+
+[PR #4](https://github.com/bmartynowicz/picard-relay/pull/4) and its [signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41734484111) delivered source `f20c1194895074dc8f4633d84ebeff7d28526a75` as v0.1.22/22001, physical release `62127b8e10e1fa3298636b29b03431b7f039e4fbabdb3a9f6954b1af1274ca9c`. All20 installed files match. The host is healthy; configuration,18markers and13completed/1failed/3uncertain records are preserved. No new provider call or grant was used. Three actual owner-scope fixture cases passed against installed code normally and jitless. Final production browser reconciliation is explicitly pending, not claimed from the synthetic preview.
 
 ## Requested or unfinished features
 

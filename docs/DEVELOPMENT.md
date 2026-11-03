@@ -51,6 +51,8 @@ The current correction note is tied to entry identity, input hash, result refere
 
 Inspect the actual changed flow at desktop, 390px and 320px widths. For history changes reproduce browser Back/Forward as well as reload; for result changes check both known inputs and original text. Confirm no page overflow, reachable controls, visible focus, proper heading levels and preserved disabled/spent approvals. Use synthetic read-only fixtures before merging, then verify the authorized deployment through authenticated HTTPS.
 
+For status/history changes, test mixed-owner/task records and reconcile the actual authenticated console counts/list with the matching owner/task durable ledger.
+
 Keep local-fixture screenshots, tests, CI, installed release identity and live screenshots clearly distinguished in evidence. A synthetic preview does not prove an authenticated deployment or a successful model call.
 
 ## Keep the documentation current
