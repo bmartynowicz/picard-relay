@@ -2,13 +2,15 @@
 
 Snapshot: **November 3, 2026**. The owner's private task board is the operational record. This is a sanitized product summary, not an exhaustive issue tracker or authorization to start every item. Machine-readable records and state definitions are in [work-register.json](work-register.json).
 
-## Remaining live-audit fixes
+## Fixed live-audit findings
 
 | ID | Priority | Issue | Current state |
 | --- | --- | --- | --- |
-| PR-BUG-001 / R01 | P2 | Back navigation restores a job route while a retained filter hides the job. | Source fixed and regression-tested; deployment verification pending. |
-| PR-BUG-002 / R02 | P3 | A successful fresh refresh temporarily shows an unknown age. | Source fixed and regression-tested; deployment verification pending. |
-| PR-BUG-003 / R03 | P2 | The known reviewed correction is not discoverable beside the original saved proposal. | Exact-response correction note and pinned link implemented; deployment verification pending. |
+| PR-BUG-001 / R01 | P2 | Back navigation restores a job route while a retained filter hides the job. | Fixed and live-verified on v0.1.18. |
+| PR-BUG-002 / R02 | P3 | A successful fresh refresh temporarily shows an unknown age. | Fixed and live-verified on v0.1.18. |
+| PR-BUG-003 / R03 | P2 | The known reviewed correction is not discoverable beside the original saved proposal. | Fixed and live-verified on v0.1.18; original response preserved. |
+
+All three scoped findings were installed and verified through authenticated HTTPS on November 3, 2026 after [PR #1](https://github.com/bmartynowicz/picard-relay/pull/1) and its [signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41725556990). This does not assert owner acceptance or the absence of other bugs.
 
 The correction note preserves the original model response. It does not implement or close the broader Board form-validation feature. A completed model proposal and a reviewed/deployed product change are separate outcomes.
 

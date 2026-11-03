@@ -15,10 +15,12 @@
     "baselineRelease": "0.1.17",
     "baselineDate": "2026-11-03",
     "scopeLimit": "Two visible completed jobs; synthetic tests cover additional states. Not an exhaustive defect inventory.",
-    "fixRelease": null,
-    "sourceCommit": null,
-    "workflow": null,
-    "ownerAcceptance": false
+    "fixRelease": "0.1.18",
+    "sourceCommit": "2e242df358bebb1b44d91cfe16cd812254e1ce65",
+    "workflow": "https://github.com/bmartynowicz/picard-relay/actions/runs/41725556990",
+    "ownerAcceptance": false,
+    "releaseHash": "4c0940721b031a444cb666d99f264b1150d19ce875395967693dd96b0204a68f",
+    "verifiedAt": "2026-11-03"
   },
   "items": [
     {
@@ -27,7 +29,7 @@
       "kind": "bug",
       "severity": "P2",
       "title": "Browser Back restores a selected job hidden by a retained filter",
-      "status": "implemented_pending_deployment",
+      "status": "verified_on_deployment",
       "behavior": "When history restores a loaded selected job that the filter excludes, Show resets to All loaded jobs and displays its details. Explicit filter changes still clear selection normally.",
       "sourceFiles": [
         "experimental/runtime-control/src/oracle-service.mjs"
@@ -35,7 +37,7 @@
       "tests": [
         "test/admission-ui.test.mjs"
       ],
-      "remaining": "Verify Back/Forward, reload and saved-result access on the installed release."
+      "remaining": "No further implementation for this scoped finding; owner acceptance remains separate."
     },
     {
       "id": "PR-BUG-002",
@@ -43,7 +45,7 @@
       "kind": "bug",
       "severity": "P3",
       "title": "Fresh observations briefly say age unknown",
-      "status": "implemented_pending_deployment",
+      "status": "verified_on_deployment",
       "behavior": "Health and updater age display zero seconds for tolerated future skew up to five seconds; stale, invalid and material future-time states remain distinct.",
       "sourceFiles": [
         "experimental/runtime-control/src/oracle-service.mjs"
@@ -51,7 +53,7 @@
       "tests": [
         "experimental/runtime-control/test/console-ui.test.mjs"
       ],
-      "remaining": "Verify a real successful refresh and retained failure/staleness warnings."
+      "remaining": "No further implementation for this scoped finding; owner acceptance remains separate."
     },
     {
       "id": "PR-BUG-003",
@@ -59,7 +61,7 @@
       "kind": "bug",
       "severity": "P2",
       "title": "Known reviewed correction is missing beside the original saved proposal",
-      "status": "implemented_pending_deployment",
+      "status": "verified_on_deployment",
       "behavior": "A read-only note and pinned correction link accompany the exact affected original response, matched by entry, input hash, result reference and body. Original text remains unchanged.",
       "sourceFiles": [
         "experimental/runtime-control/src/admission-ui.mjs"
@@ -67,7 +69,7 @@
       "tests": [
         "test/admission-ui.test.mjs"
       ],
-      "remaining": "Verify the note and original response through authenticated HTTPS on desktop and narrow screens."
+      "remaining": "No further implementation for this scoped finding; owner acceptance remains separate."
     },
     {
       "id": "PR-FTR-001",
