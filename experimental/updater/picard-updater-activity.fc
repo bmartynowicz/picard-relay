@@ -1,3 +1,6 @@
 /var/lib/picard-updater-status(/.*)? system_u:object_r:picard_updater_status_t:s0
 /etc/systemd/system/picard-updater\.(service|timer) system_u:object_r:picard_updater_observed_unit_t:s0
 /etc/systemd/system/picard-update-fetch\.service system_u:object_r:picard_updater_observed_unit_t:s0
+/usr/lib/systemd/system/picard-updater\.(service|timer) system_u:object_r:picard_updater_observed_unit_t:s0
+/usr/lib/systemd/system/picard-update-fetch\.service system_u:object_r:picard_updater_observed_unit_t:s0
+
