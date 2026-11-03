@@ -24,6 +24,12 @@ The console uses same-origin credentialed requests, no-store responses and no lo
 
 Common error classes are `400` invalid request, `401` authentication failure, `409` invalid/expired/conflicting approval or record, `413` oversized body, `429` rate limit and `503` unavailable/blocked state. A status/error response never grants permission to resubmit an uncertain invocation. See the handler's typed error map for exact per-route behavior.
 
+## Status and history scope
+
+`GET /status` includes an allowlisted `scope` value (`owner` or `task`) and counters for queued, claimed, invoking, completed, failed, blocked, cancelled and uncertain jobs. With both admission and reusable Board admission already enabled, the service queries only the configured owner across tasks; other configurations retain their allowed-task filter. Clients cannot override this scope through query parameters. `GET /jobs` uses the same server-selected scope and continues to exclude raw prompts, results and owner/task IDs.
+
+The console polls read-only status/latest history every 15 seconds while visible and signed in, with a single in-flight refresh. Hidden/auth-lost pages stop polling. This does not submit, approve, retry or renew any work. Groq availability and relay counts are not provider billing/quota measurements.
+
 ## Signed consuming-client bridge
 
 `POST /bridge/v1` uses the HMAC protocol in `protocol.mjs` and the receiver's exact action schema. Start with `signRequest`, `verifyResponse` and the [manual client](MANUAL-CLIENT.md); never hand-roll signature strings or treat browser identity headers as HMAC credentials.

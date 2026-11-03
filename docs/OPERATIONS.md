@@ -20,6 +20,7 @@ The signed-runtime source is `experimental/runtime-control/src/`. The root `npm 
 | `BRIDGE_ADMISSION_ENABLED`, `BRIDGE_ADMISSION_CATALOGUE_FILE` | Optional finite catalogue admission. |
 | `BRIDGE_ADMISSION_LEGACY_BASELINE_FILE`, `BRIDGE_ADMISSION_LEGACY_BASELINE_SHA256` | Bound historical evidence needed for admission qualification. |
 | `BRIDGE_ADMISSION_SIGNED_BRIDGE_ENABLED` | Separate opt-in for the reviewed signed-client admission path. |
+| `BRIDGE_ADMISSION_REUSABLE_BOARD_ENABLED` | Separate existing opt-in for exact approved signed Board work across the configured owner's tasks; the console observes that owner-wide scope when admission is also enabled. This UI change does not activate it. |
 
 Use the validators in `loadOracleConfig` and `prepareAdmissionRuntime` for complete requirements. Do not print a production environment file when checking one setting: it may contain sensitive values or paths. `deploy/relay.env.example` describes the disabled preview entrypoint and is not a complete finite-admission host configuration.
 
