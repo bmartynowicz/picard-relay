@@ -185,16 +185,17 @@ export const CONSOLE_HTML="<!doctype html>\n<html lang=\"en\">\n<head><meta char
 export function loadOracleConfig(e=process.env){
  if(e.BRIDGE_ENABLED!=='true')return {enabled:false};
  const secret=e.BRIDGE_HMAC_SECRET_FILE?readFileSync(e.BRIDGE_HMAC_SECRET_FILE,'utf8').trim():'';
- const c={enabled:true,keyId:e.BRIDGE_KEY_ID??'',secret,ownerId:e.BRIDGE_OWNER_ID??'',assistantId:e.BRIDGE_ASSISTANT_ID??'',allowedTaskId:e.BRIDGE_ALLOWED_TASK_ID??'',dbPath:e.BRIDGE_DB_PATH??'',port:Number(e.BRIDGE_PORT??8787),stopPath:e.BRIDGE_STOP_PATH??null,controlSocket:e.BRIDGE_CONTROL_SOCKET??'',releaseHash:e.BRIDGE_RELEASE_HASH??'',consoleEnabled:e.BRIDGE_CONSOLE_ENABLED==='true',consoleAuthDir:e.BRIDGE_CONSOLE_AUTH_DIR??'',consoleOrigins:(()=>{try{return JSON.parse(e.BRIDGE_CONSOLE_ORIGINS??'[]');}catch{return [];}})()};
+ const c={enabled:true,keyId:e.BRIDGE_KEY_ID??'',secret,ownerId:e.BRIDGE_OWNER_ID??'',assistantId:e.BRIDGE_ASSISTANT_ID??'',allowedTaskId:e.BRIDGE_ALLOWED_TASK_ID??'',dbPath:e.BRIDGE_DB_PATH??'',port:Number(e.BRIDGE_PORT??8787),stopPath:e.BRIDGE_STOP_PATH??null,controlSocket:e.BRIDGE_CONTROL_SOCKET??'',releaseHash:e.BRIDGE_RELEASE_HASH??'',admissionEnabled:e.BRIDGE_ADMISSION_ENABLED==='true',admissionCatalogueFile:e.BRIDGE_ADMISSION_CATALOGUE_FILE??'',admissionLegacyBaselineFile:e.BRIDGE_ADMISSION_LEGACY_BASELINE_FILE??'',admissionLegacyBaselineSha256:e.BRIDGE_ADMISSION_LEGACY_BASELINE_SHA256??'',consoleEnabled:e.BRIDGE_CONSOLE_ENABLED==='true',consoleAuthDir:e.BRIDGE_CONSOLE_AUTH_DIR??'',consoleOrigins:(()=>{try{return JSON.parse(e.BRIDGE_CONSOLE_ORIGINS??'[]');}catch{return [];}})()};
  if(c.assistantId==='groq:openai/gpt-oss-20b'&&(!c.allowedTaskId||c.allowedTaskId.length>200))throw Error('production_configuration_unavailable');
  if(!validConfig(c)||!c.ownerId||!c.assistantId||!c.dbPath||c.dbPath===':memory:'||!Number.isSafeInteger(c.port)||c.port<1024||c.port>65535||e.BRIDGE_LOCAL_TEST_MODE==='true')throw Error('production_configuration_unavailable');
  return c;
 }
 export async function main(){
  const config=loadOracleConfig();if(!config.enabled){console.log(JSON.stringify({state:'disabled'}));return;}
+ if(config.admissionEnabled===true){const {prepareAdmissionRuntime}=await import('./admission-runtime.mjs');const feature=prepareAdmissionRuntime({activationEnabled:true,config});return startOracleService(config,feature.adapter,{admissionFactory:feature.attach});}
  return startOracleService(config,createSelectedAssistantAdapter());
 }
-export async function startOracleService(config,assistantAdapter,{intervalMs=1000,installSignals=true}={}){
+export async function startOracleService(config,assistantAdapter,{intervalMs=1000,installSignals=true,admissionFactory=null}={}){
  if(assistantAdapter?.localTestOnly===true||assistantAdapter?.kind==='controlled-local-fixture-only')throw Error('production_fixture_executor_forbidden');
  // No provider/API/model/command fallback. This is the sole external runtime
  // Unconfigured adapters fail closed; a spent one-shot adapter may serve saved results.
@@ -204,13 +205,16 @@ export async function startOracleService(config,assistantAdapter,{intervalMs=100
  store=createRelayStore({...config,canAccept:()=>control.accepting});
  const receiver=createReceiver({store,config,assistantAdapter,canAccept:()=>control.accepting,runtimeHealth:()=>control.health()});
  const boardAdapter={kind:'signed-relay-result-ledger',scopeEnforced:true,getTaskContext:store.getTaskContext,appendReply:store.appendReply,getReplyByRequestId:store.getReplyByRequestId};
- const dispatcher=createDispatcher({store,boardAdapter,assistantAdapter,production:true,enabled:true,dbPath:config.dbPath,workerId:'oracle-relay',claimTtlMs:60000});
+ let dispatcher,admission=null;
  let stopping=false,shutdownPromise=null,finishBusy=null;
  let consoleAuth=null;
  if(config.consoleEnabled===true){try{consoleAuth=createOwnerAuth({stateDir:config.consoleAuthDir});}catch{/* Console fails closed; independent signed bridge remains available. */}}
- const consoleHandler=createConsoleHandler({enabled:config.consoleEnabled===true,html:CONSOLE_HTML,auth:consoleAuth,origins:config.consoleOrigins,getSnapshot:()=>consoleSnapshot(control.health(),store.scopedStats({ownerId:config.ownerId,allowedTaskId:config.allowedTaskId??''})),getRecentJobs:query=>store.recentJobs({...query,ownerId:config.ownerId,allowedTaskId:config.allowedTaskId??''})});
+ if(config.admissionEnabled===true){try{if(typeof admissionFactory!=='function')throw Error('admission_configuration_invalid');admission=admissionFactory({store,control,auth:consoleAuth,baseHtml:CONSOLE_HTML});}catch{admission?.close();store.close();throw Error('admission_configuration_invalid');}}
+ dispatcher=createDispatcher({store:admission?.dispatchStore??store,boardAdapter,assistantAdapter,production:true,enabled:true,dbPath:config.dbPath,workerId:'oracle-relay',claimTtlMs:60000});
+ const consoleHandler=createConsoleHandler({enabled:config.consoleEnabled===true,html:admission?.html??CONSOLE_HTML,auth:consoleAuth,origins:config.consoleOrigins,getSnapshot:()=>consoleSnapshot(control.health(),store.scopedStats({ownerId:config.ownerId,allowedTaskId:config.allowedTaskId??''})),getRecentJobs:query=>store.recentJobs({...query,ownerId:config.ownerId,allowedTaskId:config.allowedTaskId??''})});
  const server=createServer(async(req,res)=>{try{
   // TLS/auth for the opt-in console terminate at the approved reverse proxy.
+  if(admission&&await admission.handler(req,res))return;
   if(await consoleHandler(req,res))return;
   // Signed bridge authorization remains separate; loopback only.
   if(req.method!=='POST'||req.url!=='/bridge/v1'){res.writeHead(404).end();return;}
@@ -219,7 +223,7 @@ export async function startOracleService(config,assistantAdapter,{intervalMs=100
   res.writeHead(reply.status,Object.fromEntries(reply.headers));res.end(await reply.text());
  }catch{res.writeHead(503).end();}});
  server.requestTimeout=10000;server.headersTimeout=5000;server.maxConnections=16;
- try{await control.start();await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(config.port,'127.0.0.1',resolve);});}catch(e){await control.close();store.close();throw e;}
+ try{await control.start();await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(config.port,'127.0.0.1',resolve);});}catch(e){await control.close();admission?.close();store.close();throw e;}
  live=true;
  const timer=setInterval(async()=>{if(stopping||!control.accepting||control.busy)return;if(config.stopPath&&existsSync(config.stopPath)){shutdown();return;}if(!control.tryBegin())return;try{const result=await dispatcher.runOnce();if(result.status!=='idle')console.log(JSON.stringify({state:result.status,eventId:result.requestId,attempt:result.attempt,code:result.code}));}finally{control.finish();if(finishBusy)finishBusy();}},intervalMs);
  function shutdown(){
@@ -227,7 +231,7 @@ export async function startOracleService(config,assistantAdapter,{intervalMs=100
   stopping=true;control.drain();clearInterval(timer);
   shutdownPromise=(async()=>{
    await Promise.all([new Promise(resolve=>server.close(resolve)),control.close(),control.busy?new Promise(resolve=>{finishBusy=resolve;}):Promise.resolve()]);
-   live=false;store.close();if(installSignals){process.removeListener('SIGTERM',shutdown);process.removeListener('SIGINT',shutdown);}
+   live=false;admission?.close();store.close();if(installSignals){process.removeListener('SIGTERM',shutdown);process.removeListener('SIGINT',shutdown);}
   })();return shutdownPromise;
  }
  if(installSignals){process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);}

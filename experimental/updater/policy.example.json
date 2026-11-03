@@ -14,7 +14,16 @@
     "src/receiver.mjs",
     "src/relay-store.mjs",
     "src/runtime-control.mjs",
-    "src/selected-assistant.mjs"
+    "src/selected-assistant.mjs",
+    "src/admission-catalogue.mjs",
+    "src/admission-dispatch.mjs",
+    "src/admission-enrollment.mjs",
+    "src/admission-handler.mjs",
+    "src/admission-plan.mjs",
+    "src/admission-policy.mjs",
+    "src/admission-runtime.mjs",
+    "src/admission-store.mjs",
+    "src/admission-ui.mjs"
   ],
   "signatureMode": "sigstore"
 }

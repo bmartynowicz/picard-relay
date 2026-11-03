@@ -1,75 +1,157 @@
-# No-restart admission: separate security proposal and local prototype
+# Finite Requests workflow: activation review
 
-The routine requirement is NOT satisfied by the manual client alone. It removes
-custom protocol scripting/result handoffs, while operator gate selection and
-restart remain. This document/prototype preserves the unfinished requirement.
+This local candidate adds the complete disabled Requests path: existing owner
+session, fixed input review, one-use approval, atomic registration, dynamic
+Groq dispatch and saved-result readback. It is not deployed or activated.
+The published manual client alone does not remove gate selection/restarts.
 
-The pure experimental/finite-admission/planner.mjs prototype has no production
-integration, authentication implementation, filesystem, listener, provider or
-runtime selector. It always returns mayInvoke:false and refuses production mode.
-Its actor object is a trusted-caller PRECONDITION, not an authentication proof.
-Tests do not establish real session authorization or crash-safe admission.
+## Bounded authority
 
-## Proposed bounded authority
+One root-controlled catalogue binds the existing owner/task, Groq model and
+original retained account/project/key enrollment. Each entry fixes request,
+context, input hash and preallocated request/grant/event IDs. Browser input is
+selection only, never arbitrary text. The v1 schema retains its legacy
+`FINITE_ADMISSION_PROTOTYPE_ONLY` tag; runtime activation is a separate switch.
 
-An operator enrolls a root-controlled finite catalogue once, binding one existing
-owner/task/assistant and retained account/project/key enrollment. Each entry has
-exact request/context/input hash, a recognized purpose and explicit preallocated
-request/grant/event slots. Prototype limits:8 total slots,16KiB catalogue,24hour
-catalogue window and1hour maximum request lifetime, with existing512tokens,
-one call per slot, no tools/retries/paid fallback. These are review proposals,
-not live grants or assumed permission for8 calls.
+Limits: zero to eight total one-call slots, 16 KiB canonical catalogue, 24-hour
+catalogue window, one-hour maximum request lifetime, 60-second owner approval.
+Approval binds the existing session, catalogue digest, entry, slot and input.
+Explicit `approve:true` is required. Duplicate/concurrent clicks recover the
+first immutable request and clocks, never a replacement grant or invocation.
 
-Each use still requires an actual owner approval of the exact displayed input.
-The server must select the listed slot and immutable IDs; the browser may submit
-only entryId/slotId, never text, owner/task, provider, model, marker path, grant ID
-or expiry. Repeated clicks use the same slot and persisted request. Other task
-scopes are not silently added. Changed configuration/enrollment invalidates the
-catalogue; original evidence timestamps are preserved, not refreshed.
+Groq only: configured $0/Free-only policy, fixed 512 output tokens, no tools,
+execution, retries or paid fallback. Original evidence timestamps remain; no
+fresh billing observation or invoice guarantee is claimed. Changed key/gate
+file identity, configuration or enrollment fails closed. A new catalogue cannot
+evade the existing shared enrollment latch. Historical uncertain jobs, consumed
+markers and archived locks are never reset. Known incomplete output settles
+only its own live reservation after the existing durable failure receipt.
 
-## Exact future integration delta — NOT IMPLEMENTED OR ENABLED HERE
+A saved reply whose completion was interrupted can reconcile within its original
+grant without another inference. Completed owner results remain readable after
+request/catalogue expiry. Unknown I/O remains uncertain/spent.
 
-1. New private GET /request-catalogue and POST /requests under the existing
-   explicitly enabled console session, exact HTTPS Host/Origin and no-store
-   controls. Require owner session, same-origin/CSRF checks, strict small bodies
-   and a visible per-request approval action. No browser HMAC/API key.
-2. A separately approved root-owned private catalogue/enrollment file and a
-   reviewed reload/read policy using O_NOFOLLOW, bounded reads, complete schema,
-   stable identity/permissions and fail-closed key/config association. No new
-   credentials; the existing HMAC transport does not become approval authority.
-3. Durable first-writer registration through existing relay_jobs transaction:
-   preallocated event/grant/slot prevents new inference after duplicate click.
-   Use the first persisted payload and clocks. On racing registration conflict,
-   authenticate/scope-check and recover that same record, never mint a replacement.
-   No new ledger table/index/migration is proposed, but atomic integration and
-   power-loss/disk-full behavior still require implementation and crash tests.
-4. Per-job adapter selection from that validated catalogue, internally derived
-   marker paths and existing consumed-before-I/O plus shared-cost reservation.
-   Do not change systemd/environment selectors or restart per admitted slot.
-   Single dispatcher/control busy state remains; unknown I/O and payment/quota
-   stops still block; only13001's own durably committed incomplete failure may
-   settle its own live reservation. Historical uncertain rows/markers never reset.
-5. Existing private Jobs remains metadata-only. Any request catalogue display is
-   a new authenticated text surface and must be reviewed for auth/privacy/reset,
-   not hidden in today's metadata contract. No auto-run/polling/automatic regrant.
+## New authenticated surfaces
 
-This transfers a narrowly finite admission decision from per-request operator
-provisioning to authenticated owner action within an independently enrolled
-catalogue. It is a material access/security delta and needs exact approval;
-general source-work approval does not enable it. It cannot be represented as a
-cosmetic UI change or a mere signed protocol transport change.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/request-catalogue` | Exact enrolled input/context text and slot states |
+| POST | `/request-approvals` | Session/input/slot-bound one-use nonce |
+| POST | `/requests` | Atomically consume approval and register one fixed job |
+| GET | `/requests/<64 lowercase hex>` | Owner/task-bound state and saved result text |
 
-The prototype plans are useful for reviewing exact binding/limits/idempotency.
-Production routes, secure catalogue loading, durable registration, dynamic adapter
-selection and owner-approval UI are still implementation/qualification gates.
-Any added source files outside the current11module runtime require explicit
-updater/delivery policy review; no allowlist/helper/trust expansion occurs here.
+These are new private text/result surfaces. Existing `/jobs` stays metadata-only.
+The same owner session, exact HTTPS Host/Origin, same-origin/CSRF and no-store
+boundaries apply. POSTs are canonical JSON, exact fields, at most 1,024 bytes.
+No browser HMAC/API key or caller-supplied owner/model/grant/path/expiry.
+UI private input/result/options clear on logout, 401, 403 and pagehide.
 
-## Acceptance before any activation
+SQLite reuses existing jobs/nonces/revocations, with no schema migration. Nonce
+digest and immutable job commit together using BEGIN IMMEDIATE/FULL synchronous
+durability. Owner rate is ten POST attempts per rolling minute, sixteen pending
+challenges. Only this extension's expired nonce namespace is pruned; existing
+bridge nonces, jobs and invocation markers remain.
 
-Owner-session/CSRF/mixed-owner negative tests; strict selection/no arbitrary input;
-catalogue/key/config/time mismatch; slot cap; concurrent duplicate registration;
-no renewed clocks on reopen; consumed/uncertain/failed persistence and interrupted
-admission; source signing/11file compatibility or exact approved migration;
-synthetic desktop/mobile approval preview; explicit operator catalogue and live
-activation approval. No provider calls are part of prototype qualification.
+Each admitted job also atomically receives non-authenticating enrollment/event
+association metadata in the same nonce table, retained beyond catalogue expiry.
+Readiness checks every associated unresolved invocation/uncertain job for that
+enrollment, including jobs omitted from replacement catalogues. A restarted
+worker cannot invoke a second slot while the original response/result commit is
+unresolved, even before lease expiry. This association never authorizes a call;
+missing/malformed associations fail closed. No historical stop is acknowledged
+or removed by this candidate. Legacy cost-reservation files remain authoritative
+for legacy jobs; unassociated old jobs cannot become admission authority.
+
+### Legacy cutover guard
+
+Older ledger rows do not carry enrollment associations. Their absence from the
+current catalogue or the absence of an active reservation is not proof that an
+old uncertainty was reviewed. Production readiness therefore additionally
+requires an explicit root-controlled inventory of every unassociated row and
+every legacy `one-call-*.json` consumed marker. No production inventory is
+generated by this source. Missing, changed, extra or malformed evidence denies
+new work; saved scoped results remain readable. No row, marker or association
+is rewritten or backfilled.
+
+The separate canonical JSON file is pinned by SHA256 in administrator config,
+and that path/hash is part of the catalogue's configuration binding. Replacing
+the catalogue cannot edit this inventory. The schema is:
+
+```
+{v:1,kind:"PICARD_LEGACY_BASELINE_V1",enrollmentId,ownerId,taskId,
+ assistantId,observedAt,rows:[{eventId,grantId,state,rowSha256,
+ markerName,markerSha256,acknowledgement}]}
+```
+
+There are at most 64 historical rows, each exactly `completed` or `uncertain`.
+The full canonical ledger row and the original marker bytes must still match
+their reviewed hashes. Completed rows have `acknowledgement:null`. Each uncertain
+row requires its own exact `{eventId,grantId,approvalRef,receiptSha256}` evidence
+reference. These references are administrator-reviewed metadata, not a runtime
+claim that a string establishes consent, resolves an outcome or permits replay.
+Synthetic test references authorize nothing in production. Unknown/unmatched
+history remains denied. Any new unassociated row, including one created while
+legacy mode was reenabled, invalidates the inventory. There is no automatic
+baseline regeneration or historical exception based on age/count/state alone.
+
+Existing Requests associations remain permanent and enrollment-wide: a later
+unresolved invocation still blocks new work across catalogue replacement. An
+acknowledged historical row remains uncertain with its consumed grant intact.
+The additional historical-exception policy/file must receive explicit review;
+approval for the four routes and twenty-file delivery alone does not supply it.
+
+The stable synchronous catalogue reader is revalidated inside atomic registration
+after body/planning work; a stale policy snapshot cannot create a new job after
+its slot is removed. Existing-record recovery never creates new authority.
+
+## Exact delivery/activation delta requiring approval
+
+1. Expand administrator delivery policy from eleven to twenty runtime files,
+   adding only `src/admission-{catalogue,dispatch,enrollment,handler,plan,policy,
+   runtime,store,ui}.mjs`. Current updater validation already permits up to 32
+   files. Its helpers, Node, units, trust and schema need no change. This
+   candidate leaves current policy/signing workflow unchanged.
+2. The source builder currently requires eleven files. A separate reviewed
+   builder count change and exact nine-file allowlist addition are required
+   together before a twenty-file release. Do not publish an incomplete bundle.
+3. Enroll `/etc/board-event-relay/admission/catalogue.json`: parent root:service
+   0750, file root:service 0640, canonical JSON plus newline, wrapper <=32 KiB.
+   It contains retained nonsecret enrollment/key fingerprint and fixed request
+   metadata, never a plaintext provider key. Reload occurs on each use.
+4. Add only `BRIDGE_ADMISSION_ENABLED=true` and
+   `BRIDGE_ADMISSION_CATALOGUE_FILE=/etc/board-event-relay/admission/catalogue.json`
+   in the administrator environment. Reuse the existing key, legacy gate's
+   retained enrollment, ledger and marker directory. Startup fails closed on
+   missing configuration. No credential, sudo rule, daemon or listener is added.
+   The newly discovered legacy compatibility requirement additionally needs
+   `BRIDGE_ADMISSION_LEGACY_BASELINE_FILE` and
+   `BRIDGE_ADMISSION_LEGACY_BASELINE_SHA256`, with the separately reviewed
+   inventory at `/etc/board-event-relay/admission/legacy-baseline.json`
+   (root:service 0640, same 0750 parent, <=64 KiB). This extra inventory and any
+   per-event historical exceptions require review before they are installed.
+5. Add the four exact method/path rules above at both existing HTTPS reverse
+   proxy addresses. No generic public proxy or auth/TLS change. One reviewed
+   activation restart; later approved catalogue slots need no selector/restart.
+
+Safest initial activation uses an empty catalogue: zero slots/calls and a truthful
+"No approved requests are enrolled" UI. Installation makes no AI request.
+Each later exact sanitized packet and owner approval remains separate.
+
+This transfers finite per-job admission from operator gate setup to authenticated
+owner action within a separately enrolled catalogue. It is a material persistent
+authorization change, requiring exact approval after source/Linux/visual review.
+General source work or ordinary console release approval does not activate it.
+
+## Qualification, stop and rollback
+
+Commands/limits are in FINITE-ADMISSION-LOCAL.md. All real Linux auth/filesystem,
+durable-marker, lifecycle, signing and Unix-socket gates must pass. Windows skips
+and synthetic DOM tests are not Linux or visual proof. No admission preview has
+been published. Multi-process/power-loss review remains explicit.
+
+Stop on unsafe/mismatched files, failed tests, active invocation, pending cost
+stop, permission incompatibility or unreviewed routing/policy changes. Never
+repair permissions merely to make a check pass. Rollback disables admission and
+removes only its proxy rules, retaining jobs, nonces, catalogue and markers.
+Keep the twenty-file policy for a complete compatible signed rollback package;
+never reset high-water or replay a lower sequence. Review rollback pins first.

@@ -12,11 +12,13 @@
     "start": "node src/oracle-service.mjs",
     "test": "node test/sqlite-contention.test.mjs && node test/bridge.test.mjs && node test/process-tests.mjs && node test/relay-process.test.mjs && node test/groq-adapter.test.mjs && node test/groq-once.test.mjs && node test/result-after-capacity.test.mjs && npm run test:tls && node test/protocol-redirect.test.mjs && npm run test:candidate",
     "test:tls": "node --jitless test/https-fetch.test.mjs",
-    "test:candidate": "node --test test/free-only-routing.test.mjs test/fixture-executor.test.mjs test/health-diagnostics.test.mjs test/mission-control.test.mjs && npm run test:operator",
+    "test:candidate": "node --test test/free-only-routing.test.mjs test/fixture-executor.test.mjs test/health-diagnostics.test.mjs test/mission-control.test.mjs && npm run test:operator && npm run test:admission",
+    "test:admission": "node --test test/finite-admission-integration.test.mjs test/finite-admission-file.test.mjs test/admission-dispatch.test.mjs test/admission-ui.test.mjs test/admission-owner-auth.test.mjs test/admission-runtime.test.mjs test/admission-preview.test.mjs test/admission-legacy.test.mjs && node --jitless --test test/finite-admission-integration.test.mjs test/finite-admission-file.test.mjs test/admission-dispatch.test.mjs test/admission-ui.test.mjs test/admission-owner-auth.test.mjs test/admission-runtime.test.mjs test/admission-preview.test.mjs test/admission-legacy.test.mjs",
     "test:operator": "node --test test/manual-client.test.mjs test/manual-node.test.mjs test/manual-wait.test.mjs test/finite-admission.test.mjs test/console-preview.test.mjs && node --jitless --test test/manual-client.test.mjs test/manual-node.test.mjs test/manual-wait.test.mjs test/finite-admission.test.mjs test/console-preview.test.mjs",
     "test:manual-tls": "node --test test/manual-native-boundary.test.mjs && node --jitless --test test/manual-native-boundary.test.mjs",
     "demo:mission-control": "node examples/mission-control.mjs",
-    "demo:fixtures": "node examples/fixture-tasks.mjs"
+    "demo:fixtures": "node examples/fixture-tasks.mjs",
+    "demo:admission-preview": "node examples/admission-preview.mjs"
   },
   "license": "MIT"
 }
