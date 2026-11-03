@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"c619e4aaa44151aacf46b1f5dd941c4bb4e8a031f14de72bec72b8eb171f2797");
+assert.equal(createHash('sha256').update(script).digest('hex'),"e517ca603addc68f9d395cb75edca1dbbe48226d31e8e82a43e821441c04fdc1");
 assert.equal(createHash('sha256').update(html.match(/aria-label="Picard Relay ASCII Starfleet insignia">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|href=|@import|url\(/i.test(html));assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -65,7 +65,7 @@ let p=harness(async path=>path==='/auth/state'?ok({enrolled:true}):staleStatus?b
 staleStatus=true;await p.click('refresh');assert.equal(p.get('completed').textContent,'2');assert.match(p.get('notice').textContent,/previous observation/);assert.match(p.get('notice').textContent,/Current health is unknown/);assert.equal(p.get('jobs-list').children.length,1);
 staleJobs=true;await p.click('jobs-refresh');assert.equal(p.get('jobs-list').children.length,1);assert.match(p.get('jobs-notice').textContent,/previous observation/);assert.equal(JSON.stringify([...p.els.values()]).includes('PRIVATE_'),false);
 const cursor=Buffer.from(JSON.stringify({v:1,createdAt:1000,ref:job.ref})).toString('base64url');let resolveHistory,hold=false;
-p=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health),{jobsHandler:async path=>hold?new Promise(resolve=>{resolveHistory=resolve;}):ok(path.includes('?')?page([{...job,ref:'b'.repeat(64),state:'completed',resultAvailable:true,reasonCode:'completed'}]):page([job],cursor))});await flush();assert.equal(p.get('jobs-more').hidden,false);await p.click('jobs-more');assert.equal(p.get('jobs-list').children.length,2);assert.equal(p.get('jobs-more').hidden,true);assert.match(p.get('jobs-list').children[0].children[2].textContent,/Do not retry/);
+p=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health),{jobsHandler:async path=>hold?new Promise(resolve=>{resolveHistory=resolve;}):ok(path.includes('?')?page([{...job,ref:'b'.repeat(64),state:'completed',resultAvailable:true,reasonCode:'completed'}]):page([job],cursor))});await flush();assert.equal(p.get('jobs-more').hidden,false);await p.click('jobs-more');assert.equal(p.get('jobs-list').children.length,2);assert.equal(p.get('jobs-more').hidden,true);await p.get('jobs-list').children[0].children[0].listeners.click();assert.match(p.get('detail-reason').textContent,/Do not retry/);assert.equal(p.get('detail-ref').textContent,job.ref);
 hold=true;const refreshHistory=p.click('jobs-refresh');await p.click('jobs-refresh');assert.equal(p.requests.filter(r=>r.path==='/jobs').length,2);resolveHistory(ok(page()));await refreshHistory;assert.equal(p.get('jobs-list').children.length,1);
 for(const rows of [[{...job,body:'PRIVATE_HTML_SENTINEL',headers:{Authorization:'PRIVATE_HTML_SENTINEL'}}],[{...job,reasonCode:'<img src=x>'}],[job,job]]){
  const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health),{jobsHandler:async()=>ok(page(rows))});await flush();assert.equal(JSON.stringify([...q.els.values()]).includes('PRIVATE_HTML_SENTINEL'),false);assert.equal(q.get('jobs-list').children.length,rows[0].reasonCode===job.reasonCode&&rows.length===1?1:0);
@@ -83,8 +83,44 @@ for(const reset of ['logout','401','403','pagehide']){
 }
 console.log('PASS privacy correction: logout,401,403,pagehide clear all numeric counter aria-labels as well as visible text.');
 
-{
- const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health),{jobsHandler:async()=>ok(page([{...job,state:'failed',reasonCode:'output_incomplete'}]))});await flush();
- assert.match(q.get('jobs-list').children[0].children[2].textContent,/response length limit/);assert.match(q.get('jobs-list').children[0].children[2].textContent,/consumed and will not retry/);
+// App navigation uses the existing private data surface; it creates no endpoint,
+// provider request or admission authority. Filters operate only on loaded rows.
+const completedJob={...job,ref:'b'.repeat(64),state:'completed',resultAvailable:true,reasonCode:'completed'};
+const activeJob={...job,ref:'c'.repeat(64),state:'invoking',reasonCode:'invoking'};
+let appLost=false;
+const app=harness(async path=>path==='/auth/state'?ok({enrolled:true}):appLost?bad(401,'auth_failed'):ok(health),{jobsHandler:async()=>appLost?bad(401,'auth_failed'):ok(page([job,completedJob,activeJob]))});await flush();
+assert.equal(app.get('navigation').hidden,false);assert.equal(app.get('view-overview').hidden,false);
+const requestsBeforeNavigation=app.requests.length;
+for(const name of ['jobs','groq','system','overview']){
+ await app.click('nav-'+name);
+ for(const other of ['overview','jobs','groq','system']){assert.equal(app.get('view-'+other).hidden,other!==name);assert.equal(app.get('nav-'+other).attrs['aria-current'],other===name?'page':'false');}
 }
-console.log('PASS known incomplete reason is actionable text with no retry or dispatch control.');
+assert.equal(app.requests.length,requestsBeforeNavigation);await app.click('open-jobs');assert.equal(app.get('view-jobs').hidden,false);
+await app.get('jobs-list').children[0].children[0].listeners.click();assert.equal(app.get('detail-ref').textContent,job.ref);assert.equal(app.get('job-details').hidden,false);assert.match(app.get('detail-reason').textContent,/Do not retry/);
+for(const [filter,expected] of [['completed',1],['active',1],['attention',1],['all',3]]){app.get('jobs-filter').value=filter;app.get('jobs-filter').listeners.change();assert.equal(app.get('jobs-list').children.length,expected);assert.equal(app.get('job-details').hidden,true);assert.equal(app.get('detail-ref').textContent,'-');}
+assert.equal(app.requests.length,requestsBeforeNavigation);assert.equal(app.get('activity-list').children.length,3);
+assert.equal(app.get('groq-availability').textContent,'Not available for new work');assert.match(app.get('groq-blocking').textContent,/Do not retry/);
+assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.ok(!/<details|<summary/.test(html));
+
+for(const event of ['logout','401','403','pagehide']){
+ let lost=false;const code=event==='403'?403:401;
+ const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):path==='/auth/logout'?ok({ok:true}):lost?bad(code,'auth_failed'):ok(health),{jobsHandler:async()=>lost?bad(code,'auth_failed'):ok(page([job]))});await flush();await q.click('nav-jobs');await q.get('jobs-list').children[0].children[0].listeners.click();assert.equal(q.get('detail-ref').textContent,job.ref);
+ if(event==='pagehide')q.wl.pagehide();else if(event==='logout')await q.click('logout');else{lost=true;await q.click('jobs-refresh');}
+ assert.equal(q.get('navigation').hidden,true);assert.equal(q.get('private').hidden,true);assert.equal(q.get('view-overview').hidden,false);assert.equal(q.get('view-jobs').hidden,true);assert.equal(q.get('activity-list').children.length,0);assert.equal(q.get('job-details').hidden,true);
+ for(const id of ['detail-ref','detail-state','detail-created','detail-updated','detail-result'])assert.equal(q.get(id).textContent,'-');assert.equal(q.get('detail-reason').textContent,'');assert.equal(q.get('jobs-filter').value,'all');assert.equal(q.get('groq-availability').textContent,'Availability unknown');assert.equal(JSON.stringify([...q.els.values()]).includes(job.ref),false);
+}
+console.log('PASS console redesign: four peer views, no navigation network calls, loaded-row filters, metadata inspector, activity projection, truthful Groq state, no disclosures; logout/401/403/pagehide clear every added private field.');
+
+// Independent review regression: a stale timer from the last good read must
+// never replace a later failure warning or make current health look operational.
+for(const failure of ['http503','invalid-json','network']){
+ let failed=false,time=100000;
+ class FreshnessClock extends Date{constructor(...args){super(...(args.length?args:[time]));}static now(){return time;}}
+ const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):failed?(failure==='http503'?bad(503,'PRIVATE_READ_ERROR'):failure==='invalid-json'?ok({v:1}):Promise.reject(Error('PRIVATE_NETWORK_ERROR'))):ok({...health,observedAt:new Date(time).toISOString()}),{clock:FreshnessClock});
+ await flush();const oldTimers=[...q.timers.values()];assert.equal(q.get('health-heading').textContent,'Service operational');failed=true;await q.click('refresh');
+ assert.equal(q.get('health-heading').textContent,'Current health unknown');assert.equal(q.get('health-heading').dataset.tone,'unknown');const failureNotice=q.get('notice').textContent;
+ time+=61000;for(const callback of oldTimers)callback();for(const callback of [...q.timers.values()])callback();
+ assert.equal(q.get('notice').textContent,failureNotice);assert.match(failureNotice,/Current health is unknown/);assert.equal(q.get('completed').textContent,'2');assert.equal(q.get('groq-availability').textContent,'Current availability unknown');assert.equal(JSON.stringify([...q.els.values()]).includes('PRIVATE_'),false);
+ failed=false;await q.click('refresh');assert.equal(q.get('health-heading').textContent,'Service operational');assert.equal(q.get('notice').hidden,true);
+}
+console.log('PASS independent freshness regression: stale timers preserve failed/unknown status after503, invalid projection or network error, with recovery only after a successful read.');
