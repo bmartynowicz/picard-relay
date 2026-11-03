@@ -2,6 +2,8 @@
 
 The authenticated console has five views when finite admission is enabled. A host without that feature has four views and no Requests submission controls.
 
+The **Documentation ↗** link in the shared header opens the guide index in a new tab. It is available from every view and the sign-in screen, and leads to the quickstart, illustrations, limits, known work and AI-readable references. The current console stays open.
+
 | View | What to use it for |
 | --- | --- |
 | Overview | Check service reachability, provider/new-work availability, result recovery, scoped job counts and recent activity. Read the blocking reason and observation age. |
