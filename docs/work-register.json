@@ -125,8 +125,8 @@
       "kind": "bug",
       "severity": "P1",
       "title": "Live console retains a legacy task filter and static observations",
-      "status": "installed_pending_live_verification",
-      "behavior": "For already-enabled reusable Board admission, show owner-wide metadata and failed counts; automatically read status/latest history every15seconds while visible, pause hidden/auth-lost pages, and show live Groq activity. Quiet the spent console catalogue without changing approval controls.",
+      "status": "verified_on_deployment",
+      "behavior": "For already-enabled reusable Board admission, show owner-wide metadata and failed counts; automatically read status/latest history every 15 seconds while visible, pause hidden/auth-lost pages, and show live Groq activity. Quiet the spent console catalogue without changing approval controls.",
       "sourceFiles": [
         "experimental/runtime-control/src/oracle-service.mjs",
         "experimental/runtime-control/src/admission-ui.mjs"
@@ -136,7 +136,7 @@
         "experimental/runtime-control/test/console-ui.test.mjs",
         "test/admission-ui.test.mjs"
       ],
-      "remaining": "Restore the owner review session and reconcile the authenticated production counters/history with the same owner ledger; local browser and installed-source checks passed.",
+      "remaining": "Owner review and acceptance remain separate; no implementation or deployment work remains for this scoped fix.",
       "verification": {
         "verifiedAt": "2026-11-03",
         "release": "0.1.22",
@@ -154,7 +154,7 @@
         ],
         "candidateBrowserChecks": [
           "desktop",
-          "390px and320px without overflow",
+          "390px and 320px without overflow",
           "automatic observation updates",
           "failed/uncertain history",
           "quiet spent catalogue and disabled approval",
@@ -168,8 +168,11 @@
         "ownerRecentJobCount": 17,
         "baselineInvocationMarkersPreserved": 18,
         "providerCalls": 0,
-        "productionBrowser": "Final authenticated production visual ledger reconciliation pending.",
-        "ownerAcceptance": false
+        "productionBrowser": "Authenticated v0.1.22 production console verified: all 17 job references/states match the configured owner ledger; 13 completed, 1 failed, 3 uncertain. Automatic observation advanced without manual refresh. Overview/Groq parity, 4 needs-review rows, saved results/correction and quiet spent catalogue passed. Desktop, 390px and 320px screenshots inspected without horizontal overflow.",
+        "ownerAcceptance": false,
+        "productionBrowserCheckedAt": "2026-11-03T23:23:07.854Z",
+        "allOwnerJobReferencesAndStatesReconciled": true,
+        "visibleAutoRefreshObserved": true
       }
     },
     {

@@ -2,13 +2,19 @@
 
 Last documentation review: **November 3, 2026**. This page separates a reusable source contract from one enrolled host's dated observations. Read [Limitations](LIMITATIONS.md) and [known work](WORK-REGISTER.md) alongside it.
 
-## Current installed release
+## Current verified release
 
 On November 3, 2026, **v0.1.22 / sequence 22001** was installed by the enrolled updater. Source: `f20c1194895074dc8f4633d84ebeff7d28526a75`; physical release: `62127b8e10e1fa3298636b29b03431b7f039e4fbabdb3a9f6954b1af1274ca9c`.
 
-[PR #4](https://github.com/bmartynowicz/picard-relay/pull/4) corrects the legacy task filter, adds bounded read-only live refresh and current Groq activity, and quiets spent console examples. Its [exact-source signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41734484111) passed. All20 installed module bytes match the signed source; owner/task isolation cases passed against installed code in both modes. Configuration, all18 invocation markers and13completed/1failed/3uncertain ledger counts are preserved. The service/recovery/provider are ready, the host is idle, and SELinux remains Enforcing. No provider call or grant renewal was used.
+[PR #4](https://github.com/bmartynowicz/picard-relay/pull/4) corrects the legacy task filter, adds bounded read-only live refresh and current Groq activity, and quiets spent console examples. Its [exact-source signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41734484111) passed. All 20 installed module bytes match the signed source; owner/task isolation cases passed against installed code in both modes. Configuration, all 18 invocation markers and 13 completed/1 failed/3 uncertain ledger counts are preserved. The service/recovery/provider are ready, the host is idle, and SELinux remains Enforcing. No provider call or grant renewal was used.
 
-Local synthetic browser checks passed at desktop,390px and320px, including automatic observations, all four failed/uncertain rows and saved results. **Final authenticated production visual reconciliation is pending authenticated production browser verification.** Installed-code, read-only ledger and local-preview evidence are separate from that outstanding check. Owner acceptance remains separate.
+Authenticated production verification completed on November 3 at 6:23 PM EST. All 17 visible job references and states match the configured owner ledger: 13 completed, 1 failed and 3 uncertain, with 0 queued/running. Overview and Groq agree, and the observation advanced automatically from 6:22:11 PM to 6:22:27 PM without manual refresh.
+
+Needs review shows all four failed/uncertain records with no-retry guidance. Spent examples remain readable with approval disabled and their warning hidden; existing saved results and reviewed corrections remain intact.
+
+Desktop, 390px and 320px screenshots were inspected without horizontal overflow. These are actual production checks, separate from the earlier synthetic preview and installed-code fixtures.
+
+Configuration, all 18 invocation markers and ledger counts remained unchanged after the review; no provider call was triggered. The private board has the production screenshot and delivery evidence. Owner acceptance remains separate.
 
 ## v0.1.21 verification
 
