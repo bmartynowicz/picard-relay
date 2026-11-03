@@ -3,10 +3,10 @@
   "originalPreserved": true,
   "executionStatus": "Proposal examples only; the broader Board form feature remains open",
   "cases": [
-    {"case": "Missing label", "input": {"label": "", "used": 0, "limit": 10}, "expected": "Required-field error"},
-    {"case": "Whitespace-only label", "input": {"label": "   ", "used": 0, "limit": 10}, "expected": "Required-field error"},
+    {"case": "Missing label", "input": {"label": "", "used": 0, "limit": 10}, "expected": "Check this field."},
+    {"case": "Whitespace-only label", "input": {"label": "   ", "used": 0, "limit": 10}, "expected": "Check this field."},
     {"case": "Exact boundary", "input": {"label": "Name", "used": 10, "limit": 10}, "expected": "0 characters remaining."},
-    {"case": "Exceeded limit", "input": {"label": "Name", "used": 11, "limit": 10}, "expected": "Limit-exceeded error"},
-    {"case": "Unknown limit", "input": {"label": "Name", "used": 5, "limit": null}, "expected": "Unknown-limit guidance; do not invent a numeric remaining count"}
+    {"case": "Exceeded limit", "input": {"label": "Name", "used": 11, "limit": 10}, "expected": "Name: 1 characters over the limit."},
+    {"case": "Invalid number", "input": {"label": "Description", "used": "five", "limit": 10}, "expected": "Check this field."}
   ]
 }
