@@ -7,21 +7,21 @@ const html=admissionConsoleHtml(CONSOLE_HTML,{activationEnabled:true}),script=ht
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const state={v:1,observedAt:new Date().toISOString(),service:{ready:true,providerReady:true,resultRecoveryReady:true,acceptingNewWork:true,draining:false},jobs:{queued:0,invoking:0,completed:0,uncertain:0},release:{version:null,hash:null},updater:{state:'unknown'}};
 const ref='a'.repeat(64),inputSha256='b'.repeat(64),privateText='SYNTHETIC_PRIVATE_INPUT <script>never_execute()</script>';
-function harness(){
+function harness({cataloguePatch={},savedBody='SYNTHETIC_SAVED_RESULT <img src=x>',initialHash='',jobs=[]}={}){
  let authenticated=true,lost=null,unavailable=false,job='available',hold=null,empty=false,legacyReview=false;
  const timers=new Map(),requests=[],events={document:{},window:{}},els=new Map(),heldReads=[];let seq=0;
- function element(){return {textContent:'',children:[],value:'',hidden:true,disabled:false,dataset:{},attrs:{},listeners:{},className:'',classList:{items:new Set(),toggle(k,v){v?this.items.add(k):this.items.delete(k);}},setAttribute(k,v){this.attrs[k]=v;},append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this.children=nodes;this.textContent='';},addEventListener(k,v){this.listeners[k]=v;},focus(){},animate(){return {cancel(){}}}};}
+ function element(tagName=''){return {tagName,textContent:'',children:[],value:'',hidden:true,disabled:false,dataset:{},attrs:{},listeners:{},className:'',classList:{items:new Set(),toggle(k,v){v?this.items.add(k):this.items.delete(k);}},setAttribute(k,v){this.attrs[k]=v;},append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this.children=nodes;this.textContent='';},addEventListener(k,v){this.listeners[k]=v;},focus(){},animate(){return {cancel(){}}}};}
  for(const [,id] of html.matchAll(/id="([^"]+)"/g))els.set(id,element());
  const add=(kind,name,fn)=>{(events[kind][name]??=[]).push(fn);};
  const document={visibilityState:'visible',getElementById:id=>{assert.ok(els.has(id),id);return els.get(id);},createElement:element,addEventListener:(n,fn)=>add('document',n,fn)};
- const window={matchMedia:()=>({matches:true,addEventListener(){}}),addEventListener:(n,fn)=>add('window',n,fn)};
+ const location={hash:initialHash};const window={location,history:{pushState(_a,_b,hash){location.hash=hash;},replaceState(_a,_b,hash){location.hash=hash;}},matchMedia:()=>({matches:true,addEventListener(){}}),addEventListener:(n,fn)=>add('window',n,fn)};
  const json=(data,status=200)=>({ok:status===200||status===201,status,json:async()=>data});
- const catalogue=()=>({v:1,mode:'synthetic-integration-only',admissionReady:true,catalogueSha256:'c'.repeat(64),entries:[{entryId:'literal',requestText:privateText,inputSha256,taskContext:{title:'Synthetic approval',nextAction:'Review only',latestFinding:'No provider'},slots:[{slotId:'slot-0',ref,state:job}]}]});
- const saved=state=>({v:1,ref,state,resultAvailable:state==='completed',reasonCode:state==='failed'?'output_incomplete':state,...(state==='completed'?{result:{kind:'information',body:'SYNTHETIC_SAVED_RESULT <img src=x>'}}:{})});
+ const catalogue=()=>({v:1,mode:'synthetic-integration-only',admissionReady:true,catalogueSha256:'c'.repeat(64),entries:[{entryId:'literal',requestText:privateText,inputSha256,taskContext:{title:'Synthetic approval',nextAction:'Review only',latestFinding:'No provider'},slots:[{slotId:'slot-0',ref,state:job}]}],...cataloguePatch});
+ const saved=state=>({v:1,ref,state,resultAvailable:state==='completed',reasonCode:state==='failed'?'output_incomplete':state,...(state==='completed'?{result:{kind:'information',body:savedBody}}:{})});
  async function fetch(path,options){requests.push({path,options});assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');if(options.signal.aborted)throw Error('aborted');
   if(path==='/auth/state')return json({enrolled:true});if(path==='/auth/logout'){authenticated=false;return json({ok:true});}
   if(!authenticated||lost)return json({error:'auth_failed'},lost??401);
-  if(path==='/status')return json(state);if(path==='/jobs')return json({v:1,observedAt:state.observedAt,rows:[],nextCursor:null});
+  if(path==='/status')return json(state);if(path==='/jobs')return json({v:1,observedAt:state.observedAt,rows:jobs,nextCursor:null});
   if(unavailable)return json({error:'PRIVATE_BACKEND_EXCEPTION'},503);
   if(path==='/request-catalogue')return json(legacyReview?{...catalogue(),admissionReady:false,blockingCode:'legacy_review_required'}:empty?{...catalogue(),entries:[],admissionReady:false}:catalogue());
   if(path==='/request-approvals'){if(hold)await hold;return json({v:1,entryId:'literal',slotId:'slot-0',nonce:'N'.repeat(43),approvedInputSha256:inputSha256});}
@@ -30,7 +30,7 @@ function harness(){
   throw Error('unexpected_path:'+path);
  }
  vm.runInNewContext(script,{document,window,fetch,TextEncoder,AbortController,Date,queueMicrotask,setTimeout:(fn,ms)=>{timers.set(++seq,{fn,ms});return seq;},clearTimeout:id=>timers.delete(id)});
- return {els,requests,timers,get:id=>els.get(id),document,async click(id){await els.get(id).listeners.click();await flush();},async fire(kind,name,value){for(const fn of events[kind][name]??[])fn(value);await flush();},lose:code=>lost=code,fail:()=>unavailable=true,recover:()=>unavailable=false,setEmpty:()=>empty=true,setLegacyReview:()=>legacyReview=true,setJob:value=>job=value,hold:promise=>hold=promise,deferRead(){let release;heldReads.push(new Promise(resolve=>release=resolve));return state=>release(json(saved(state)));}};
+ return {els,requests,timers,get:id=>els.get(id),document,window,async click(id){await els.get(id).listeners.click();await flush();},async fire(kind,name,value){for(const fn of events[kind][name]??[])fn(value);await flush();},lose:code=>lost=code,fail:()=>unavailable=true,recover:()=>unavailable=false,setEmpty:()=>empty=true,setLegacyReview:()=>legacyReview=true,setJob:value=>job=value,hold:promise=>hold=promise,deferRead(){let release;heldReads.push(new Promise(resolve=>release=resolve));return state=>release(json(saved(state)));}};
 }
 test('disabled owner UI is byte-identical; enabled view compiles without execution controls outside Requests',()=>{
  assert.equal(admissionConsoleHtml(CONSOLE_HTML),CONSOLE_HTML);new vm.Script(script);assert.ok(html.includes('id="nav-requests"'));assert.ok(html.includes('id="admission-approve"'));assert.equal(/localStorage|sessionStorage|document\.cookie|innerHTML|eval\(/.test(script),false);
@@ -80,7 +80,7 @@ for(const event of ['logout','401','403','pagehide'])test('owner request input/r
  const h=harness();await flush();await h.click('nav-requests');await h.click('admission-approve');assert.ok(h.get('admission-output').textContent);
  if(event==='logout')await h.click('logout');else if(event==='pagehide')await h.fire('window','pagehide');else{h.lose(Number(event));await h.click('admission-check');}
  for(const id of ['admission-input','admission-context','admission-output','admission-state'])assert.equal(h.get(id).textContent,'',id);for(const id of ['admission-entry','admission-slot']){assert.equal(h.get(id).children.length,0);assert.equal(h.get(id).value,'');}
- assert.equal(h.get('admission-result').hidden,true);assert.equal(h.get('private').hidden,true);assert.equal(JSON.stringify([...h.els.values()]).includes('SYNTHETIC_PRIVATE_'),false);
+ assert.equal(h.get('admission-result').hidden,true);assert.equal(h.get('private').hidden,true);assert.equal(h.get('admission-formatted').children.length,0);assert.equal(h.get('admission-identity').textContent,'');assert.equal(h.get('admission-capability').textContent,'');assert.equal(JSON.stringify([...h.els.values()]).includes('SYNTHETIC_PRIVATE_'),false);
 });
 test('late approval response after pagehide cannot repopulate private fields or send a submission',async()=>{
  const h=harness();await flush();await h.click('nav-requests');let release;h.hold(new Promise(resolve=>release=resolve));const first=h.get('admission-approve').listeners.click();await flush();await h.fire('window','pagehide');release();await first;assert.equal(h.requests.filter(r=>r.path==='/requests'&&r.options.method==='POST').length,0);assert.equal(h.get('admission-output').textContent,'');assert.equal(h.get('admission-input').textContent,'');
@@ -90,4 +90,25 @@ test('503 preserves last actual result but disables approval and says current av
 });
 for(const state of ['uncertain','failed'])test('terminal '+state+' reads never offer a retry or new grant',async()=>{
  const h=harness();await flush();h.setJob(state);await h.click('nav-requests');assert.equal(h.get('admission-approve').disabled,true);await h.click('admission-check');assert.match(h.get('admission-state').textContent,/spent.*Do not retry/);assert.equal(h.requests.some(r=>r.options.method==='POST'&&r.path==='/requests'),false);
+});
+
+test('saved result does not replace the persistent availability reason',async()=>{
+ const h=harness({cataloguePatch:{admissionReady:false,blockingCode:'allowance_unavailable'}});await flush();h.setJob('completed');await h.click('nav-requests');const reason=h.get('admission-capability').textContent;assert.match(reason,/allowance|spent|used/i);await h.click('admission-check');assert.equal(h.get('admission-capability').textContent,reason);assert.equal(h.get('admission-notice').textContent,'Saved result ready.');assert.equal(h.get('admission-approve').disabled,true);
+});
+test('duplicate task titles retain distinct input labels and hashes',async()=>{
+ const entry=(entryId,ref)=>({entryId,requestText:entryId,inputSha256,taskContext:{title:'Same task',nextAction:'',latestFinding:''},slots:[{slotId:'slot',ref,state:'completed'}]});
+ const h=harness({cataloguePatch:{entries:[entry('function',ref),entry('regression','d'.repeat(64))]}});await flush();await h.click('nav-requests');const labels=h.get('admission-entry').children.map(n=>n.textContent);assert.equal(new Set(labels).size,2);assert.match(labels[0],/function/);assert.match(labels[1],/regression/);assert.match(h.get('admission-identity').textContent,new RegExp(inputSha256));
+});
+test('formatted code and tables use inert nodes and preserve the exact original',async()=>{
+ const body='# Review\n```js\n<img src=x onerror=alert(1)>\n```\n| Case | Result |\n| --- | --- |\n| **Exact limit** | `valid` |\n<script>alert(1)</script>';
+ const h=harness({savedBody:body});await flush();h.setJob('completed');await h.click('nav-requests');await h.click('admission-check');assert.equal(h.get('admission-output').textContent,body);
+ const walk=n=>[n,...n.children.flatMap(walk)],nodes=walk(h.get('admission-formatted'));assert.ok(nodes.some(n=>n.tagName==='table'));assert.ok(nodes.some(n=>n.tagName==='code'&&n.textContent.includes('<img')));assert.equal(nodes.some(n=>['script','img','a'].includes(n.tagName)),false);assert.ok(nodes.some(n=>n.tagName==='strong'));
+ await h.click('logout');assert.equal(h.get('admission-formatted').children.length,0);assert.equal(h.get('admission-identity').textContent,'');assert.equal(h.get('admission-capability').textContent,'');
+});
+test('completed job opens its matching result and requests destination survives reload',async()=>{
+ const h=harness({jobs:[{ref,state:'completed',createdAt:1000,updatedAt:2000,resultAvailable:true,reasonCode:'completed'}]});await flush();h.setJob('completed');await h.click('nav-jobs');await h.get('jobs-list').children[0].children[0].listeners.click();assert.equal(h.window.location.hash,'#jobs/'+ref);assert.equal(h.get('job-open-result').hidden,false);await h.click('job-open-result');assert.equal(h.get('view-requests').hidden,false);assert.equal(h.window.location.hash,'#requests/'+ref);assert.equal(h.get('admission-result').hidden,false);assert.equal(h.requests.some(r=>r.options.method==='POST'),false);
+ const restored=harness({initialHash:h.window.location.hash});restored.setJob('completed');await flush();assert.equal(restored.get('view-requests').hidden,false);assert.equal(restored.get('admission-result').hidden,false);await restored.click('nav-system');assert.equal(restored.window.location.hash,'#system');restored.window.location.hash='#requests/'+ref;await restored.fire('window','popstate');assert.equal(restored.get('view-requests').hidden,false);await restored.click('logout');assert.equal(restored.window.location.hash,'#overview');
+});
+test('a result outside the current catalogue never displays a different request instead',async()=>{
+ const h=harness({initialHash:'#requests/'+'f'.repeat(64)});await flush();assert.equal(h.get('admission-slot').value,'');assert.equal(h.get('admission-result').hidden,true);assert.match(h.get('admission-notice').textContent,/not in the current enrolled catalogue/);assert.equal(h.get('admission-approve').disabled,true);assert.equal(h.requests.some(r=>r.path.startsWith('/requests/')),false);
 });

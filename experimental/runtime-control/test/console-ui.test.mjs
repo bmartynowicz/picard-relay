@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"e517ca603addc68f9d395cb75edca1dbbe48226d31e8e82a43e821441c04fdc1");
+assert.equal(createHash('sha256').update(script).digest('hex'),"7c31d6fc2b4d3cf478afdaeacf0e3e8f3de33b15da95cdfb2b9082ee199f3597");
 assert.equal(createHash('sha256').update(html.match(/aria-label="Picard Relay ASCII Starfleet insignia">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|href=|@import|url\(/i.test(html));assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -75,6 +75,7 @@ p.pref.matches=true;p.ml.change();assert.equal(p.animations[0].cancelled,true);v
 let clockNow=100000;class Clock extends Date{constructor(...args){super(...(args.length?args:[clockNow]));}static now(){return clockNow;}}
 p=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,observedAt:new Date(100000).toISOString()}),{clock:Clock});await flush();assert.equal(p.get('notice').hidden,true);clockNow=160001;for(const callback of [...p.timers.values()])callback();assert.match(p.get('notice').textContent,/over a minute old/);
 const future=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,observedAt:new Date(clockNow+10000).toISOString()}),{clock:Clock});await flush();assert.match(future.get('notice').textContent,/ahead of this device/);assert.match(future.get('notice').textContent,/unknown/);
+assert.match(future.get('health-heading').textContent,/Current health unknown.*clock mismatch/);assert.equal(future.get('health-heading').dataset.tone,'unknown');assert.match(p.get('checked').textContent,/minutes ago/);
 console.log('PASS bundle UI: 401/403 clears counters/history/cursors/motion; stale observations retain actual values; history paging/single-flight/redaction; bounded rolling counters respect reduced motion/visibility; stale/future clocks truthful.');
 for(const reset of ['logout','401','403','pagehide']){
  let rejected=null;const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):path==='/status'?rejected?bad(rejected,'auth_failed'):ok({...health,jobs:{queued:7,invoking:5,completed:37,uncertain:3}}):ok({ok:true}));await flush();assert.equal(q.get('completed').attrs['aria-label'],'37');
@@ -99,7 +100,7 @@ assert.equal(app.requests.length,requestsBeforeNavigation);await app.click('open
 await app.get('jobs-list').children[0].children[0].listeners.click();assert.equal(app.get('detail-ref').textContent,job.ref);assert.equal(app.get('job-details').hidden,false);assert.match(app.get('detail-reason').textContent,/Do not retry/);
 for(const [filter,expected] of [['completed',1],['active',1],['attention',1],['all',3]]){app.get('jobs-filter').value=filter;app.get('jobs-filter').listeners.change();assert.equal(app.get('jobs-list').children.length,expected);assert.equal(app.get('job-details').hidden,true);assert.equal(app.get('detail-ref').textContent,'-');}
 assert.equal(app.requests.length,requestsBeforeNavigation);assert.equal(app.get('activity-list').children.length,3);
-assert.equal(app.get('groq-availability').textContent,'Not available for new work');assert.match(app.get('groq-blocking').textContent,/Do not retry/);
+assert.equal(app.get('groq-availability').textContent,'Not available for new work');assert.match(app.get('groq-blocking').textContent,/unavailable|not supplied|not reported/i);
 assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.ok(!/<details|<summary/.test(html));
 
 for(const event of ['logout','401','403','pagehide']){
@@ -117,10 +118,10 @@ for(const failure of ['http503','invalid-json','network']){
  let failed=false,time=100000;
  class FreshnessClock extends Date{constructor(...args){super(...(args.length?args:[time]));}static now(){return time;}}
  const q=harness(async path=>path==='/auth/state'?ok({enrolled:true}):failed?(failure==='http503'?bad(503,'PRIVATE_READ_ERROR'):failure==='invalid-json'?ok({v:1}):Promise.reject(Error('PRIVATE_NETWORK_ERROR'))):ok({...health,observedAt:new Date(time).toISOString()}),{clock:FreshnessClock});
- await flush();const oldTimers=[...q.timers.values()];assert.equal(q.get('health-heading').textContent,'Service operational');failed=true;await q.click('refresh');
+ await flush();const oldTimers=[...q.timers.values()];assert.equal(q.get('health-heading').textContent,'Relay reachable - new work blocked');failed=true;await q.click('refresh');
  assert.equal(q.get('health-heading').textContent,'Current health unknown');assert.equal(q.get('health-heading').dataset.tone,'unknown');const failureNotice=q.get('notice').textContent;
  time+=61000;for(const callback of oldTimers)callback();for(const callback of [...q.timers.values()])callback();
  assert.equal(q.get('notice').textContent,failureNotice);assert.match(failureNotice,/Current health is unknown/);assert.equal(q.get('completed').textContent,'2');assert.equal(q.get('groq-availability').textContent,'Current availability unknown');assert.equal(JSON.stringify([...q.els.values()]).includes('PRIVATE_'),false);
- failed=false;await q.click('refresh');assert.equal(q.get('health-heading').textContent,'Service operational');assert.equal(q.get('notice').hidden,true);
+ failed=false;await q.click('refresh');assert.equal(q.get('health-heading').textContent,'Relay reachable - new work blocked');assert.equal(q.get('notice').hidden,true);
 }
 console.log('PASS independent freshness regression: stale timers preserve failed/unknown status after503, invalid projection or network error, with recovery only after a successful read.');

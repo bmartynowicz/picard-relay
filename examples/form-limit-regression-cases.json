@@ -1,0 +1,12 @@
+{
+  "purpose": "Reviewed correction to the saved Picard regression proposal, audit F11",
+  "originalPreserved": true,
+  "executionStatus": "Proposal examples only; the broader Board form feature remains open",
+  "cases": [
+    {"case": "Missing label", "input": {"label": "", "used": 0, "limit": 10}, "expected": "Required-field error"},
+    {"case": "Whitespace-only label", "input": {"label": "   ", "used": 0, "limit": 10}, "expected": "Required-field error"},
+    {"case": "Exact boundary", "input": {"label": "Name", "used": 10, "limit": 10}, "expected": "0 characters remaining."},
+    {"case": "Exceeded limit", "input": {"label": "Name", "used": 11, "limit": 10}, "expected": "Limit-exceeded error"},
+    {"case": "Unknown limit", "input": {"label": "Name", "used": 5, "limit": null}, "expected": "Unknown-limit guidance; do not invent a numeric remaining count"}
+  ]
+}
