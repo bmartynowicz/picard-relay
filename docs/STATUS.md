@@ -4,6 +4,16 @@ Last documentation review: **November 3, 2026**. This page separates a reusable 
 
 ## Current verified release
 
+On November 3, 2026, **v0.1.21 / sequence 21001** was installed through the enrolled updater and verified. Source commit: `dc5cc1d142b79ab211ca99b532589af34b240aa8`; physical release: `74070c36de307b43a44ece52eb6b7785c3ebe21776e4e8532c13f9fb6985800c`.
+
+[PR #3](https://github.com/bmartynowicz/picard-relay/pull/3) completes the reporting-only correction for unconfirmed dispatcher outcomes. The [signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41731254396) passed on the exact merged source. All 20 packaged and installed module hashes/lengths matched that source. The existing updater enforced its pinned signature, sequence and state-preservation checks.
+
+All 15 reporting regressions passed against the physically installed modules on Node 24.22.2, normally and with `--jitless`, in isolated temporary fixtures. They cover timeout/network uncertainty, unavailable outcome persistence/readback, request identity, safe errors, saved-result recovery without another answer, and actual fixture-service log agreement. These are installed-code fixture checks; no real provider failure was induced.
+
+Authenticated live HTTPS checks confirmed the new System version/source/release and successful updater outcome, healthy Overview, preserved owner session after restart, Jobs details and saved-result navigation, the original saved answer and reviewed-correction note, and the spent approval remaining disabled. Configuration, all 18 baseline invocation markers and ledger counts (13 completed / 1 failed / 3 uncertain) were preserved. Service and result recovery were ready, with no busy/draining/unresolved-invocation state; SELinux remained Enforcing. No provider call, renewed grant or production state reset was used. Owner acceptance remains separate.
+
+## v0.1.19 verification
+
 On November 3, 2026, **v0.1.19 / sequence 19001** was installed and verified. Source commit: `6ddc19561926561b3e6d44a3b7ead5e3f1d4425b`; physical release: `4e733beece3139b8cf5434721e198cd34bf86d8ac6884dc912debe9439a893d8`.
 
 [PR #2](https://github.com/bmartynowicz/picard-relay/pull/2) adds **Documentation ↗** beside Refresh in the shared console header. The [signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41727722968) passed on the exact merged source, and all 20 packaged modules matched before installation. Live checks confirmed the link in all five views, keyboard focus, 390px/320px layouts without overflow, and a separate-tab guide index leading to the rendered illustrated quickstart. Existing configuration, all 17 historical invocation markers and ledger counts were preserved. No provider calls or new grants were used; owner acceptance remains separate.

@@ -76,7 +76,7 @@
       "kind": "bug",
       "severity": "P2",
       "title": "Unconfirmed dispatcher failure persistence can produce a guessed outcome",
-      "status": "implemented_pending_deployment",
+      "status": "verified_on_deployment",
       "behavior": "Reports a matching confirmed ledger state or unknown when no authoritative state is available. Error codes are allowlisted and raw adapter messages are excluded. No retry or new ledger state is introduced.",
       "sourceFiles": [
         "experimental/runtime-control/src/dispatcher.mjs",
@@ -87,7 +87,37 @@
         "experimental/runtime-control/test/incomplete-response.test.mjs",
         "experimental/runtime-control/test/relay-process.test.mjs"
       ],
-      "remaining": "Source candidate with offline tests; merge, signed publication, host installation, live verification and owner acceptance remain separate."
+      "remaining": "No further implementation for this scoped correction; owner acceptance remains separate.",
+      "verification": {
+        "verifiedAt": "2026-11-03",
+        "release": "0.1.21",
+        "sequence": 21001,
+        "sourceCommit": "dc5cc1d142b79ab211ca99b532589af34b240aa8",
+        "releaseHash": "74070c36de307b43a44ece52eb6b7785c3ebe21776e4e8532c13f9fb6985800c",
+        "workflow": "https://github.com/bmartynowicz/picard-relay/actions/runs/41731254396",
+        "pullRequest": "https://github.com/bmartynowicz/picard-relay/pull/3",
+        "installedModuleCount": 20,
+        "installedCodeFixtureTests": 15,
+        "fixtureModes": [
+          "normal",
+          "--jitless"
+        ],
+        "liveChecks": [
+          "authenticated System release identity and updater outcome",
+          "healthy Overview and preserved owner session",
+          "Jobs details and original saved-result recovery",
+          "spent approval remains disabled"
+        ],
+        "providerCalls": 0,
+        "baselineInvocationMarkersPreserved": 18,
+        "ledgerStateCountsPreserved": {
+          "completed": 13,
+          "failed": 1,
+          "uncertain": 3
+        },
+        "scopeLimit": "Failure paths exercised with isolated fixtures importing the physically installed modules. No real provider failure was induced; owner acceptance is not asserted.",
+        "ownerAcceptance": false
+      }
     },
     {
       "id": "PR-FTR-001",

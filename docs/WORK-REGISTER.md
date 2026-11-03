@@ -16,13 +16,15 @@ The correction note preserves the original model response. It does not implement
 
 Earlier console audit fixes were observed on v0.1.17: truthful blocked-work explanations, request labels/hashes, saved-result links and inert formatting, persistent submission warnings, readable release identity, updater activity, scoped timestamps, mobile flow and heading hierarchy. The three records above are follow-ups found during the next live pass; prior broad verification is not proof that these remaining cases were already fixed.
 
-## Source correction awaiting release
+## Additional reporting correction
 
 | ID | Priority | Issue | Current state |
 | --- | --- | --- | --- |
-| PR-BUG-004 | P2 | Dispatcher guesses a terminal outcome when both persistence and readback are unavailable; non-Groq errors can expose raw exception text. | Implemented with offline reporting, recovery and service-log regressions. Merge, signed publication, installation and live verification are not yet asserted. |
+| PR-BUG-004 | P2 | Dispatcher guesses a terminal outcome when both persistence and readback are unavailable; non-Groq errors can expose raw exception text. | Installed on v0.1.21; 15 reporting regressions passed against installed modules in isolated fixtures; live HTTPS service and saved-result checks passed. |
 
 The original failed-versus-uncertain mismatch was already corrected in earlier source. This follow-up removes the remaining fallback guess, requires a matching persisted request, and returns only an allowlisted code plus fixed review guidance. It changes reporting, with no new retry, grant, dependency, database migration or provider activation.
+
+The [PR #3](https://github.com/bmartynowicz/picard-relay/pull/3) [signed release](https://github.com/bmartynowicz/picard-relay/actions/runs/41731254396) was installed and verified on November 3, 2026. Configuration, all 18 historical markers and ledger counts were preserved. No real provider failure or replay was manufactured; see [Status](STATUS.md) for the exact installed-code fixture and live-check boundaries. Owner acceptance is separate.
 
 ## Requested or unfinished features
 
