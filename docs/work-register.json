@@ -72,6 +72,24 @@
       "remaining": "No further implementation for this scoped finding; owner acceptance remains separate."
     },
     {
+      "id": "PR-BUG-004",
+      "kind": "bug",
+      "severity": "P2",
+      "title": "Unconfirmed dispatcher failure persistence can produce a guessed outcome",
+      "status": "implemented_pending_deployment",
+      "behavior": "Reports a matching confirmed ledger state or unknown when no authoritative state is available. Error codes are allowlisted and raw adapter messages are excluded. No retry or new ledger state is introduced.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/dispatcher.mjs",
+        "experimental/runtime-control/src/adapters.mjs"
+      ],
+      "tests": [
+        "experimental/runtime-control/test/dispatcher-outcomes.test.mjs",
+        "experimental/runtime-control/test/incomplete-response.test.mjs",
+        "experimental/runtime-control/test/relay-process.test.mjs"
+      ],
+      "remaining": "Source candidate with offline tests; merge, signed publication, host installation, live verification and owner acceptance remain separate."
+    },
+    {
       "id": "PR-FTR-001",
       "kind": "feature",
       "title": "Additional provider connectors",
