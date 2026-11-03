@@ -1,6 +1,6 @@
 import {lstatSync,realpathSync,readdirSync} from 'node:fs';
 import {isAbsolute,resolve,join} from 'node:path';
-import {canonical} from './protocol.mjs';
+import {canonical,validateWork} from './protocol.mjs';
 import {createGroqOnceAdapter} from './groq-once-adapter.mjs';
 import {createFreeOnlyRoutingAdapter,FREE_ONLY_ROUTING_POLICY} from './selected-assistant.mjs';
 import {groqHttpsFetch} from './https-fetch.mjs';
@@ -9,7 +9,7 @@ import {readBoundAdmissionPolicy,locateAdmissionSlot,gateFromCommittedWork} from
 import {admissionHash} from './admission-store.mjs';
 
 const blocked=code=>new AdapterBlockedError(code,code);
-export function createAdmissionAssistantAdapter({activationEnabled=false,loadPolicy,binding,apiKey='',markerDirectory='',now=Date.now,fetchImpl=groqHttpsFetch,testOnly=null}={}){
+export function createAdmissionAssistantAdapter({activationEnabled=false,signedBridgeEnabled=false,bridgeKeyId='',loadPolicy,binding,apiKey='',markerDirectory='',now=Date.now,fetchImpl=groqHttpsFetch,testOnly=null}={}){
  let storage=null,canAccept=()=>false,busy=false;const attempted=new Set(),live=new Map();
  const synthetic=testOnly?.synthetic===true;
  const configured=activationEnabled===true&&typeof apiKey==='string'&&apiKey.length>0&&!/[\r\n]/.test(apiKey)&&typeof loadPolicy==='function'&&binding?.assistantId==='groq:openai/gpt-oss-20b'&&admissionHash(apiKey)===binding.keySha256;
@@ -40,11 +40,19 @@ export function createAdmissionAssistantAdapter({activationEnabled=false,loadPol
  function approved(eventId){
   if(!configured||!storage)throw blocked('groq_free_scope_unavailable');
   const p=policy(),found=locateAdmissionSlot(p,eventId),row=storage.get(eventId);if(!found||!row||!storage.isApproved({catalogue:p.catalogue,...found,catalogueSha256:p.catalogueSha256})||storage.grantSeenElsewhere(found.slot.grantId,eventId))throw blocked('groq_scope_mismatch');
-  const payload=JSON.parse(row.payload_json),gate=gateFromCommittedWork(p,found.entry,found.slot,payload);if(row.owner!==payload.ownerId||row.task!==payload.taskId||row.message_id!==payload.requestId||row.grant_id!==payload.grantId||row.payload_hash!==payload.payloadHash||row.grant_expires!==payload.grantExpiresAt)throw blocked('groq_scope_mismatch');return {p,...found,row,payload,gate};
+  const payload=JSON.parse(row.payload_json),gate=gateFromCommittedWork(p,found.entry,found.slot,payload,{allowShorterLifetime:signedBridgeEnabled===true});if(row.owner!==payload.ownerId||row.task!==payload.taskId||row.message_id!==payload.requestId||row.grant_id!==payload.grantId||row.payload_hash!==payload.payloadHash||row.grant_expires!==payload.grantExpiresAt)throw blocked('groq_scope_mismatch');return {p,...found,row,payload,gate};
  }
  return Object.freeze({kind:activationEnabled===true?'groq-finite-admission':'groq-finite-admission-disabled',assistantId:'groq:openai/gpt-oss-20b',localTestOnly:synthetic,routingPolicy:FREE_ONLY_ROUTING_POLICY,
   get ready(){return availability().acceptingRequests;},get canServeResults(){return configured&&parentReady();},availability,
   attachStore(store,{accepting=()=>true}={}){if(storage)throw blocked('groq_scope_mismatch');storage=store;canAccept=accepting;},
+  async registerSignedWork(payload,identity){
+   if(signedBridgeEnabled!==true||!configured||!storage||!bridgeKeyId||identity?.ownerId!==binding.ownerId||identity?.keyId!==bridgeKeyId)throw blocked('groq_scope_mismatch');
+   await validateWork(payload);const p=policy(),found=locateAdmissionSlot(p,payload.eventId);if(!found)throw blocked('groq_scope_mismatch');
+   gateFromCommittedWork(p,found.entry,found.slot,payload,{allowShorterLifetime:true});
+   if(!storage.get(payload.eventId)&&(attempted.has(payload.eventId)||spent(found.slot.grantId)))throw blocked('groq_free_scope_unavailable');
+   storage.recordAttempt(admissionHash(canonical([binding.ownerId,binding.taskId])));
+   return storage.commitSignedBridge({payload,catalogue:p.catalogue,selection:{entryId:found.entry.entryId,slotId:found.slot.slotId},catalogueSha256:p.catalogueSha256,currentAvailability:availability,revalidate:()=>policy().catalogueSha256===p.catalogueSha256&&!attempted.has(payload.eventId)&&!spent(found.slot.grantId)});
+  },
   acceptsWorkScope(payload){try{const a=approved(payload?.eventId);return a.row.payload_json===canonical(payload);}catch{return false;}},
   claimNext(input){
    if(!configured||!storage)return null;

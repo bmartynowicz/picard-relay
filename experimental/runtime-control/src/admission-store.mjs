@@ -117,10 +117,40 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
  }
  function isApproved({catalogue,entry,slot,catalogueSha256}){
   if(!db.prepare('SELECT 1 FROM relay_nonces WHERE nonce=? AND expires=?').get(PREFIX+'enrollment:'+catalogue.enrollmentId+':'+slot.eventId,ASSOCIATION_EXPIRY))return false;
+  const signed=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 2').all(PREFIX+'signed-bridge:'+slot.eventId+':*');
+  if(signed.length){
+   if(signed.length!==1||signed[0].expires!==ASSOCIATION_EXPIRY)return false;
+   const c=decode(signed[0]),row=get(slot.eventId);
+   return exact(c,['v','source','catalogueSha256','entryId','slotId','inputSha256','payloadHash','workSha256','createdAt'])&&c.v===1&&c.source==='authenticated-signed-bridge'&&c.catalogueSha256===catalogueSha256&&c.entryId===entry.entryId&&c.slotId===slot.slotId&&c.inputSha256===entry.inputSha256&&integer(c.createdAt)&&c.createdAt<=clock()&&row?.payload_hash===c.payloadHash&&hex(c.workSha256)&&admissionHash(row.payload_json)===c.workSha256;
+  }
   const scope=admissionHash(canonical([catalogue.ownerId,catalogue.taskId]));
   const rows=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 129').all(PREFIX+'challenge:'+scope+':*');
   if(rows.length>128)return false;
   return rows.some(row=>{const c=decode(row);return c.used===true&&row.expires>clock()&&c.catalogueSha256===catalogueSha256&&c.entryId===entry.entryId&&c.slotId===slot.slotId&&c.inputSha256===entry.inputSha256;});
+ }
+ function commitSignedBridge({payload,catalogue,selection,catalogueSha256,currentAvailability,revalidate}){
+  // Only the explicitly enabled adapter calls this after receiver HMAC checks.
+  // This is a distinct audit source, never a fabricated browser-session proof.
+  return transaction(()=>{
+   const at=clock(),p=payload,entry=catalogue.entries.find(e=>e.entryId===selection.entryId),slot=entry?.slots.find(s=>s.slotId===selection.slotId),issued=Date.parse(p?.request?.createdAt),copy={...p};delete copy.payloadHash;
+   if(!slot||!hex(catalogueSha256)||!hex(catalogue.enrollmentId)||p?.v!==1||p.eventId!==slot.eventId||p.ownerId!==catalogue.ownerId||p.taskId!==catalogue.taskId||p.requestId!==slot.requestId||p.grantId!==slot.grantId||p.assistantId!==catalogue.assistantId||p.request?.text!==entry.requestText||p.request?.answerTo!==null||canonical(p.context)!==canonical(entry.taskContext)||admissionHash(canonical(copy))!==p.payloadHash||admissionHash(canonical([p.ownerId,p.taskId,p.requestId]))!==p.eventId||!integer(issued)||new Date(issued).toISOString()!==p.request.createdAt||issued<catalogue.notBefore||issued>at||issued>=catalogue.expiresAt||!integer(p.grantExpiresAt)||p.grantExpiresAt-issued<1000||p.grantExpiresAt-issued>catalogue.maxRequestLifetimeMs||p.grantExpiresAt>catalogue.expiresAt)stop('existing_record_invalid');
+   const old=get(p.eventId);
+   if(old){
+    if(old.payload_json!==canonical(p)||old.payload_hash!==p.payloadHash||old.owner!==p.ownerId||old.task!==p.taskId||old.message_id!==p.requestId||old.grant_id!==p.grantId||old.grant_expires!==p.grantExpiresAt||!isApproved({catalogue,entry,slot,catalogueSha256}))stop('existing_record_invalid');
+    return {duplicate:true,ref:p.eventId,state:old.state};
+   }
+   if(p.grantExpiresAt<=at||at>=catalogue.expiresAt)stop('approval_expired');
+   if(!availability(currentAvailability())||hasEnrollmentUncertainty(catalogue.enrollmentId))stop('admission_blocked');
+   if(db.prepare('SELECT 1 FROM relay_revocations WHERE owner=? AND task=? AND grant_id=?').get(p.ownerId,p.taskId,p.grantId)||grantSeenElsewhere(p.grantId,p.eventId))stop('scope_revoked');
+   if(db.prepare('SELECT COUNT(*) AS n FROM relay_jobs').get().n>=10000)stop('queue_capacity');
+   if(typeof revalidate!=='function'||revalidate()!==true)stop('catalogue_unavailable');
+   if(!legacyAdmissionReady(catalogue.enrollmentId))stop('admission_blocked');
+   const approval={v:1,source:'authenticated-signed-bridge',catalogueSha256,entryId:entry.entryId,slotId:slot.slotId,inputSha256:entry.inputSha256,payloadHash:p.payloadHash,workSha256:admissionHash(canonical(p)),createdAt:at};
+   db.prepare("INSERT INTO relay_jobs(event_id,owner,task,message_id,grant_id,grant_expires,payload_hash,payload_json,state,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'queued',?,?)").run(p.eventId,p.ownerId,p.taskId,p.requestId,p.grantId,p.grantExpiresAt,p.payloadHash,canonical(p),at,at);
+   db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(PREFIX+'enrollment:'+catalogue.enrollmentId+':'+p.eventId,ASSOCIATION_EXPIRY);
+   db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(PREFIX+'signed-bridge:'+p.eventId+':'+Buffer.from(canonical(approval)).toString('base64url'),ASSOCIATION_EXPIRY);
+   return {duplicate:false,ref:p.eventId,state:'queued'};
+  });
  }
  function grantSeenElsewhere(grantId,eventId){return !!db.prepare('SELECT 1 FROM relay_jobs WHERE grant_id=? AND event_id<>? LIMIT 1').get(grantId,eventId);}
  function legacyAdmissionReady(enrollmentId){
@@ -192,7 +222,7 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
    if(changed.changes!==1)return null;const claimed=get(row.event_id);return {...claimed,request_id:claimed.event_id};
   });
  }
- return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,reconcileEligible,claimEligible,
+ return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,reconcileEligible,claimEligible,
   close(){db.close();if(!relayStore)relay.close();},
  });
 }

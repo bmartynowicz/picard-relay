@@ -14,10 +14,11 @@ export function locateAdmissionSlot(policy,eventId){
  for(const entry of policy.catalogue.entries){const slot=entry.slots.find(s=>s.eventId===eventId);if(slot)return {entry,slot};}
  return null;
 }
-export function gateFromCommittedWork(policy,entry,slot,payload){
+export function gateFromCommittedWork(policy,entry,slot,payload,{allowShorterLifetime=false}={}){
  const c=policy.catalogue,e=policy.costEnrollment,issued=Date.parse(payload?.request?.createdAt);
  const copy={...payload};delete copy.payloadHash;
- const expires=Math.min(issued+c.maxRequestLifetimeMs,c.expiresAt);
+ const ceiling=Math.min(issued+c.maxRequestLifetimeMs,c.expiresAt),expires=allowShorterLifetime?payload?.grantExpiresAt:ceiling;
  if(!exact(payload,['v','eventId','ownerId','taskId','requestId','grantId','assistantId','grantExpiresAt','payloadHash','request','context'])||!exact(payload.request,['text','createdAt','answerTo'])||!Number.isSafeInteger(issued)||new Date(issued).toISOString()!==payload.request.createdAt||issued<c.notBefore||issued>=c.expiresAt||payload.v!==1||payload.eventId!==slot.eventId||payload.ownerId!==c.ownerId||payload.taskId!==c.taskId||payload.requestId!==slot.requestId||payload.grantId!==slot.grantId||payload.assistantId!==c.assistantId||payload.grantExpiresAt!==expires||payload.request.answerTo!==null||payload.request.text!==entry.requestText||canonical(payload.context)!==canonical(entry.taskContext)||admissionHash(canonical(copy))!==payload.payloadHash)stop('existing_record_invalid');
+ if(!Number.isSafeInteger(expires)||expires>ceiling||expires-issued<1000)stop('existing_record_invalid');
  return {v:3,purpose:entry.purpose,provider:'groq',model:e.model,accountPlan:'Free',noPaidFallback:true,harmlessTestOnly:true,maxCalls:1,owner:c.ownerId,task:c.taskId,grantId:slot.grantId,eventId:slot.eventId,approvedRequestText:entry.requestText,taskContext:entry.taskContext,approvedInputSha256:entry.inputSha256,enrollmentId:c.enrollmentId,costEnrollment:e,requestIssuedAt:issued,requestExpiresAt:expires};
 }

@@ -1,4 +1,4 @@
-import {verifyRequest,signedResponse,ProtocolError} from './protocol.mjs';
+import {verifyRequest,signedResponse,ProtocolError,validateWork} from './protocol.mjs';
 import {decodeInvocationError} from './adapters.mjs';
 function resultError(value){const {code}=decodeInvocationError(value);return code==='invocation_in_progress'?{}:{code};}
 const STATES=['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain'];
@@ -42,6 +42,11 @@ export function createReceiver({store,config,assistantAdapter,canAccept=()=>true
    }
    else if(p.action==='exchange'&&Object.keys(p).length===4){
     if(p.payload?.ownerId!==config.ownerId||p.payload?.assistantId!==config.assistantId)throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
+    await validateWork(p.payload);
+    if(ready&&!store.get(p.payload.eventId)&&typeof assistantAdapter.registerSignedWork==='function'){
+     try{await assistantAdapter.registerSignedWork(p.payload,{ownerId:p.ownerId,keyId:config.keyId});}
+     catch{throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});}
+    }
     // Groq admission is exact administrator-approved scope, never arbitrary text.
     if(pilot&&typeof assistantAdapter.acceptsWorkScope!=='function')throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
     if(typeof assistantAdapter.acceptsWorkScope==='function'&&!assistantAdapter.acceptsWorkScope(p.payload))throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});

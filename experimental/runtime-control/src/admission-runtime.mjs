@@ -26,7 +26,7 @@ export function readExistingAdmissionFile(file,maxBytes=16384){
  }catch{stop('admission_configuration_invalid');}finally{if(fd!==undefined)fs.closeSync(fd);}
 }
 export function admissionConfigurationDigest({config,enrollmentId,keySha256,markerDirectory}){
- return admissionHash(canonical({v:1,ownerId:config.ownerId,taskId:config.allowedTaskId,assistantId:config.assistantId,keyId:config.keyId,consoleOrigins:[...config.consoleOrigins].sort(),enrollmentId,keySha256,markerDirectory,legacyBaselineFile:config.admissionLegacyBaselineFile??'',legacyBaselineSha256:config.admissionLegacyBaselineSha256??''}));
+ return admissionHash(canonical({v:1,ownerId:config.ownerId,taskId:config.allowedTaskId,assistantId:config.assistantId,keyId:config.keyId,consoleOrigins:[...config.consoleOrigins].sort(),enrollmentId,keySha256,markerDirectory,legacyBaselineFile:config.admissionLegacyBaselineFile??'',legacyBaselineSha256:config.admissionLegacyBaselineSha256??'',...(config.admissionSignedBridgeEnabled===true?{signedBridgeAdmission:true}:{})}));
 }
 export function readLegacyAdmissionMarkers(directory,expectedNames){
  let fd;try{
@@ -64,7 +64,7 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
  const loadLegacyBaseline=createLegacyBaselineLoader({activationEnabled:true,file:config.admissionLegacyBaselineFile,expectedSha256:config.admissionLegacyBaselineSha256,expectedUid:0,expectedGid:process.getgid()});
  const loadPolicy=()=>{for(const old of [gateFile,keyFile]){if(fs.realpathSync(old.file)!==old.file||fingerprint(fs.lstatSync(old.file,{bigint:true}))!==old.identity)stop('admission_configuration_changed');}return catalogueLoader();};
  readBoundAdmissionPolicy(loadPolicy,binding);
- const adapter=createAdmissionAssistantAdapter({activationEnabled:true,loadPolicy,binding,apiKey,markerDirectory,now,fetchImpl});
+ const adapter=createAdmissionAssistantAdapter({activationEnabled:true,signedBridgeEnabled:config.admissionSignedBridgeEnabled===true,bridgeKeyId:config.keyId,loadPolicy,binding,apiKey,markerDirectory,now,fetchImpl});
  return {adapter,attach({store,control,auth,baseHtml}){
   if(!auth)stop('admission_configuration_invalid');
   const admissionStore=createAdmissionStore({activationEnabled:true,dbPath:config.dbPath,relayStore:store,now,loadLegacyBaseline,legacyBinding:binding,readLegacyMarkers:names=>readLegacyAdmissionMarkers(markerDirectory,names)});
