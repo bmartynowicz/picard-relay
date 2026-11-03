@@ -65,6 +65,8 @@ Afterwards, independently verify:
 
 Record code tested, source merged, envelope published, host installed, live behavior verified and owner acceptance separately.
 
+The public source feed may briefly serve a cached previous envelope after GitHub publishes a new one. A successful `no_new_release` check confirms no newer envelope was installed from that observation. Let the feed refresh and compare the intended manifest/source identity; do not bypass signature, sequence or state-preservation checks to force an installation.
+
 ## Routine read-only checks
 
 On the conventional enrolled host, inspect fixed unit metadata:

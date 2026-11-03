@@ -4,6 +4,12 @@ Last documentation review: **November 3, 2026**. This page separates a reusable 
 
 ## Current verified release
 
+On November 3, 2026, **v0.1.19 / sequence 19001** was installed and verified. Source commit: `6ddc19561926561b3e6d44a3b7ead5e3f1d4425b`; physical release: `4e733beece3139b8cf5434721e198cd34bf86d8ac6884dc912debe9439a893d8`.
+
+[PR #2](https://github.com/bmartynowicz/picard-relay/pull/2) adds **Documentation ↗** beside Refresh in the shared console header. The [signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41727722968) passed on the exact merged source, and all 20 packaged modules matched before installation. Live checks confirmed the link in all five views, keyboard focus, 390px/320px layouts without overflow, and a separate-tab guide index leading to the rendered illustrated quickstart. Existing configuration, all 17 historical invocation markers and ledger counts were preserved. No provider calls or new grants were used; owner acceptance remains separate.
+
+## v0.1.18 verification
+
 On November 3, 2026, **v0.1.18 / sequence 18001** was installed and verified on the enrolled host. The tested source commit is `2e242df358bebb1b44d91cfe16cd812254e1ce65`; the physical release hash is `4c0940721b031a444cb666d99f264b1150d19ce875395967693dd96b0204a68f`.
 
 [PR #1](https://github.com/bmartynowicz/picard-relay/pull/1) merged the three console follow-ups and current human/AI documentation. The [signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41725556990) passed on that exact merged source. All 20 packaged module hashes/lengths matched the source before installation; the enrolled updater independently performed its pinned signature verification.
