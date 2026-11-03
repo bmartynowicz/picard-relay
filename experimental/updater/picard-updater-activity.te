@@ -1,11 +1,11 @@
-module picard_updater_activity 1.0;
+module picard_updater_activity 1.1;
 
 require {
  type picard_updater_t;
  type httpd_t;
  type init_t;
  attribute file_type;
- class dir { add_name remove_name search open read getattr write setattr };
+ class dir { add_name remove_name search open read getattr write setattr mounton };
  class file { create open read write getattr setattr rename unlink };
 }
 
@@ -18,5 +18,6 @@ allow picard_updater_t picard_updater_status_t:file { create open read write get
 # Existing console domain receives read-only access. No logs, policy or secrets.
 allow httpd_t picard_updater_status_t:dir { search open read getattr };
 allow httpd_t picard_updater_status_t:file { open read getattr };
-# systemd checks ownership/mode of its precreated StateDirectory.
-allow init_t picard_updater_status_t:dir { search open read getattr setattr };
+# systemd checks the StateDirectory and bind-mounts it into the read-only namespace.
+allow init_t picard_updater_status_t:dir { search open read getattr setattr mounton };
+
