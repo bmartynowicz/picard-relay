@@ -164,6 +164,14 @@
     {
       "path": "experimental/compute-broker/src/receipt.mjs",
       "role": "bounded authenticated-context result validation"
+    },
+    {
+      "path": "experimental/compute-broker/unattended.mjs",
+      "role": "owner-only finite unattended CI orchestration through actual MCP and ephemeral GitHub token"
+    },
+    {
+      "path": "experimental/compute-broker/src/mcp-client.mjs",
+      "role": "bounded private stdio client; saved-result recovery without credentials"
     }
   ],
   "release": {
@@ -196,7 +204,8 @@
     "experimental/compute-broker/PROVIDERS.md",
     "experimental/compute-broker/PROVENANCE.md",
     "experimental/compute-broker/VERIFICATION.md",
-    "experimental/compute-broker/EXECUTION.md"
+    "experimental/compute-broker/EXECUTION.md",
+    "experimental/compute-broker/UNATTENDED.md"
   ],
   "workRegister": "docs/work-register.json",
   "illustrations": [

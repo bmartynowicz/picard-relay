@@ -28,3 +28,5 @@
 
 ## Interpretation
 Top-level src is the offline/preview tree. experimental/runtime-control/src is the complete signed-runtime source. Their roles differ; do not assume a root source edit updates an enrolled host. GitHub signs/publishes source; separately enrolled hosts install it. Completed means saved response, not correct/executed/deployed/accepted work. Free-policy enrollment is retained configuration evidence, not a current billing check. Uncertain invocations remain spent and must not be automatically replayed. Older checkpoint documents are historical; use the current index, actual source/tests and dated host evidence.
+
+- [Unattended GitHub dispatch](experimental/compute-broker/UNATTENDED.md): opt-in owner CI requests, ephemeral repository token, exact MCP dispatch and no automatic retries. Source candidate; live evidence is separate.

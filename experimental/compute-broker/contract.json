@@ -179,5 +179,36 @@
       ],
       "defaultRefKind": "tag"
     }
+  },
+  "unattendedGitHub": {
+    "status": "source_candidate_pending_live_verification",
+    "entrypoint": "experimental/compute-broker/unattended.mjs",
+    "guide": "experimental/compute-broker/UNATTENDED.md",
+    "host": "GitHub standard public CI runner",
+    "credential": "ephemeral GITHUB_TOKEN; never persisted in profile",
+    "permissions": {
+      "contents": "read",
+      "actions": "write"
+    },
+    "ownerOnly": true,
+    "sameRepositoryOnly": true,
+    "branchPrefix": "compute-request/",
+    "maximumJobsPerRequest": 1,
+    "maximumApprovalMs": 86400000,
+    "maximumCollectionReads": 18,
+    "automaticRetries": 0,
+    "browserRequired": false,
+    "personalTokenRequired": false,
+    "externalClientCredentialFree": false,
+    "coordinatorDisk": "ephemeral private runner directory",
+    "durableFence": "retained GitHub run/attempt history; no administrative deletion guarantee",
+    "artifactUploads": false,
+    "sourceQualification": {
+      "linuxNode": "24.22.2",
+      "normalPassed": 85,
+      "jitlessPassed": 85,
+      "skipped": 0,
+      "liveVerified": false
+    }
   }
 }

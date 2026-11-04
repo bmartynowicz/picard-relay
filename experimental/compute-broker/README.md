@@ -40,6 +40,10 @@ flowchart LR
 
 Receipts bind job ID, input hash and worker-source hash; reject executable/non-JSON data, hidden/accessor fields, excessive nesting and mismatched identities; and enforce 16 KiB total UTF-8 size, eight 256-byte log tails and one inline `result.json` artifact of at most 4 KiB with byte count and SHA-256. See [Picard provenance](PROVENANCE.md).
 
+## Unattended public CI
+
+An opt-in [native CI dispatcher](UNATTENDED.md) runs the actual MCP broker with GitHub's ephemeral repository token, so it needs no browser or personal token. Ordinary branches remain disabled; only an explicitly authorized owner request on a matching compute-request branch can dispatch one fixed worker job. This is CI-hosted orchestration, not an external credential-free API gateway. Live qualification is recorded separately.
+
 ## Connect an AI client
 
 The server implements newline-delimited [MCP stdio, protocol 2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports). Initialize, send `notifications/initialized`, then list/call tools. It has no HTTP listener, OAuth or tenant isolation; connect only trusted local clients.
