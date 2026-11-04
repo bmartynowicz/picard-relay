@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "updatedAt": "2026-11-04",
-  "status": "offline_execution_foundation_with_live_oracle_and_ci_observers",
+  "status": "execution_adapter_source_candidate_disabled_by_default",
   "liveCloudExecutionEnabled": false,
   "liveComputeProvidersEnrolled": 0,
   "twoProviderEndToEndVerified": false,
@@ -19,13 +19,16 @@
   "database": "Separate private SQLite ledger; never a production Picard database",
   "operations": [
     "word-count",
-    "sha256"
+    "sha256",
+    "project-checks"
   ],
   "tools": [
     "compute_discover",
+    "compute_refresh_resources",
     "compute_plan",
     "compute_submit",
     "compute_run",
+    "compute_collect",
     "compute_get",
     "compute_list",
     "compute_ci_status",
@@ -40,7 +43,10 @@
     "timeoutMs": 30000,
     "mcpMessageBytes": 65536,
     "pendingMcpRequests": 16,
-    "listedJobs": 100
+    "listedJobs": 100,
+    "receiptLogLines": 8,
+    "receiptLogLineUtf8Bytes": 256,
+    "inlineArtifactBytes": 4096
   },
   "costPolicy": {
     "eligibleClasses": [
@@ -56,16 +62,16 @@
   },
   "uncertainOutcome": "retain reservation; no retry, failover or automatic startup recovery",
   "unsupported": [
-    "remote workload execution beyond the fixed read-only inventory probe",
     "caller-supplied shell commands",
-    "live workload-execution adapters",
+    "generated-code execution",
     "GPU jobs",
-    "artifact file retrieval",
+    "external artifact filesystem",
     "multi-tenant access",
     "HTTP MCP",
-    "OS resource isolation"
+    "live monetary guarantee",
+    "multi-host SQLite"
   ],
-  "nextMilestone": "Verify account quotas/cost controls, enroll Oracle plus one permitted independent provider, implement secure bounded adapters and demonstrate two-provider execution with results/logs/artifacts.",
+  "nextMilestone": "Review and merge adapters; enroll and verify dedicated Oracle isolation and GitHub public-project dispatch access; execute one exact approved job on each provider with durable receipts/logs/inline artifacts.",
   "selectedSecondBackend": "github-public-project-ci",
   "githubCiObserver": {
     "repository": "bmartynowicz/picard-relay",
@@ -107,7 +113,59 @@
     "microDomainAvailable": 1,
     "bootVolumeGb": 50,
     "additionalAttachedBlockVolumes": 0,
-    "billingAndSubscriptionViews": "blank",
-    "accountBillingControlsVerified": false
+    "billingAndSubscriptionViews": "intermittent; Cost Analysis and trial subscription eventually loaded",
+    "accountBillingControlsVerified": false,
+    "costEstimate": {
+      "start": "2026-11-01",
+      "end": "2026-11-04",
+      "usd": 0,
+      "approximateDelayHours": 24,
+      "liveGuarantee": false
+    },
+    "accountPlan": "Free Trial; credits excluded"
+  },
+  "executionProfile": {
+    "required": true,
+    "defaultEnabled": false,
+    "maximumProviders": 2,
+    "maximumExactJobApprovals": 8,
+    "maximumValidityMs": 86400000,
+    "automaticRenewal": false,
+    "credentials": "Dedicated named environment variables only",
+    "startupProviderCalls": 0
+  },
+  "adapters": {
+    "oracle": {
+      "kind": "oracle-fixed-worker",
+      "operations": [
+        "word-count",
+        "sha256"
+      ],
+      "shape": "VM.Standard.E2.1.Micro",
+      "dedicatedUser": "picard-compute-worker",
+      "forcedSshCommands": true,
+      "hmacExactGrant": true,
+      "independentWorkerLedger": true,
+      "hardCpuSeconds": 3,
+      "cgroupMemoryMiB": 128,
+      "maximumJobs": 8,
+      "lookupDoesNotExecute": true,
+      "installed": false
+    },
+    "github": {
+      "kind": "github-public-ci",
+      "repository": "bmartynowicz/picard-relay",
+      "workflow": ".github/workflows/compute-worker.yml",
+      "runner": "ubuntu-latest",
+      "wallMinutes": 3,
+      "operation": "project-checks",
+      "sourceCommitRequired": true,
+      "pinnedWorkerTag": true,
+      "tagProtection": "operator requirement, not independently proved",
+      "dispatchPostsPerInvocation": 1,
+      "collectionRunWindow": 20,
+      "artifactOrCacheUploads": false,
+      "credentialConfigured": false
+    }
   }
 }

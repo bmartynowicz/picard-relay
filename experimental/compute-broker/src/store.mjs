@@ -33,6 +33,9 @@ export function createStore(filename) {
       job_id TEXT PRIMARY KEY REFERENCES jobs(id), resource_id TEXT NOT NULL,
       cpu_ms INTEGER NOT NULL, ram_mb INTEGER NOT NULL, disk_mb INTEGER NOT NULL,
       gpus INTEGER NOT NULL, state TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS execution_contexts (
+      job_id TEXT PRIMARY KEY REFERENCES jobs(id), value_json TEXT NOT NULL
     );`);
   const getRow = id => db.prepare('SELECT * FROM jobs WHERE id=?').get(id);
   const project = row => row ? {
@@ -47,6 +50,13 @@ export function createStore(filename) {
   };
   return {
     transaction,
+    setContext(id, value) {
+      db.prepare('INSERT INTO execution_contexts VALUES (?,?)').run(id, JSON.stringify(value));
+    },
+    context(id) {
+      const row = db.prepare('SELECT value_json FROM execution_contexts WHERE job_id=?').get(id);
+      return row ? JSON.parse(row.value_json) : null;
+    },
     find: id => project(getRow(id)),
     readInput: id => { const row = getRow(id); return row ? JSON.parse(row.input_json) : null; },
     list: () => db.prepare('SELECT * FROM jobs ORDER BY created_at DESC,id LIMIT 100').all().map(project),
@@ -93,6 +103,16 @@ export function createStore(filename) {
           .run(state === 'uncertain' ? 'uncertain' : 'spent', id);
       });
       return project(getRow(id));
+    },
+    recordReceipt(id, receipt, now) {
+      return transaction(() => {
+        const state = receipt.state === 'accepted' ? 'pending' : receipt.state;
+        const changed = db.prepare("UPDATE jobs SET state=?,result_json=?,reason=?,updated_at=? WHERE id=? AND state IN ('invoking','pending','uncertain')")
+          .run(state, JSON.stringify(receipt), receipt.reason, now, id).changes;
+        if (changed) db.prepare('UPDATE allocations SET state=? WHERE job_id=?')
+          .run(['completed', 'failed'].includes(state) ? 'spent' : state === 'uncertain' ? 'uncertain' : 'active', id);
+        return project(getRow(id));
+      });
     },
     // Explicit crash reconciliation; never invoke a recovered job again.
     recover(now) {

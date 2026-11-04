@@ -22,7 +22,8 @@
 - [Limitations](docs/LIMITATIONS.md)
 - [Known work](docs/WORK-REGISTER.md)
 - [Dated verification status](docs/STATUS.md)
-- [Offline compute-broker preview](experimental/compute-broker/README.md): separate MCP process, local fixtures only; no live provider enrollment.
+- [Compute-broker preview](experimental/compute-broker/README.md): separate MCP, fixed Oracle/GitHub CI adapters disabled by default; no live execution enrollment.
+- [Execution enrollment](experimental/compute-broker/EXECUTION.md): exact finite approvals, fixed workers, zero-dollar conditions and live qualification requirements.
 - [Compute contract](experimental/compute-broker/contract.json): machine-readable preview limits and unfinished live-provider milestone.
 
 ## Interpretation

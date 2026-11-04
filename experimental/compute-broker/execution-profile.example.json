@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "enabled": false,
+  "validUntil": 1,
+  "approvedJobs": [],
+  "providers": [
+    {
+      "kind": "oracle-fixed-worker",
+      "resource": {
+        "id": "oracle-worker",
+        "enabled": true,
+        "mode": "vm",
+        "arch": "x64",
+        "operations": [
+          "word-count",
+          "sha256"
+        ],
+        "observedAt": 0,
+        "cost": {
+          "kind": "permanent-free",
+          "verifiedAt": 1,
+          "validUntil": 1,
+          "maximumIncrementalUsd": 0,
+          "evidenceRef": "replace-with-private-evidence"
+        },
+        "capacity": {
+          "cpuMs": 3000,
+          "ramMb": 128,
+          "diskMb": 1,
+          "gpus": 0,
+          "slots": 1
+        }
+      },
+      "workerSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "keyEnv": "PICARD_COMPUTE_ORACLE_KEY",
+      "ssh": {
+        "hostname": "example.invalid",
+        "username": "picard-compute-worker",
+        "identityFile": "/private/compute-worker-key",
+        "knownHostsFile": "/private/known-hosts",
+        "sshExecutable": "/usr/bin/ssh"
+      }
+    },
+    {
+      "kind": "github-public-ci",
+      "resource": {
+        "id": "github-ci",
+        "enabled": true,
+        "mode": "project-ci",
+        "arch": "x64",
+        "operations": [
+          "project-checks"
+        ],
+        "observedAt": 0,
+        "cost": {
+          "kind": "free-public-ci",
+          "verifiedAt": 1,
+          "validUntil": 1,
+          "maximumIncrementalUsd": 0,
+          "evidenceRef": "replace-with-private-evidence"
+        },
+        "capacity": {
+          "cpuMs": 360000,
+          "ramMb": 4096,
+          "diskMb": 0,
+          "gpus": 0,
+          "slots": 1
+        }
+      },
+      "workerSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "tokenEnv": "PICARD_COMPUTE_GITHUB_TOKEN",
+      "tag": "compute-worker-v1",
+      "commitSha": "0000000000000000000000000000000000000000"
+    }
+  ]
+}
