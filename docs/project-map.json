@@ -37,6 +37,14 @@
       "opensListener": true,
       "bind": "127.0.0.1:4391",
       "requiresProvider": false
+    },
+    {
+      "kind": "offline_compute_broker",
+      "command": "npm --prefix experimental/compute-broker run demo",
+      "source": "experimental/compute-broker/mcp.mjs",
+      "requiresProvider": false,
+      "opensListener": false,
+      "liveCloudExecutionEnabled": false
     }
   ],
   "runtime": {
@@ -128,6 +136,18 @@
     {
       "path": "experimental/updater/activity-report.mjs",
       "role": "read-only updater metadata observer"
+    },
+    {
+      "path": "experimental/compute-broker/src/broker.mjs",
+      "role": "separate offline compute broker; fixed local fixtures only, outside signed runtime"
+    },
+    {
+      "path": "experimental/compute-broker/src/github-ci.mjs",
+      "role": "read-only exact-commit observation of public Picard project CI; no credentials or dispatch"
+    },
+    {
+      "path": "experimental/compute-broker/src/oracle-inventory.mjs",
+      "role": "operator-configured pinned SSH inventory; no account API, execution enrollment or billing assertion"
     }
   ],
   "release": {
@@ -155,7 +175,11 @@
     "docs/LIMITATIONS.md",
     "docs/WORK-REGISTER.md",
     "docs/STATUS.md",
-    "docs/V1.md"
+    "docs/V1.md",
+    "experimental/compute-broker/README.md",
+    "experimental/compute-broker/PROVIDERS.md",
+    "experimental/compute-broker/PROVENANCE.md",
+    "experimental/compute-broker/VERIFICATION.md"
   ],
   "workRegister": "docs/work-register.json",
   "illustrations": [
@@ -190,5 +214,6 @@
     "bundled production task-board application",
     "unapproved prompt invocation"
   ],
-  "workspaceContract": "docs/workspace-contract.json"
+  "workspaceContract": "docs/workspace-contract.json",
+  "computeBrokerContract": "experimental/compute-broker/contract.json"
 }

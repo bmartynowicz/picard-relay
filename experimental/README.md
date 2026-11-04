@@ -6,6 +6,7 @@ Start with the [current documentation index](../docs/README.md), [architecture](
 
 - [runtime-control](runtime-control/README.md): the complete 20-module source tree packaged for an enrolled host, including the private console, finite admission and durable request lifecycle.
 - [updater](updater/README.md): bounded download, Sigstore/source verification, fixed local service control, code-switch/rollback transaction and read-only activity observer.
+- [compute-broker](compute-broker/README.md): separate offline MCP/SQLite foundation with fixed local fixtures. No live compute providers or generated-code execution; outside the signed runtime artifact.
 
 GitHub Actions tests, signs and publishes a source envelope. It does not receive host/provider credentials or deploy. An independently enabled host timer can consume a valid publication.
 

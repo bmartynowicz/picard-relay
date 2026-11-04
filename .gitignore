@@ -166,3 +166,4 @@ vite.config.ts.timestamp-*
 .turbo
 
 # Picard Relay private runtime artifacts
+.picard-compute/

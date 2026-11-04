@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-04",
+  "status": "offline_execution_foundation_with_live_oracle_and_ci_observers",
+  "liveCloudExecutionEnabled": false,
+  "liveComputeProvidersEnrolled": 0,
+  "twoProviderEndToEndVerified": false,
+  "defaultExecutionMode": "disabled",
+  "demoExecutionMode": "local-fixtures",
+  "simulatedArchitectureLabels": [
+    "x64",
+    "arm64"
+  ],
+  "hardwareEmulation": false,
+  "networkListener": false,
+  "mcpProtocolVersion": "2025-06-18",
+  "entrypoint": "experimental/compute-broker/mcp.mjs",
+  "runtime": "Node.js 24",
+  "database": "Separate private SQLite ledger; never a production Picard database",
+  "operations": [
+    "word-count",
+    "sha256"
+  ],
+  "tools": [
+    "compute_discover",
+    "compute_plan",
+    "compute_submit",
+    "compute_run",
+    "compute_get",
+    "compute_list",
+    "compute_ci_status",
+    "compute_oracle_status"
+  ],
+  "limits": {
+    "resourceCount": 64,
+    "observationAgeMs": 60000,
+    "costEvidenceAgeMs": 86400000,
+    "inputUtf8Bytes": 12000,
+    "resultJsonBytes": 16384,
+    "timeoutMs": 30000,
+    "mcpMessageBytes": 65536,
+    "pendingMcpRequests": 16,
+    "listedJobs": 100
+  },
+  "costPolicy": {
+    "eligibleClasses": [
+      "permanent-free",
+      "free-public-ci"
+    ],
+    "requiresMaximumIncrementalUsd": 0,
+    "rejectsUnknownPaidTrial": true,
+    "independentLiveBillingVerification": false,
+    "cpuReservationIsMeasuredUsage": false,
+    "automaticQuotaReset": false,
+    "paidFallback": false
+  },
+  "uncertainOutcome": "retain reservation; no retry, failover or automatic startup recovery",
+  "unsupported": [
+    "remote workload execution beyond the fixed read-only inventory probe",
+    "caller-supplied shell commands",
+    "live workload-execution adapters",
+    "GPU jobs",
+    "artifact file retrieval",
+    "multi-tenant access",
+    "HTTP MCP",
+    "OS resource isolation"
+  ],
+  "nextMilestone": "Verify account quotas/cost controls, enroll Oracle plus one permitted independent provider, implement secure bounded adapters and demonstrate two-provider execution with results/logs/artifacts.",
+  "selectedSecondBackend": "github-public-project-ci",
+  "githubCiObserver": {
+    "repository": "bmartynowicz/picard-relay",
+    "workflow": ".github/workflows/compute-broker-tests.yml",
+    "dispatchEnabled": false,
+    "credentialsRequired": false,
+    "maximumGetRequests": 3,
+    "requestTimeoutMs": 5000,
+    "responseBytes": 131072,
+    "runMatches": 3,
+    "jobs": 10,
+    "stepsPerJob": 20,
+    "automaticRetries": 0
+  },
+  "liveReadOnlyProviders": [
+    "oracle micro VM inventory",
+    "github-actions public project CI"
+  ],
+  "oracleObserver": {
+    "profileRequired": true,
+    "sshHostKeyChecking": "strict",
+    "sshUserConfigDisabled": true,
+    "sshAgentDisabled": true,
+    "sshForwardingDisabled": true,
+    "connectionAttempts": 1,
+    "timeoutMs": 8000,
+    "stdoutBytes": 16384,
+    "singleFlightPerProcess": true,
+    "supportedShape": "VM.Standard.E2.1.Micro",
+    "accountQuota": null,
+    "costVerification": "unknown",
+    "dispatchEnabled": false
+  },
+  "oracleConsoleAssessment": {
+    "date": "2026-11-04",
+    "instanceLabel": "Always Free",
+    "microDomainLimit": 2,
+    "microDomainUsed": 1,
+    "microDomainAvailable": 1,
+    "bootVolumeGb": 50,
+    "additionalAttachedBlockVolumes": 0,
+    "billingAndSubscriptionViews": "blank",
+    "accountBillingControlsVerified": false
+  }
+}

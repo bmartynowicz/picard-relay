@@ -1,0 +1,7 @@
+{
+  "hostname": "oracle-vm.example.invalid",
+  "username": "opc",
+  "identityFile": "/private/path/to/existing-ssh-key",
+  "knownHostsFile": "/private/path/to/existing-known-hosts",
+  "sshExecutable": "/usr/bin/ssh"
+}
