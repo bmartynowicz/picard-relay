@@ -10,10 +10,12 @@ const validId = id => Number.isSafeInteger(id) && id > 0;
 export const freeWorkflowSha256 = () => sha256(readFileSync(new URL('../../../.github/workflows/compute-worker.yml', import.meta.url), 'utf8').replaceAll('\r\n', '\n'));
 export function createGitHubExecutor(profile, { token = () => process.env[profile.tokenEnv], fetchImpl = fetch,
   now = Date.now, expectedWorker = workerSha256, expectedWorkflow = freeWorkflowSha256 } = {}) {
-  if (!/^compute-worker-v[1-9][0-9]*$/.test(profile.tag) || !/^[0-9a-f]{40}$/.test(profile.commitSha)) throw Error('invalid_github_execution_profile');
+  if (!/^compute-worker-v[1-9][0-9]*$/.test(profile.tag) || !/^[0-9a-f]{40}$/.test(profile.commitSha)
+    || (profile.refKind !== undefined && !['tag', 'branch'].includes(profile.refKind))) throw Error('invalid_github_execution_profile');
   const context = Object.freeze({ kind: 'github-public-ci', workerSha256: profile.workerSha256,
     scopeSha256: sha256(JSON.stringify({ resourceId: profile.resource.id, repository: EXECUTION_REPOSITORY,
-      tag: profile.tag, commitSha: profile.commitSha, tokenEnv: profile.tokenEnv })) });
+      tag: profile.tag, commitSha: profile.commitSha, tokenEnv: profile.tokenEnv,
+      ...(profile.refKind ? { refKind: profile.refKind } : {}) })) });
   const runName = job => `picard-compute/${job.id}/${jobSha256(job)}`;
   async function body(response, maximum = 131_072) {
     let count = 0; const chunks = [];
@@ -40,7 +42,7 @@ export function createGitHubExecutor(profile, { token = () => process.env[profil
     const repository = await api('GET', '', undefined, signal);
     if (repository.full_name !== EXECUTION_REPOSITORY || repository.private !== false || repository.archived !== false)
       throw Error('public_project_required');
-    const ref = await api('GET', `/git/ref/tags/${profile.tag}`, undefined, signal);
+    const ref = await api('GET', `/git/ref/${profile.refKind === 'branch' ? 'heads' : 'tags'}/${profile.tag}`, undefined, signal);
     if (ref.object?.type !== 'commit' || ref.object.sha !== profile.commitSha) throw Error('github_worker_ref_changed');
     const file = await api('GET', `/contents/${EXECUTION_WORKFLOW}?ref=${profile.commitSha}`, undefined, signal);
     if (file.type !== 'file' || file.path !== EXECUTION_WORKFLOW || file.encoding !== 'base64'

@@ -38,7 +38,7 @@ test('malformed/widened profiles and credential material are rejected', () => {
   for (const change of [p => p.token = 'secret', p => p.providers[0].keyHex = 'secret',
     p => p.providers[0].resource.capacity.cpuMs = 100_000, p => p.providers[1].resource.operations.push('sha256'),
     p => p.providers[0].keyEnv = 'HOME', p => p.approvedJobs.push(p.approvedJobs[0]),
-    p => p.validUntil = CLOCK + 86_400_001, p => p.providers.push(p.providers[0])]) {
+    p => p.validUntil = CLOCK + 86_400_001, p => p.providers.push(p.providers[0]), p => p.providers[1].refKind = 'arbitrary']) {
     const p = profile(); change(p); assert.throws(() => setup(p), /invalid_execution_profile/);
   }
 });

@@ -38,6 +38,15 @@ test('GitHub fixed standard workflow dispatch is one POST with exact source, job
   assert.deepEqual(JSON.parse(Buffer.from(body.inputs.job_json_b64, 'base64')), s.job);
   assert.equal(body.inputs.job_sha256, jobSha256(s.job)); assert.equal(freeWorkflowSha256().length, 64);
 });
+test('pinned protected branch enrollment needs no Contents write scope and cannot switch namespaces silently', async () => {
+  const s = setup(), p = { ...s.p, refKind: 'branch' };
+  const branch = createGitHubExecutor(p, { fetchImpl: s.fetchImpl, now: () => CLOCK, token: () => TOKEN });
+  assert.notEqual(branch.context.scopeSha256, s.adapter.context.scopeSha256);
+  await branch.execute(s.job, { mayDispatch: () => true });
+  assert.ok(s.calls.some(c => c.url.endsWith('/git/ref/heads/compute-worker-v1')));
+  assert.equal(s.calls.some(c => c.url.includes('/git/ref/tags/')), false);
+  assert.throws(() => createGitHubExecutor({ ...p, refKind: 'arbitrary' }), /invalid_github_execution_profile/);
+});
 test('private project, changed tag, paid/stale cost and changed workflow deny before dispatch', async () => {
   for (const config of [{ repository: { private: true } }, { repository: { archived: true } },
     { tagSha: 'd'.repeat(40) }, { workflow: 'runs-on: expensive-runner' }]) {
