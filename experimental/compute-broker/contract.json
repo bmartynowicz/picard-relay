@@ -150,7 +150,14 @@
       "cgroupMemoryMiB": 128,
       "maximumJobs": 8,
       "lookupDoesNotExecute": true,
-      "installed": false
+      "installed": false,
+      "metadataTransport": {
+        "module": "node:http",
+        "worksJitless": true,
+        "fixedEndpoint": true,
+        "timeoutMs": 2000,
+        "responseBytes": 16384
+      }
     },
     "github": {
       "kind": "github-public-ci",
@@ -161,11 +168,16 @@
       "operation": "project-checks",
       "sourceCommitRequired": true,
       "pinnedWorkerTag": true,
-      "tagProtection": "operator requirement, not independently proved",
+      "tagProtection": "operator-controlled ref protection; live verification recorded separately",
       "dispatchPostsPerInvocation": 1,
       "collectionRunWindow": 20,
       "artifactOrCacheUploads": false,
-      "credentialConfigured": false
+      "credentialConfigured": false,
+      "pinnedWorkerRefKinds": [
+        "tag",
+        "branch"
+      ],
+      "defaultRefKind": "tag"
     }
   }
 }

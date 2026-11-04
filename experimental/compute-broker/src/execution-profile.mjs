@@ -27,9 +27,10 @@ export function createExecutionRegistry(value, { now = Date.now,
   for (const provider of profile.providers) {
     const oracle = provider.kind === 'oracle-fixed-worker';
     if (!exact(provider, oracle ? ['kind', 'resource', 'workerSha256', 'keyEnv', 'ssh']
-      : ['kind', 'resource', 'workerSha256', 'tokenEnv', 'tag', 'commitSha'])
+      : ['kind', 'resource', 'workerSha256', 'tokenEnv', 'tag', 'commitSha', ...(Object.hasOwn(provider, 'refKind') ? ['refKind'] : [])])
       || !['oracle-fixed-worker', 'github-public-ci'].includes(provider.kind) || kinds.has(provider.kind)
-      || !hex256(provider.workerSha256) || !envName(oracle ? provider.keyEnv : provider.tokenEnv)) throw Error('invalid_execution_profile');
+      || !hex256(provider.workerSha256) || !envName(oracle ? provider.keyEnv : provider.tokenEnv)
+      || (!oracle && provider.refKind !== undefined && !['tag', 'branch'].includes(provider.refKind))) throw Error('invalid_execution_profile');
     kinds.add(provider.kind);
     const r = provider.resource, cpu = oracle ? 3000 : 360_000;
     if (!exact(r, ['id', 'enabled', 'mode', 'arch', 'operations', 'observedAt', 'cost', 'capacity'])

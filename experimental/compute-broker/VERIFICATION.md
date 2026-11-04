@@ -21,3 +21,11 @@ After intermittent blank pages, current Cost Analysis rendered **$0.00 for Novem
 ## Still unqualified
 
 Dedicated Oracle worker installation and actual OS limits; protected GitHub worker tag/token/dispatch; real broker MCP jobs on both backends with saved receipts/logs/inline artifacts; enforceable account-wide cost controls and quota refresh; outages/expired logs in real providers; arbitrary-code isolation; ARM/GPU; multi-tenant or full MCP interoperability; Windows ACL enforcement; network SQLite; power-loss/disk-full behavior. Preserve uncertain evidence and stop rather than retry or substitute a paid path.
+
+## Restricted Oracle enrollment follow-up
+
+PR #8 merged at `715cd625f0b9bee105ea526122d346500c2badd7`. Actual SSH readiness uncovered two defects before dispatch: Node fetch requires WebAssembly in jitless mode, and cgroup v2 root has no memory.max file. Native bounded HTTP and root-boundary handling correct them. The expanded Linux Node 24.22.2 suite passed **76 normally and 76 jitless, zero failures/skips**. New tests exercise real loopback HTTP, malformed/oversized/redirect responses, cgroup ancestor limits and branch-ref namespace binding. No provider calls occur in the suite.
+
+The dedicated Oracle worker now reports verified isolation in its real forced-command SSH session: three-second hard CPU limit and 128 MiB cgroup ceiling. One exact MCP word-count job completed with value 5; its inline result.json SHA-256 is `7d0562a451cb0bcf8ed3b75b8235cb3aab90e23a53cc15f920c369d73ffcd06a`. Repeated run returned the saved result, independent worker lookup recovered it, and the one-job CPU budget is consumed. Arbitrary shell commands exited 64 and remote forwarding was rejected. The separate production AI relay was not changed. Windows packaging required normalizing the wrapper to LF before installation.
+
+GitHub dispatch verification is still pending at this checkpoint. A protected fixed worker branch is supported so its operational token needs Actions write with Contents/Metadata read-only; no broader Contents write permission is required. Private credentials, profile, databases and account evidence remain outside Git.
