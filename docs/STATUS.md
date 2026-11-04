@@ -4,6 +4,20 @@ Last documentation review: **November 3, 2026**. This page separates a reusable 
 
 ## Current verified release
 
+On November 3, 2026 at 7:45 PM EST (November 4 UTC), **v0.1.25 / sequence 25001** was installed through the enrolled updater. Source: `d5e64bbe625a695d06b3101d60ec7dfab4b4f38c`; physical release: `331d497940e6b730b244f6fb2630ba5f646686dfd53cf8e1b86e3d0f187bd5e2`.
+
+[PR #5](https://github.com/bmartynowicz/picard-relay/pull/5) adds mechanical digit motion to actual Overview count changes. Its [exact-source signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41748629801) passed every release gate. All 20 physical installed modules match the signed manifest and merged source. No host, provider, grant, database or permission migration was required.
+
+The complete UI regression suite was then run against that physically installed HTML on Node 24.22.2, normally and with `--jitless`. Carries, decreases, interrupted updates, unchanged/unknown values, accessibility labels, pause/reduced motion, hidden pages and authentication clearing passed without a provider call.
+
+Authenticated production verification at 7:48 PM EST confirmed the version/source, exact visible and accessible digits, Pause motion and the disabled Motion reduced state. All 17 job references and states reconcile with the owner ledger: 13 completed, 1 failed, 3 uncertain and no queued/running work. The observation advanced automatically; Groq totals agree and a saved result was recovered with its spent approval still disabled. Desktop, 390px and 320px screenshots were inspected without horizontal overflow. Temporary browser emulation was reset.
+
+No production count changed during the review, so live carry/decrease transitions are not claimed from the static production screenshot. Those paths have separate browser-fixture and installed-code regression evidence. The local preview controls remain outside the production runtime.
+
+Configuration, all 18 historical invocation markers and ledger counts were preserved from the v0.1.24 pre-install baseline. Service, provider and result recovery are ready; the host is idle, SELinux is Enforcing, and no STOP/HOLD, pending cost latch or update journal remains. No provider call or new grant was used. Owner acceptance remains separate.
+
+## v0.1.22 verification
+
 On November 3, 2026, **v0.1.22 / sequence 22001** was installed by the enrolled updater. Source: `f20c1194895074dc8f4633d84ebeff7d28526a75`; physical release: `62127b8e10e1fa3298636b29b03431b7f039e4fbabdb3a9f6954b1af1274ca9c`.
 
 [PR #4](https://github.com/bmartynowicz/picard-relay/pull/4) corrects the legacy task filter, adds bounded read-only live refresh and current Groq activity, and quiets spent console examples. Its [exact-source signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41734484111) passed. All 20 installed module bytes match the signed source; owner/task isolation cases passed against installed code in both modes. Configuration, all 18 invocation markers and 13 completed/1 failed/3 uncertain ledger counts are preserved. The service/recovery/provider are ready, the host is idle, and SELinux remains Enforcing. No provider call or grant renewal was used.

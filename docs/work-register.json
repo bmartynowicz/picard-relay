@@ -219,7 +219,7 @@
       "id": "PR-FTR-006",
       "kind": "feature",
       "title": "Mechanical rolling Overview counters",
-      "status": "implemented_pending_deployment",
+      "status": "verified_on_deployment",
       "behavior": "Only changed digits roll for actual observed value changes; unchanged/initial/unknown readings stay static. Accessible text updates immediately. Interrupted updates cancel earlier rolls; pause, reduced motion, hidden tabs and auth clearing settle or clear the display.",
       "sourceFiles": [
         "experimental/runtime-control/src/oracle-service.mjs",
@@ -229,10 +229,34 @@
         "experimental/runtime-control/test/console-ui.test.mjs",
         "experimental/runtime-control/test/console.test.mjs"
       ],
-      "remaining": "Review the local synthetic preview and source PR. Merge, signed publication, installation and authenticated live verification are not claimed.",
+      "remaining": "No further implementation or deployment remains for this scoped enhancement; owner acceptance remains separate.",
       "verification": {
-        "verifiedAt": "2026-11-03",
-        "scope": "Local browser preview and isolated Linux release-gate tests; not a deployment.",
+        "verifiedAt": "2026-11-04T00:48:42.282Z",
+        "release": "0.1.25",
+        "sequence": 25001,
+        "sourceCommit": "d5e64bbe625a695d06b3101d60ec7dfab4b4f38c",
+        "releaseHash": "331d497940e6b730b244f6fb2630ba5f646686dfd53cf8e1b86e3d0f187bd5e2",
+        "pullRequest": "https://github.com/bmartynowicz/picard-relay/pull/5",
+        "workflow": "https://github.com/bmartynowicz/picard-relay/actions/runs/41748629801",
+        "installedModuleCount": 20,
+        "allInstalledBytesMatchSignedManifestAndMergedSource": true,
+        "installedUiRegressionModes": [
+          "normal",
+          "--jitless"
+        ],
+        "productionBrowserChecks": [
+          "System identity",
+          "exact visible and accessible digits",
+          "Pause motion",
+          "reduced motion",
+          "automatic refresh",
+          "17 owner jobs reconciled",
+          "saved result recovery",
+          "desktop/390px/320px layouts without overflow"
+        ],
+        "productionCountChangeObserved": false,
+        "transitionEvidence": "Carry, decrease, interruption and motion/privacy behavior tested in browser fixtures and against exact installed HTML; no production job created to manufacture a counter change.",
+        "baselineInvocationMarkersPreserved": 18,
         "providerCalls": 0,
         "ownerAcceptance": false
       }

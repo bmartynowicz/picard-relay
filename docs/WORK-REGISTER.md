@@ -40,7 +40,7 @@ A read-only live comparison on November 3, 2026 showed two completed jobs in the
 
 | ID | Feature | State / limitation |
 | --- | --- | --- |
-| PR-FTR-006 | Mechanical rolling Overview counters | Source/preview candidate. Changed digits roll for observed changes; pause, reduced motion and authentication clearing are retained. Local preview and Linux checks do not assert deployment. |
+| PR-FTR-006 | Mechanical rolling Overview counters | Verified on v0.1.25. Exact installed-source UI regressions and authenticated desktop/phone checks passed; real job counts and stored results preserved. Owner acceptance remains separate. |
 | PR-FTR-001 | Additional provider connectors | Paused. Groq remains the only supported live provider; there is no paid fallback. |
 | PR-FTR-002 | Portable host onboarding/installer | Planned. Current deployment needs explicit Linux host enrollment and verification. |
 | PR-FTR-003 | Broader routine request enrollment | Needs design for general console enrollment. Finite console requests and separately enabled exact approved signed Board work exist; an arbitrary console prompt form does not. |
