@@ -214,6 +214,28 @@
       "status": "planned",
       "currentLimit": "The original Board integration is application-specific and is not bundled with this repository.",
       "next": "Define and qualify a consuming client using the existing signed protocol and exact server scope."
+    },
+    {
+      "id": "PR-FTR-006",
+      "kind": "feature",
+      "title": "Mechanical rolling Overview counters",
+      "status": "implemented_pending_deployment",
+      "behavior": "Only changed digits roll for actual observed value changes; unchanged/initial/unknown readings stay static. Accessible text updates immediately. Interrupted updates cancel earlier rolls; pause, reduced motion, hidden tabs and auth clearing settle or clear the display.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/oracle-service.mjs",
+        "examples/console-motion-preview.mjs"
+      ],
+      "tests": [
+        "experimental/runtime-control/test/console-ui.test.mjs",
+        "experimental/runtime-control/test/console.test.mjs"
+      ],
+      "remaining": "Review the local synthetic preview and source PR. Merge, signed publication, installation and authenticated live verification are not claimed.",
+      "verification": {
+        "verifiedAt": "2026-11-03",
+        "scope": "Local browser preview and isolated Linux release-gate tests; not a deployment.",
+        "providerCalls": 0,
+        "ownerAcceptance": false
+      }
     }
   ]
 }
