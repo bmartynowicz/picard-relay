@@ -42,7 +42,7 @@ Runtime source replacement does not migrate or roll back these records. Restorin
 
 Publishing source is therefore distinct from installing it, but an enabled host timer can consume a newly published valid release. Treat merging a runtime release with that enrolled schedule in mind.
 
-The manifest version is `0.1.<workflow run number>` and sequence is `run number * 1000 + attempt`. The release directory name is the SHA-256 of the raw manifest bytes. The manifest `sourceCommit` identifies tested runtime source; it can differ from the later publication commit at the tip of `main`. The current bundle contains exactly the 20 paths in `experimental/updater/policy.example.json`.
+V1 manifests use version `1.0.<workflow run number>` (older releases used `0.1.<run>`) and sequence is `run number * 1000 + attempt`. The release directory name is the SHA-256 of the raw manifest bytes. The manifest `sourceCommit` identifies tested runtime source; it can differ from the later publication commit at the tip of `main`. The current bundle contains exactly the 20 paths in `experimental/updater/policy.example.json`.
 
 ## Verify a deployment
 
@@ -94,10 +94,30 @@ Names and layout are fixed by the enrolled host support code. The activity obser
 | Updater unknown | Check observer timer, status-file ownership/size/age and precise SELinux denials. Do not disable enforcement or grant broad secret access. |
 | Updater held or journal present | Preserve the checkpoint and diagnose its typed code/transaction phase. No blind hold/journal deletion or forced restart. |
 | New version missing | Check workflow source SHA and publication separately from fetch, verification and installation. A green workflow alone does not establish the host version. |
-| Job outside current catalogue | The metadata history and currently enrolled recoverable request catalogue have different scopes. Do not show a different result as a substitute. |
+| Job outside current catalogue | V1 recovers validated results across the configured owner through the workspace. Legacy picker hosts retain the catalogue restriction. Do not substitute another result. |
 
 ## Rollback and recovery
 
 Automatic transaction rollback restores code only when a candidate fails readiness. For manual recovery, retain the journal, original/current release identity and failure evidence first. Determine the recorded phase and use the reviewed recovery path for that installed updater. Do not improvise a symlink switch during an incomplete transaction.
 
 The monotonic release sequence rejects ordinary downgrades. A reviewed forward release containing a prior known-good source can be preferable to bypassing that check. Never restore a ledger, rotate credentials, alter proxy/firewall/SELinux policy or renew a request as an incidental code rollback. Actual power-loss/disk-full recovery remains a separate qualification limit.
+
+## V1 activation and backup rehearsal
+
+Review the disabled [workspace configuration fragment](../deploy/workspace.env.example) and [explicit proxy-route template](../deploy/Caddyfile.workspace.example). These are preparation artifacts; validate and adapt them to the actual enrolled proxy before activation.
+
+Set **BRIDGE_WORKSPACE_ENABLED=true** only on an already enrolled host with console, admission, signed-bridge admission and reusable-Board admission enabled. This explicitly gives the existing authenticated owner permission to approve new bounded text requests without per-input operator catalogue edits. The default is disabled. New public proxy paths must retain the same HTTPS, origin and authentication boundary; expose only the exact workspace routes in [API](API.md). No host setting or proxy rule changes merely because source is merged.
+
+The installed bundle still contains the same 20 allowed modules and requires no schema migration. Drafts, reference aliases and append-only reviews use a separate durable namespace in the existing ledger metadata. Never delete those records to make a spent request appear new. Disabling the workspace stops new console admission; preserve its records and use an intentionally qualified recovery configuration for pending jobs.
+
+For a SQLite-consistent ledger snapshot, use Node 24 and the operator's protected paths:
+
+```sh
+node scripts/backup-ledger.mjs --database /absolute/ledger.sqlite --output /absolute/new-private-backup-directory
+```
+
+The utility refuses an existing output directory, uses SQLite's online backup API, verifies database integrity and writes a bounded manifest with a SHA-256, state counts and exclusions. It never prints request content or copies credentials. It is outside the signed runtime bundle and is an operator tool. See the official [Node 24 SQLite backup API](https://nodejs.org/download/release/latest-v24.x/docs/api/sqlite.html#sqlitebackupsourceDb-path-options).
+
+This is a ledger backup, not a complete host recovery image. For a complete checkpoint, drain the service, let active work settle, stop it, and preserve the matching invocation markers, cost latches, auth state, configuration, credentials and updater evidence through the operator's protected backup procedure. Restart only after the checkpoint is consistent. Never restore an older ledger beside newer markers or overwrite a running database.
+
+Rehearse recovery into a new isolated directory first. Compare the manifest hash, run PRAGMA integrity_check, inspect original result/review identities, and prove that reading the restored completed request makes no new call. The automated fixture does this without production secrets. Actual host restore, power-loss and disk-full qualification remain separate operator work.

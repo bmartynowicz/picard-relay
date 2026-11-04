@@ -1,8 +1,8 @@
 {
   "name": "picard-relay",
-  "version": "0.1.0-preview",
+  "version": "1.0.0",
   "private": true,
-  "description": "A small, durable, fail-closed AI request relay. Source preview, not an autonomous agent.",
+  "description": "A small durable AI request workspace with exact approvals and recoverable results.",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -19,7 +19,8 @@
     "test:manual-tls": "node --test test/manual-native-boundary.test.mjs && node --jitless --test test/manual-native-boundary.test.mjs",
     "demo:mission-control": "node examples/mission-control.mjs",
     "demo:fixtures": "node examples/fixture-tasks.mjs",
-    "demo:admission-preview": "node examples/admission-preview.mjs"
+    "demo:admission-preview": "node examples/admission-preview.mjs",
+    "preview:v1": "node examples/workspace-preview.mjs"
   },
   "license": "MIT"
 }

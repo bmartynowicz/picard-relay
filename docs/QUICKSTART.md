@@ -2,7 +2,7 @@
 
 Picard is a small, self-hosted delivery layer for bounded AI requests. It solves the handoff between an approved task, an external model call and a durable saved answer. Its important property is that losing a connection or restarting the service does not silently authorize another model call.
 
-It is useful when you need a small operational console, strict request boundaries and recoverable results on modest hardware. It does not provide an autonomous coding agent, arbitrary chat, a complete task board or a general model marketplace.
+It is useful when you need a small operational console, strict request boundaries and recoverable results on modest hardware. The v1 source provides bounded text requests and recoverable results. It does not provide an autonomous coding agent, a complete task board or a general model marketplace.
 
 ![An approved request passes through a durable ledger and one bounded model call to a saved result](images/request-flow.svg)
 
@@ -27,7 +27,7 @@ No network, API key, billing, deployment, or live AI invocation.
 
 The demo does not start the web console. `npm start` is disabled without explicit configuration. For the full test commands and source layout, see [Development](DEVELOPMENT.md). For a real installation, see [Operations](OPERATIONS.md); there is no one-command production installer.
 
-## Use an already enrolled host
+## Use an enrolled host with the legacy finite picker
 
 1. Open the HTTPS console address supplied by its operator and sign in. Picard permits one active owner session; another login can replace it.
 2. Read **Overview**. A reachable relay can still be unable to accept new work. Check the explanation, observation time and result-recovery status.
@@ -35,7 +35,7 @@ The demo does not start the web console. `npm start` is disabled without explici
 4. For new work, review the exact enrolled input and request slot in **Requests**. **Approve and queue** is the action that can authorize one bounded model call. It is unavailable when that slot is spent, expired, blocked or not currently verified as available.
 5. Treat the saved answer as untrusted proposal text. Check any review/correction note, inspect the original saved text, and review the content before using it elsewhere.
 
-New arbitrary text cannot be typed into this console. The operator must enroll an appropriate finite catalogue and the owner must approve the exact request. A different request needs fresh authority; copying an old slot or clearing a consumed marker is not a supported shortcut.
+New arbitrary text cannot be typed into the legacy finite picker. The operator must enroll an appropriate finite catalogue and the owner must approve the exact request. A different request needs fresh authority; copying an old slot or clearing a consumed marker is not a supported shortcut.
 
 ## Read the outcomes correctly
 
@@ -45,3 +45,9 @@ New arbitrary text cannot be typed into this console. The operator must enroll a
 - **Provider unavailable / no usable allowance** can coexist with healthy service and working saved-result recovery.
 
 Continue with the [console guide](CONSOLE-WORKSPACE.md), [limitations](LIMITATIONS.md) and [known work](WORK-REGISTER.md).
+
+## V1 owner workspace
+
+An operator can enable the v1 workspace on an enrolled host. In that mode, Requests opens a normal task form. Enter a title and input, select **Review request**, inspect the exact input and limits, then select **Approve one call**. A draft alone makes no model call. Jobs shows named requests; **Open request** recovers their progress and results, including older owner work outside the finite catalogue.
+
+Use **Copy answer**, **Download answer**, individual **Download code** controls or **Download handoff**. **Accept result** and **Request changes** save your review against that answer without editing it or sending another request. See the illustrated [v1 guide](V1.md). The earlier finite picker remains available on hosts where the workspace is disabled.

@@ -18,7 +18,7 @@ These interfaces belong to the signed-runtime source under `experimental/runtime
 | `POST /requests` | Owner session/origin; exact `{entryId,slotId,nonce,approvedInputSha256,approve:true}`; validates and durably registers the exact approved request. This can lead to one provider call. |
 | `GET /requests/<ref>` | Owner session; current recorded state and, when available, its saved result. No new invocation. |
 
-The Requests routes are absent when finite admission is not enabled. Use the UI flow or existing client implementation instead of constructing live authorization by copying this table. The catalogue and approval response establish the exact identity and proof; the client cannot choose arbitrary text, grants, marker paths or a different provider.
+The legacy finite Requests routes are absent when finite admission is not enabled. Use the UI flow or existing client implementation instead of constructing live authorization by copying this table. The catalogue and approval response establish the exact identity and proof; the client cannot choose arbitrary text, grants, marker paths or a different provider.
 
 The console uses same-origin credentialed requests, no-store responses and no local/session storage for tokens. JSON bodies have exact field sets. Authentication failures clear private browser state. Browser view routes such as `#jobs/<ref>` and `#requests/<ref>` are navigation state, not additional server APIs.
 
@@ -59,3 +59,22 @@ The other supported action is `drain`. Health is read-only. Drain is monotonic f
 The socket is mode `0600` within a private service-owned directory. Idle/partial clients time out after two seconds. Oversized, multiple or unknown commands fail closed. Health includes physical release identity, service/recovery readiness, provider/new-work availability, busy/draining flags and ledger state counts; it does not include request bodies or secrets.
 
 Source references: [console and service](../experimental/runtime-control/src/oracle-service.mjs), [finite admission HTTP handler](../experimental/runtime-control/src/admission-handler.mjs), [signed protocol](../experimental/runtime-control/src/protocol.mjs), [receiver](../experimental/runtime-control/src/receiver.mjs), [control socket](../experimental/runtime-control/src/runtime-control.mjs).
+
+## V1 owner workspace routes
+
+These routes exist only with explicit workspace activation, on the existing exact HTTPS-origin and owner-session boundary. No owner, provider, marker path or grant may be supplied by the browser. All POST bodies reject unknown fields. The [structured contract](workspace-contract.json) gives limits and field schemas.
+
+| Method and path | Purpose / exact body |
+| --- | --- |
+| GET /workspace/config | Typed readiness, fixed provider/model, limits, unknown usage/billing and setup checks. |
+| GET /workspace/history?cursor=... | Owner-only named job metadata, at most 25 rows; only the returned cursor is accepted. |
+| POST /workspace/drafts | Inert durable draft: {requestId,taskId,title,requestText,context,purpose}. requestId is UUIDv4; taskId may be empty. |
+| GET /workspace/drafts/<requestId> | Recover the original draft and its recorded state. |
+| POST /workspace/approvals | {requestId}; issues a 60-second session-bound proof for the immutable draft. |
+| POST /workspace/requests | {requestId,nonce,draftSha256,approve:true}; atomically consumes approval and queues one exact job. |
+| GET /workspace/requests/<ref> | Read the draft or validate the owner-scoped job/result and review history. This never invokes the provider. |
+| POST /workspace/reviews/<ref> | {expectedRevision,decision,note,resultSha256}; decision is accepted or changes_requested. |
+
+The server assigns a grant and fixes the provider, output ceiling and 15-minute request lifetime. A duplicate draft ID with the same input returns the original clocks and grant; different input conflicts. Approval, immutable work, enrollment association and source provenance are committed in one SQLite transaction. Owner-console approval records are distinct from signed-Board attestations. Replays never become new grants. A lost response is recovered through GET; clients must not silently prepare a replacement request.
+
+The HTTP body cap is 24,576 UTF-8 bytes; combined provider input is at most 12,000 bytes. There are at most eight active jobs, 16 live uncommitted drafts, 10 POST attempts per minute, 100 review events per result and 10,000 retained drafts/jobs. Counts are storage limits, not renewed call allowances.

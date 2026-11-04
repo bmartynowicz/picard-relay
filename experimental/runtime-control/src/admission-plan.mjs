@@ -12,6 +12,29 @@ const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab]
 const hex=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
 const stop=code=>{throw Object.assign(new Error(code),{code});};
 
+// Owner-console drafts are inert until a session-bound approval is committed.
+// Stable client IDs make a lost draft response recoverable without new work.
+export async function planWorkspaceDraft({body,binding,at,grantId}={}){
+ if(!exact(body,['requestId','taskId','title','requestText','context','purpose'])||!uuid(body.requestId)||!uuid(grantId)||!integer(at)||!text(body.title,200)||!body.title.trim()||typeof body.taskId!=='string'||body.taskId.length>200||!text(body.requestText,4000)||!body.requestText.trim()||typeof body.context!=='string'||body.context.length>4000||!['public-source-review','sanitized-source-proposal'].includes(body.purpose))stop('request_invalid');
+ if(!text(binding?.ownerId,200)||binding.assistantId!=='groq:openai/gpt-oss-20b'||!hex(binding.enrollmentId)||!hex(binding.configurationSha256))stop('admission_configuration_invalid');
+ const taskId=body.taskId||'console:'+body.requestId;
+ const context={title:body.title,nextAction:'',latestFinding:body.context};
+ if(Buffer.byteLength(JSON.stringify({request:body.requestText,context}))>12000)stop('request_too_large');
+ const eventId=hash(canonical([binding.ownerId,taskId,body.requestId]));
+ const payload={v:1,eventId,ownerId:binding.ownerId,taskId,requestId:body.requestId,grantId,assistantId:binding.assistantId,grantExpiresAt:at+900000,request:{text:body.requestText,createdAt:new Date(at).toISOString(),answerTo:null},context};
+ payload.payloadHash=await payloadHash(payload);await validateWork(payload);
+ const approval={v:1,purpose:body.purpose,enrollmentId:binding.enrollmentId,inputSha256:hash(canonical({requestText:body.requestText,taskContext:context})),issuedAt:at,expiresAt:payload.grantExpiresAt,maxCompletionTokens:4096};
+ const draft={v:1,source:'authenticated-owner-console',configurationSha256:binding.configurationSha256,payload,approval};
+ return {...draft,draftSha256:hash(canonical(draft))};
+}
+
+export function validateWorkspaceDraft(draft,binding){
+ if(!exact(draft,['v','source','configurationSha256','payload','approval','draftSha256'])||draft.v!==1||draft.source!=='authenticated-owner-console'||draft.configurationSha256!==binding.configurationSha256||draft.payload?.ownerId!==binding.ownerId||draft.payload?.assistantId!==binding.assistantId||draft.approval?.enrollmentId!==binding.enrollmentId||!hex(draft.draftSha256))stop('approval_record_invalid');
+ const {draftSha256,...input}=draft;
+ if(hash(canonical(input))!==draftSha256)stop('approval_record_invalid');
+ return draft;
+}
+
 // The caller must first verify the HMAC over the entire exchange, and the
 // trusted Board must have revalidated its durable owner-approved grant. This
 // function checks binding only; the object alone is not authorization.

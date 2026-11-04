@@ -6,6 +6,7 @@ Picard Relay accepts a narrowly approved AI request, records it durably, sends i
 
 | Goal | Read |
 | --- | --- |
+| Create requests, download results and review answers | [V1 workflow](V1.md), [AI/API contract](workspace-contract.json) |
 | Understand Picard and try it without an account | [Quickstart](QUICKSTART.md) |
 | Use the live console and recover an answer | [Console guide](CONSOLE-WORKSPACE.md) |
 | Understand components, authority and job states | [Architecture](ARCHITECTURE.md) |

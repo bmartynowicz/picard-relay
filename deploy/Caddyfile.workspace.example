@@ -1,0 +1,41 @@
+# Disabled deployment template: substitute the enrolled hostname and validate
+# with the host's Caddy version before activation. No wildcard proxy route.
+relay.example.com {
+    @read {
+        method GET
+        path / /auth/state /status /jobs /workspace/config /workspace/history /request-catalogue
+    }
+    handle @read {
+        reverse_proxy 127.0.0.1:8787
+    }
+    @result {
+        method GET
+        path_regexp results ^/(workspace/(drafts/[a-f0-9-]{36}|requests/[a-f0-9]{64})|requests/[a-f0-9]{64})$
+    }
+    handle @result {
+        reverse_proxy 127.0.0.1:8787
+    }
+    @write {
+        method POST
+        path /auth/setup /auth/login /auth/logout /workspace/drafts /workspace/approvals /workspace/requests /request-approvals /requests /bridge/v1
+    }
+    handle @write {
+        request_body {
+            max_size 24KB
+        }
+        reverse_proxy 127.0.0.1:8787
+    }
+    @review {
+        method POST
+        path_regexp review ^/workspace/reviews/[a-f0-9]{64}$
+    }
+    handle @review {
+        request_body {
+            max_size 24KB
+        }
+        reverse_proxy 127.0.0.1:8787
+    }
+    handle {
+        respond 404
+    }
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "product": "Picard Relay",
+  "capability": "v1-owner-workspace",
+  "state": "source_candidate",
+  "sourceRoot": "experimental/runtime-control/src",
+  "activation": {
+    "setting": "BRIDGE_WORKSPACE_ENABLED",
+    "default": false,
+    "requires": ["existing owner authentication", "admission", "signed bridge admission", "reusable Board admission", "existing bound Groq Free enrollment"],
+    "authority": "Authenticated configured owner can approve new exact bounded text requests; no unauthenticated or implicit signed-client authority"
+  },
+  "flow": ["compose", "save inert draft", "review exact input and limits", "approve one call", "follow durable job", "recover saved result", "export and review"],
+  "provider": {"id": "groq:openai/gpt-oss-20b", "model": "openai/gpt-oss-20b", "callsPerRequest": 1, "maxOutputTokens": 4096, "tools": false, "executesGeneratedCode": false, "automaticRetries": 0, "paidFallback": false, "liveQuotaVerified": false, "liveBillingVerified": false, "measuredUsageTokens": null, "billedUsd": null},
+  "draftSchema": {
+    "additionalProperties": false,
+    "required": ["requestId", "taskId", "title", "requestText", "context", "purpose"],
+    "fields": {"requestId": "UUIDv4 generated once by client; reused after uncertain draft response", "taskId": "optional task reference, empty string or at most 200 characters", "title": "nonblank string, at most 200 characters", "requestText": "nonblank string, at most 4000 characters", "context": "string, at most 4000 characters", "purpose": ["public-source-review", "sanitized-source-proposal"]},
+    "serverAssigned": ["owner", "assistant/model", "grant ID", "event ID", "15-minute request expiry", "one call", "4096 output-token ceiling", "input and full draft SHA-256"]
+  },
+  "routes": [
+    {"method": "GET", "path": "/workspace/config", "effect": "read readiness, limits, setup and unknown usage"},
+    {"method": "GET", "path": "/workspace/history", "query": {"cursor": "optional opaque returned cursor; no other query accepted"}, "effect": "read at most 25 owner job names and metadata"},
+    {"method": "POST", "path": "/workspace/drafts", "schema": "draftSchema", "effect": "save inert immutable draft; no invocation"},
+    {"method": "GET", "path": "/workspace/drafts/{requestId}", "effect": "read original draft"},
+    {"method": "POST", "path": "/workspace/approvals", "body": ["requestId"], "effect": "issue session-bound 60-second approval proof; no invocation"},
+    {"method": "POST", "path": "/workspace/requests", "body": ["requestId", "nonce", "draftSha256", "approve:true"], "effect": "atomically queue exact request once; may lead to one provider call"},
+    {"method": "GET", "path": "/workspace/requests/{ref}", "effect": "read same-owner draft or validated job/result and review; no invocation"},
+    {"method": "POST", "path": "/workspace/reviews/{ref}", "body": ["expectedRevision", "decision", "note", "resultSha256"], "decisions": ["accepted", "changes_requested"], "effect": "append output-bound local review; no answer mutation, Board acceptance or invocation"}
+  ],
+  "limits": {"bodyBytes": 24576, "combinedProviderInputBytes": 12000, "requestLifetimeMs": 900000, "approvalLifetimeMs": 60000, "activeJobs": 8, "liveUncommittedDrafts": 16, "postAttemptsPerMinute": 10, "retainedDrafts": 10000, "retainedJobs": 10000, "reviewsPerResult": 100, "reviewNoteCharacters": 2000, "loadedHistoryRows": 100},
+  "persistence": {"schemaMigration": false, "storage": "existing SQLite relay_jobs, relay_nonces and relay_revocations", "metadataNamespace": "picard-admission:v1:workspace:{ownerHash}", "approvalSource": "authenticated-owner-console", "separateBoardApprovalSource": "authenticated-reusable-board", "resultImmutable": true, "reviewsAppendOnly": true, "responseLossRecovery": "GET original identity; never silently create a replacement grant", "uncertainInvocation": "spent; preserve markers and request, seek operator review, never replay automatically"},
+  "artifacts": ["original answer Markdown", "individual fenced code blocks with fixed safe filename extensions", "JSON handoff with request/provenance, original answer hash, local review history and limitations"],
+  "tests": ["experimental/runtime-control/test/workspace.test.mjs", "experimental/runtime-control/test/workspace-http.test.mjs", "experimental/runtime-control/test/workspace-backup.test.mjs"],
+  "guides": ["docs/V1.md", "docs/API.md", "docs/OPERATIONS.md", "docs/LIMITATIONS.md"],
+  "unsupported": ["autonomous execution", "tools or shell", "model substitution", "billing or quota measurement", "automatic provider retries", "automatic change-request invocation", "automatic Board acceptance", "multiuser roles", "portable one-command production installation"]
+}

@@ -1,20 +1,21 @@
 {
   "name": "picard-relay-runtime-control-experimental",
-  "version": "0.1.0-preview",
+  "version": "1.0.0",
   "private": true,
-  "description": "A small, durable, fail-closed AI request relay. Source preview, not an autonomous agent.",
+  "description": "A small durable AI request workspace with exact approvals and recoverable results.",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
   },
   "scripts": {
-    "test": "node test/sqlite-contention.test.mjs && node test/bridge.test.mjs && npm run test:outcomes && node test/process-tests.mjs && node test/relay-process.test.mjs && node test/groq-adapter.test.mjs && npm run test:incomplete && node test/groq-once.test.mjs && node test/approved-work.test.mjs && node --test ../../test/queued-grant-boundary.test.mjs && node test/result-after-capacity.test.mjs && npm run test:tls && node --jitless test/drain-integration.test.mjs && npm run test:candidate && npm run test:console",
+    "test": "node test/sqlite-contention.test.mjs && node test/bridge.test.mjs && npm run test:outcomes && node test/process-tests.mjs && node test/relay-process.test.mjs && node test/groq-adapter.test.mjs && npm run test:incomplete && node test/groq-once.test.mjs && node test/approved-work.test.mjs && node --test ../../test/queued-grant-boundary.test.mjs && node test/result-after-capacity.test.mjs && npm run test:tls && node --jitless test/drain-integration.test.mjs && npm run test:candidate && npm run test:console && npm run test:workspace",
     "test:incomplete": "node --test test/incomplete-response.test.mjs && node --jitless --test test/incomplete-response.test.mjs",
     "test:tls": "node --jitless test/https-fetch.test.mjs && npm --prefix ../.. run test:manual-tls",
     "test:socket": "node --jitless test/runtime-control.test.mjs",
     "test:candidate": "npm --prefix ../.. run test:candidate",
     "test:console": "node --test test/audit-status.test.mjs test/console-live-data.test.mjs test/console.test.mjs test/console-auth-routes.test.mjs test/owner-auth.test.mjs test/console-http-boundary.test.mjs && node --jitless --test test/audit-status.test.mjs test/console-live-data.test.mjs test/console.test.mjs test/console-auth-routes.test.mjs test/owner-auth.test.mjs test/console-http-boundary.test.mjs && node test/console-service.test.mjs && node --jitless test/console-service.test.mjs && node test/console-ui.test.mjs && node --jitless test/console-ui.test.mjs",
-    "test:outcomes": "node --test test/dispatcher-outcomes.test.mjs && node --jitless --test test/dispatcher-outcomes.test.mjs"
+    "test:outcomes": "node --test test/dispatcher-outcomes.test.mjs && node --jitless --test test/dispatcher-outcomes.test.mjs",
+    "test:workspace": "node --test test/workspace.test.mjs test/workspace-http.test.mjs test/workspace-backup.test.mjs test/workspace-ui.test.mjs test/workspace-release.test.mjs && node --jitless --test test/workspace.test.mjs test/workspace-http.test.mjs test/workspace-backup.test.mjs test/workspace-ui.test.mjs test/workspace-release.test.mjs"
   },
   "license": "MIT"
 }

@@ -2,6 +2,14 @@
 
 Last documentation review: **November 3, 2026**. This page separates a reusable source contract from one enrolled host's dated observations. Read [Limitations](LIMITATIONS.md) and [known work](WORK-REGISTER.md) alongside it.
 
+## V1 source candidate — installation separate
+
+The v1 owner workspace is implemented on an isolated branch: ordinary requests, durable drafts, session-bound exact approval, named owner history, cross-task result recovery, answer/code/JSON exports, append-only output-bound reviews and a consistent backup utility. Activation remains explicitly disabled by default. The existing installed host is still described below; no v1 production activation or live provider call is claimed.
+
+Normal and jitless Node 24.22.2 qualification covers real owner setup/login over loopback HTTP, actual one-call marker files with a synthetic provider transport, restart recovery, interrupted invocation stops, duplicate and lost-response handling, result review conflicts and isolated backup restore. Browser/DOM tests cover inert formatting, exact file exports, failed/future observations, navigation races, sign-out clearing and reduced motion. All fixtures use synthetic inputs and no external provider calls.
+
+The real-authentication fixture process observed roughly 98–101 MB RSS. This is a fixture measurement, not a production capacity or sustained-load guarantee. See [V1](V1.md), [structured contract](workspace-contract.json) and [Limitations](LIMITATIONS.md).
+
 ## Current verified release
 
 On November 3, 2026 at 7:45 PM EST (November 4 UTC), **v0.1.25 / sequence 25001** was installed through the enrolled updater. Source: `d5e64bbe625a695d06b3101d60ec7dfab4b4f38c`; physical release: `331d497940e6b730b244f6fb2630ba5f646686dfd53cf8e1b86e3d0f187bd5e2`.

@@ -75,3 +75,7 @@ Start at [README.md](README.md). Update `project-map.json` if capabilities, path
 Update [Status](STATUS.md) only with dated evidence and distinguish verified deployment from source-only implementation and human acceptance. Do not commit credentials, live environment files, private ledger/auth state or raw private operational logs. Existing historical review documents should link to current guidance rather than silently changing the meaning of their earlier verification claims.
 
 Use [Operations](OPERATIONS.md) for release, installation and recovery. Preserve dirty/in-use checkouts and unrelated work; use an isolated branch or checkout for changes.
+
+## V1 workspace checks
+
+Use npm run preview:v1 for the disposable browser fixture. It binds loopback only, clearly labels synthetic output and makes no external provider calls. The signed runtime package includes npm run test:workspace for normal/jitless request, HTTP-authentication, real-marker and backup qualification. Native Windows checks are useful while editing; Linux is required for the complete owner-auth, marker and socket boundary.
