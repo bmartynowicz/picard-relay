@@ -26,6 +26,6 @@ This is one-owner password authentication, not SSO, MFA, multiuser authorization
 
 ## What authentication permits
 
-Status and Jobs expose typed scoped metadata rather than request/result bodies. When finite admission is enabled, authenticated Requests exposes the enrolled exact input and its saved result through separate scoped routes. Session authentication does not authorize arbitrary prompts, tools, providers or grants.
+Status and Jobs expose typed scoped metadata rather than request/result bodies. When finite admission is enabled, authenticated Requests exposes the enrolled exact input and its saved result through separate scoped routes. In the legacy picker, session authentication alone does not authorize new arbitrary inputs. With BRIDGE_WORKSPACE_ENABLED explicitly enabled, the configured owner can prepare bounded text drafts and approve each exact request through a session-bound proof. Tools, provider substitution and unapproved invocation remain disabled. See [V1](V1.md).
 
 See [Console guide](CONSOLE-WORKSPACE.md), [Operations](OPERATIONS.md) and the source/tests in `experimental/runtime-control/`. Local tests and a valid cookie do not by themselves prove trusted public TLS or the target host's filesystem policy.

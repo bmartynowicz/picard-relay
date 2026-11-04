@@ -2,6 +2,10 @@
 
 > Small Node.js + SQLite relay for exact approved, bounded AI requests and durable saved results. The current live-provider contract is Groq openai/gpt-oss-20b, one call per grant, no tools/execution/retries/paid fallback. This is not an autonomous coding agent or general task board.
 
+## V1 workspace
+- [V1 workflow and acceptance](docs/V1.md): ordinary requests, exact approval, durable progress, inert artifacts and local reviews.
+- [Structured workspace contract](docs/workspace-contract.json): routes, schemas, limits, persistence and unsupported behaviors.
+
 ## Read first
 - [Documentation index](docs/README.md): reading order and source-of-truth rules.
 - [Quickstart](docs/QUICKSTART.md): what the relay does, offline demo, console workflow.

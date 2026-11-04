@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-03",
+  "updatedAt": "2026-11-04",
   "scope": "Sanitized Picard product work known from the live audit and existing project backlog. Not a complete export of the private owner board.",
   "operationalRecord": "Owner private task board",
   "statusGuide": {
@@ -10,7 +10,8 @@
     "paused": "Existing work deliberately paused; no new authority inferred.",
     "fixture_only": "Available only as an offline test/design fixture; production enablement is not claimed.",
     "needs_design": "Scope or authority contract needs design before implementation.",
-    "installed_pending_live_verification": "Signed source is installed and its code/state checks passed; final authenticated production browser comparison is still pending."
+    "installed_pending_live_verification": "Signed source is installed and its code/state checks passed; final authenticated production browser comparison is still pending.",
+    "source_candidate": "Implemented source under review; not a claim of installation or owner acceptance."
   },
   "verification": {
     "baselineRelease": "0.1.17",
@@ -195,9 +196,9 @@
       "id": "PR-FTR-003",
       "kind": "feature",
       "title": "Broader routine request enrollment",
-      "status": "needs_design",
-      "currentLimit": "The console accepts only finite pre-enrolled inputs/slots. Separately enabled signed Board workflows may register exact approved work across the same owner's tasks; a general console enrollment workflow remains unimplemented.",
-      "next": "Design the smallest supported enrollment workflow and its exact authorization/persistence contract."
+      "status": "source_candidate",
+      "currentLimit": "V1 owner workspace implemented behind explicit host activation; installed verification remains separate.",
+      "next": "Qualify full source and browser workflow, review and activate the explicit owner admission authority."
     },
     {
       "id": "PR-FTR-004",
@@ -260,6 +261,25 @@
         "providerCalls": 0,
         "ownerAcceptance": false
       }
+    },
+    {
+      "id": "PR-FTR-007",
+      "kind": "feature",
+      "title": "V1 request-to-result owner workspace",
+      "status": "source_candidate",
+      "behavior": "Normal request composer; immutable durable drafts; exact session-bound approval; named history; owner-wide recovery; inert answer/code/provenance exports; append-only output-bound local reviews; backup rehearsal.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/admission-handler.mjs",
+        "experimental/runtime-control/src/admission-store.mjs",
+        "experimental/runtime-control/src/admission-ui.mjs",
+        "scripts/backup-ledger.mjs"
+      ],
+      "tests": [
+        "experimental/runtime-control/test/workspace.test.mjs",
+        "experimental/runtime-control/test/workspace-http.test.mjs",
+        "experimental/runtime-control/test/workspace-backup.test.mjs"
+      ],
+      "remaining": "Complete source/browser qualification, review and separate deployment/activation; no owner acceptance claimed."
     }
   ]
 }

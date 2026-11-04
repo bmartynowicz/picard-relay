@@ -1,6 +1,7 @@
 // Explicitly disabled by default. Runtime wiring supplies existing owner auth.
 import {canonical,digest,validateWork} from './protocol.mjs';
-import {planFiniteAdmission} from './admission-plan.mjs';
+import {planFiniteAdmission,planWorkspaceDraft,validateWorkspaceDraft} from './admission-plan.mjs';
+import {randomUUID} from 'node:crypto';
 import {readBoundAdmissionPolicy} from './admission-policy.mjs';
 import {AdmissionError,admissionHash,stop} from './admission-store.mjs';
 import {recentJobReason} from './relay-store.mjs';
@@ -9,6 +10,88 @@ const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).
 const headers={'Cache-Control':'no-store, private','Pragma':'no-cache','Content-Type':'application/json; charset=utf-8','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cross-Origin-Resource-Policy':'same-origin','Content-Security-Policy':"default-src 'none'; frame-ancestors 'none'"};
 const routes=new Map([['/request-catalogue','GET'],['/request-approvals','POST'],['/requests','POST']]);
 const failureStatuses={auth_failed:401,request_invalid:400,request_too_large:413,admission_rate_limited:429,approval_invalid:409,approval_expired:409,approval_record_invalid:409,existing_record_invalid:409,scope_revoked:409,admission_blocked:503};
+
+// Opt-in owner workspace. The signed Board endpoint keeps its own authority;
+// a browser draft is never a signed Board attestation.
+export function createWorkspaceHandler({enabled=false,auth,store,binding,origins=[],now=Date.now,loadPolicy,currentAvailability=()=>null,afterCommit=()=>{}}={}){
+ if(enabled!==true)return async()=>false;
+ if(!auth||!store||typeof loadPolicy!=='function')stop('admission_configuration_invalid');
+ const allowed=new Set(origins),scope=admissionHash(canonical([binding.ownerId,'owner-workspace']));
+ const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
+ const knownStates=['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain'];
+ const ready=()=>{const a=currentAvailability();return a?.acceptingRequests===true&&(a.pendingUncertainty===false||a.isolatedFailures===true)&&a.costContradiction===false;};
+ const policy=()=>readBoundAdmissionPolicy(loadPolicy,binding);
+ function draft(id){const d=store.getWorkspaceDraft(id);if(!d)stop('not_registered');return validateWorkspaceDraft(d,binding);}
+ async function ownedResult(ref){
+  const row=store.get(ref);if(!row||row.owner!==binding.ownerId)stop('not_registered');
+  let p;try{p=JSON.parse(row.payload_json);await validateWork(p);}catch{stop('existing_record_invalid');}
+  if(p.ownerId!==binding.ownerId||p.assistantId!==binding.assistantId||p.eventId!==ref||row.task!==p.taskId||row.message_id!==p.requestId||row.grant_id!==p.grantId||row.payload_hash!==p.payloadHash||row.grant_expires!==p.grantExpiresAt||!knownStates.includes(row.state))stop('existing_record_invalid');
+  const approved=store.getWorkspaceWork(ref)??store.getReusableBoard(ref);
+  const response={v:1,ref,state:row.state,observedAt:new Date(now()).toISOString(),createdAt:row.created_at,updatedAt:row.updated_at,request:{title:p.context.title,text:p.request.text,context:p.context.latestFinding,taskId:p.taskId},resultAvailable:false,reasonCode:recentJobReason(row.state,row.last_error,row.state==='completed'&&!!row.result_json),review:store.workspaceReview(ref),provenance:{model:p.assistantId,requestId:p.requestId,inputSha256:admissionHash(canonical({requestText:p.request.text,taskContext:p.context})),payloadSha256:p.payloadHash,approvedAt:approved?.approval.issuedAt??Date.parse(p.request.createdAt),expiresAt:p.grantExpiresAt,maxOutputTokens:approved?.approval.maxCompletionTokens===4096?4096:512,source:store.getWorkspaceWork(ref)?'Owner console':store.getReusableBoard(ref)?'Signed task board':'Enrolled request',measuredTokens:null,billedUsd:null}};
+  if(row.state==='completed'){
+   let r;try{r=JSON.parse(row.result_json);}catch{stop('existing_record_invalid');}
+   if(r?.v!==1||r.eventId!==ref||r.ownerId!==p.ownerId||r.taskId!==p.taskId||r.requestId!==p.requestId||r.grantId!==p.grantId||r.assistantId!==p.assistantId||r.payloadHash!==p.payloadHash||r.responseId!=='resp:'+ref||typeof r.body!=='string'||!r.body.trim()||r.body.length>16000||!['information','question'].includes(r.outcome?.kind))stop('existing_record_invalid');
+   const resultSha256=admissionHash(r.body);if(response.review.history.some(review=>review.resultSha256!==resultSha256))stop('existing_record_invalid');
+   response.resultAvailable=true;response.result={body:r.body,kind:r.outcome.kind,sha256:resultSha256};
+  }
+  return response;
+ }
+ return async(req,res)=>{
+  const url=typeof req.url==='string'?req.url:'',readDraft=/^\/workspace\/drafts\/([a-f0-9-]{36})$/.exec(url),readResult=/^\/workspace\/requests\/([a-f0-9]{64})$/.exec(url),reviewPath=/^\/workspace\/reviews\/([a-f0-9]{64})$/.exec(url),historyPath=url==='/workspace/history'||url.startsWith('/workspace/history?');
+  if(!(req.method==='GET'&&(url==='/workspace/config'||readDraft||readResult||historyPath)||req.method==='POST'&&(['/workspace/drafts','/workspace/approvals','/workspace/requests'].includes(url)||reviewPath)))return false;
+  const reply=(status,value)=>{res.writeHead(status,headers);res.end(JSON.stringify(value));return true;};
+  let origin;try{const host=req.headers.host,u=new URL('https://'+host);if(typeof host==='string'&&u.host===host&&!u.username&&!u.password&&u.pathname==='/'&&!u.search&&!u.hash)origin=u.origin;}catch{}
+  if(!allowed.has(origin)||req.headers.origin!==undefined&&req.headers.origin!==origin||!['same-origin','none',undefined].includes(req.headers['sec-fetch-site'])||req.method==='POST'&&req.headers.origin!==origin)return reply(403,{error:'auth_failed'});
+  try{
+   const cookies=typeof req.headers.cookie==='string'&&req.headers.cookie.length<=4096?req.headers.cookie.split(';').map(x=>x.trim()).filter(x=>x.startsWith('__Host-PicardSession=')):[];
+   const token=cookies.length===1?cookies[0].slice('__Host-PicardSession='.length):'';
+   if(!/^[A-Za-z0-9_-]{43}$/.test(token)||!await auth.authenticate(token))return reply(401,{error:'auth_failed'});
+   if(req.method==='GET'){
+    if(historyPath){
+     const query=new URL(url,'https://fixture.invalid').searchParams;
+     if([...query.keys()].some(k=>k!=='cursor')||query.getAll('cursor').length>1||query.has('cursor')&&!/^[A-Za-z0-9_-]{1,256}$/.test(query.get('cursor')))stop('request_invalid');
+     const page=store.relay.recentJobs({ownerId:binding.ownerId,...(query.has('cursor')?{cursor:query.get('cursor')}:{})}),rows=[];
+     for(const row of page.rows){const saved=store.get(row.ref);let p;try{p=JSON.parse(saved.payload_json);await validateWork(p);}catch{stop('existing_record_invalid');}if(saved.owner!==binding.ownerId||p.ownerId!==binding.ownerId||p.eventId!==row.ref||saved.payload_hash!==p.payloadHash)stop('existing_record_invalid');rows.push({...row,title:p.context.title});}
+     return reply(200,{v:1,rows,nextCursor:page.nextCursor,observedAt:new Date(now()).toISOString()});
+    }
+    if(readDraft){if(!uuid.test(readDraft[1]))stop('request_invalid');const d=draft(readDraft[1]);return reply(200,{v:1,draft:d,registered:!!store.get(d.payload.eventId),state:store.get(d.payload.eventId)?.state??(d.approval.expiresAt<=now()?'expired':'draft'),observedAt:new Date(now()).toISOString()});}
+    if(readResult){
+     if(!store.get(readResult[1])){const d=store.getWorkspaceDraftByRef(readResult[1]);if(d){validateWorkspaceDraft(d,binding);return reply(200,{v:1,draft:d,registered:false,state:d.approval.expiresAt<=now()?'expired':'draft',observedAt:new Date(now()).toISOString()});}}
+     return reply(200,await ownedResult(readResult[1]));
+    }
+    let enrolled=false;try{policy();enrolled=true;}catch{}
+    const availability=currentAvailability();
+    return reply(200,{v:1,enabled:true,observedAt:new Date(now()).toISOString(),ready:enrolled&&ready(),blockingCode:enrolled?availability?.code??'configuration_unavailable':'configuration_unavailable',provider:'Groq',model:'openai/gpt-oss-20b',limits:{maxCalls:1,maxOutputTokens:4096,maxRequestCharacters:4000,maxContextCharacters:4000,maxTitleCharacters:200,maxCombinedInputBytes:12000,requestLifetimeMs:900000,approvalLifetimeMs:60000,activeJobs:8,attemptsPerMinute:10,tools:false,retries:0,paidFallback:false},usage:{jobs:store.relay.scopedStats({ownerId:binding.ownerId}),measuredTokens:null,billedUsd:null,liveBillingVerified:false},setup:{ownerAuthentication:true,durableStorage:true,providerEnrollment:enrolled,backupStatus:'operator_managed'}});
+   }
+   store.recordAttempt(scope);
+   if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(req.headers['content-type']??''))stop('request_invalid');
+   let size=0;const chunks=[];for await(const part of req){const bytes=Buffer.from(part);size+=bytes.length;if(size>24576)stop('request_too_large');chunks.push(bytes);}
+   let body;try{body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));}catch{stop('request_invalid');}
+   if(url==='/workspace/drafts'){
+    policy();const d=await planWorkspaceDraft({body,binding,at:now(),grantId:randomUUID()});
+    const saved=store.saveWorkspaceDraft(d);return reply(201,{v:1,draft:saved,registered:!!store.get(saved.payload.eventId),state:store.get(saved.payload.eventId)?.state??(saved.approval.expiresAt<=now()?'expired':'draft'),observedAt:new Date(now()).toISOString()});
+   }
+   if(reviewPath){
+    if(!exact(body,['expectedRevision','decision','note','resultSha256']))stop('request_invalid');
+    await ownedResult(reviewPath[1]);const review=store.saveWorkspaceReview({ref:reviewPath[1],...body});return reply(200,{v:1,review});
+   }
+   if(!exact(body,url==='/workspace/approvals'?['requestId']:['requestId','nonce','draftSha256','approve'])||!uuid.test(body.requestId??''))stop('request_invalid');
+   const d=draft(body.requestId),p=policy(),row=store.get(d.payload.eventId),sessionSha256=admissionHash(token);
+   const identity={scope,sessionSha256,catalogueSha256:binding.configurationSha256,entryId:body.requestId,slotId:'workspace',inputSha256:d.draftSha256};
+   if(url==='/workspace/approvals'){
+    if(row)return reply(200,{v:1,existing:true,ref:row.event_id,state:row.state});
+    if(!ready())stop('admission_blocked');if(d.approval.expiresAt<=now())stop('approval_expired');
+    return reply(200,{v:1,ref:d.payload.eventId,draftSha256:d.draftSha256,...store.issue({...identity,catalogueExpiresAt:d.approval.expiresAt})});
+   }
+   if(body.approve!==true||body.draftSha256!==d.draftSha256)stop('approval_invalid');
+   const result=store.commitWorkspace({draft:d,proof:{...identity,nonce:body.nonce},currentAvailability,revalidate:()=>policy().catalogueSha256===p.catalogueSha256&&draft(body.requestId).draftSha256===d.draftSha256});
+   await afterCommit();return reply(result.duplicate?200:201,{v:1,...result});
+  }catch(error){
+   const statuses={...failureStatuses,not_registered:404,draft_conflict:409,review_conflict:409,review_unavailable:409,review_invalid:503,queue_capacity:429,approval_capacity:429};
+   const code=Object.hasOwn(statuses,error?.code)?error.code:'workspace_unavailable';return reply(statuses[code]??503,{error:code,mayInvoke:false});
+  }
+ };
+}
 export function createLocalAdmissionHandler({mode,...options}={}){
  if(mode!=='synthetic-integration-only')stop('production_admission_disabled');
  return createHandler({...options,fixture:true});

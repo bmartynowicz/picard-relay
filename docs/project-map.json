@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-03",
+  "updatedAt": "2026-11-04",
   "project": "Picard Relay",
   "summary": "Self-hosted Node.js and SQLite delivery layer for exact approved AI requests, durable one-shot invocation and saved-result recovery.",
   "documentationIndex": "docs/README.md",
@@ -30,6 +30,13 @@
       "source": "experimental/runtime-control/src/oracle-service.mjs",
       "enabledByDefault": false,
       "requiresHostEnrollment": true
+    },
+    {
+      "kind": "v1_synthetic_workspace",
+      "command": "npm run preview:v1",
+      "opensListener": true,
+      "bind": "127.0.0.1:4391",
+      "requiresProvider": false
     }
   ],
   "runtime": {
@@ -45,12 +52,13 @@
     "id": "groq:openai/gpt-oss-20b",
     "model": "openai/gpt-oss-20b",
     "maxCallsPerGrant": 1,
-    "maxOutputTokens": 512,
+    "maxOutputTokens": 4096,
     "tools": false,
     "executesGeneratedCode": false,
     "automaticInferenceRetries": 0,
     "paidFallback": false,
-    "liveBillingVerification": false
+    "liveBillingVerification": false,
+    "finiteCatalogueMaxOutputTokens": 512
   },
   "limits": {
     "catalogueEntries": 8,
@@ -64,7 +72,11 @@
     "statusStaleAfterMs": 60000,
     "updaterActivityStaleAfterMs": 180000,
     "toleratedFutureSkewMs": 5000,
-    "visibleConsoleRefreshIntervalMs": 15000
+    "visibleConsoleRefreshIntervalMs": 15000,
+    "workspaceRequestLifetimeMs": 900000,
+    "workspaceActiveJobs": 8,
+    "workspaceLiveDrafts": 16,
+    "workspaceReviewsPerResult": 100
   },
   "interfaces": {
     "browser": "docs/API.md",
@@ -142,7 +154,8 @@
     "docs/DEVELOPMENT.md",
     "docs/LIMITATIONS.md",
     "docs/WORK-REGISTER.md",
-    "docs/STATUS.md"
+    "docs/STATUS.md",
+    "docs/V1.md"
   ],
   "workRegister": "docs/work-register.json",
   "illustrations": [
@@ -160,16 +173,22 @@
       "path": "docs/images/releases.svg",
       "textEquivalent": "docs/OPERATIONS.md",
       "purpose": "Source publication versus enrolled host installation and state preservation"
+    },
+    {
+      "path": "docs/images/v1-workflow.svg",
+      "textEquivalent": "docs/V1.md",
+      "purpose": "Prepare an ordinary request, approve exact limits, follow durable progress, export and review the saved answer"
     }
   ],
   "unsupported": [
-    "arbitrary prompt submission",
     "autonomous coding or tool execution",
     "automatic uncertain invocation replay",
     "multiple live providers",
     "live billing/quota verification",
     "multiuser/SSO/MFA account UI",
     "portable one-command production installation",
-    "bundled production task-board application"
-  ]
+    "bundled production task-board application",
+    "unapproved prompt invocation"
+  ],
+  "workspaceContract": "docs/workspace-contract.json"
 }

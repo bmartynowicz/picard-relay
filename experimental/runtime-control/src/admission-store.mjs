@@ -38,7 +38,7 @@ export function createAdmissionStore({activationEnabled=false,...options}={}){
  if(!options.relayStore)stop('admission_storage_invalid');
  return createStore({...options,localTestOnly:false});
 }
-function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toString('base64url'),beforeCommit=()=>{},relayStore=null,localTestOnly,loadLegacyBaseline=null,readLegacyMarkers=null,legacyBinding=null,reusableBoardEnabled=false,reusableBinding=null}){
+function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toString('base64url'),beforeCommit=()=>{},relayStore=null,localTestOnly,loadLegacyBaseline=null,readLegacyMarkers=null,legacyBinding=null,reusableBoardEnabled=false,reusableBinding=null,workspaceEnabled=false}){
  // Reuse the existing schema in an explicitly marked disposable database.
  const relay=relayStore??createRelayStore({dbPath,now});
  const db=new DatabaseSync(dbPath);db.exec('PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL');
@@ -156,40 +156,108 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
  // Caller MUST verify the Board HMAC and validate the attestation first. The
  // transaction rechecks all mutable restrictions and atomically persists the
  // immutable work, its approval record and its enrollment association.
- function commitReusableBoard({payload,approval,currentAvailability,revalidate}){
+ function commitReusable({payload,approval,currentAvailability,revalidate,source,beforeInsert=()=>{}}){
   if(reusableBoardEnabled!==true||!reusableBinding||!hex(reusableBinding.enrollmentId)||typeof reusableBinding.ownerId!=='string'||!reusableBinding.ownerId)stop('production_admission_disabled');
   return transaction(()=>{
    const p=payload,a=approval,at=clock(),copy={...p};delete copy.payloadHash;const issued=Date.parse(p?.request?.createdAt);
    if(!(exact(a,['v','purpose','enrollmentId','inputSha256','issuedAt','expiresAt'])||exact(a,['v','purpose','enrollmentId','inputSha256','issuedAt','expiresAt','maxCompletionTokens'])&&a.maxCompletionTokens===4096)||a.v!==1||!['public-source-review','sanitized-source-proposal'].includes(a.purpose)||a.enrollmentId!==reusableBinding.enrollmentId||!hex(a.inputSha256)||!integer(a.issuedAt)||!integer(a.expiresAt)||a.issuedAt>at||a.expiresAt-a.issuedAt<1000||a.expiresAt-a.issuedAt>3600000||!exact(p,['v','eventId','ownerId','taskId','requestId','grantId','assistantId','grantExpiresAt','payloadHash','request','context'])||p.v!==1||p.ownerId!==reusableBinding.ownerId||typeof p.taskId!=='string'||!p.taskId||p.taskId.length>200||typeof p.requestId!=='string'||!p.requestId||typeof p.grantId!=='string'||!p.grantId||p.assistantId!=='groq:openai/gpt-oss-20b'||!hex(p.eventId)||admissionHash(canonical([p.ownerId,p.taskId,p.requestId]))!==p.eventId||admissionHash(canonical(copy))!==p.payloadHash||!integer(issued)||new Date(issued).toISOString()!==p.request?.createdAt||issued<a.issuedAt||issued>at||p.grantExpiresAt!==a.expiresAt||!exact(p.request,['text','createdAt','answerTo'])||typeof p.request.text!=='string'||!p.request.text||p.request.text.length>4000||p.request.answerTo!==null||!exact(p.context,['title','nextAction','latestFinding'])||admissionHash(canonical({requestText:p.request.text,taskContext:p.context}))!==a.inputSha256)stop('approval_invalid');
    const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(x);
    if(!uuid(p.requestId)||!uuid(p.grantId)||typeof p.context.title!=='string'||!p.context.title||p.context.title.length>200||typeof p.context.nextAction!=='string'||p.context.nextAction.length>1500||typeof p.context.latestFinding!=='string'||p.context.latestFinding.length>4000||Buffer.byteLength(JSON.stringify({request:p.request.text,context:p.context}))>12000)stop('approval_invalid');
-   const prefix=PREFIX+'reusable-board:'+p.eventId+':',rows=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 2').all(prefix+'*'),old=get(p.eventId),assoc=PREFIX+'enrollment:'+a.enrollmentId+':'+p.eventId;
-   if(old){if(rows.length!==1||rows[0].expires!==ASSOCIATION_EXPIRY||old.payload_json!==canonical(p)||!db.prepare('SELECT 1 FROM relay_nonces WHERE nonce=? AND expires=?').get(assoc,ASSOCIATION_EXPIRY)||canonical(decode(rows[0]))!==canonical({v:1,source:'authenticated-reusable-board',approval:a,workSha256:admissionHash(canonical(p))}))stop('existing_record_invalid');return {duplicate:true,ref:p.eventId,state:old.state};}
+   const prefix=PREFIX+(source==='authenticated-owner-console'?'owner-console:':'reusable-board:')+p.eventId+':',rows=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 2').all(prefix+'*'),old=get(p.eventId),assoc=PREFIX+'enrollment:'+a.enrollmentId+':'+p.eventId;
+   beforeInsert(p,!!old);
+   if(old){if(rows.length!==1||rows[0].expires!==ASSOCIATION_EXPIRY||old.payload_json!==canonical(p)||!db.prepare('SELECT 1 FROM relay_nonces WHERE nonce=? AND expires=?').get(assoc,ASSOCIATION_EXPIRY)||canonical(decode(rows[0]))!==canonical({v:1,source,approval:a,workSha256:admissionHash(canonical(p))}))stop('existing_record_invalid');return {duplicate:true,ref:p.eventId,state:old.state};}
    if(rows.length||a.expiresAt<=at)stop('approval_expired');
    if(!availability(currentAvailability()))stop('admission_blocked');
    if(db.prepare('SELECT 1 FROM relay_revocations WHERE owner=? AND task=? AND grant_id=?').get(p.ownerId,p.taskId,p.grantId)||grantSeenElsewhere(p.grantId,p.eventId))stop('scope_revoked');
    if(db.prepare('SELECT COUNT(*) AS n FROM relay_jobs').get().n>=10000||db.prepare("SELECT COUNT(*) AS n FROM relay_jobs WHERE state IN ('queued','claimed','invoking')").get().n>=8)stop('queue_capacity');
    if(typeof revalidate!=='function'||revalidate()!==true||!legacyAdmissionReady(a.enrollmentId))stop('admission_blocked');
-   const record={v:1,source:'authenticated-reusable-board',approval:a,workSha256:admissionHash(canonical(p))};
+   const record={v:1,source,approval:a,workSha256:admissionHash(canonical(p))};
    db.prepare("INSERT INTO relay_jobs(event_id,owner,task,message_id,grant_id,grant_expires,payload_hash,payload_json,state,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,'queued',?,?)").run(p.eventId,p.ownerId,p.taskId,p.requestId,p.grantId,p.grantExpiresAt,p.payloadHash,canonical(p),at,at);
    db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(assoc,ASSOCIATION_EXPIRY);db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(prefix+Buffer.from(canonical(record)).toString('base64url'),ASSOCIATION_EXPIRY);
    return {duplicate:false,ref:p.eventId,state:'queued'};
   });
  }
- function getReusableBoard(eventId){
+ function getReusable(eventId,source){
   if(reusableBoardEnabled!==true||!reusableBinding||!hex(eventId))return null;
   try{
-   const row=get(eventId),rows=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 2').all(PREFIX+'reusable-board:'+eventId+':*');
+   const row=get(eventId),rows=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 2').all(PREFIX+(source==='authenticated-owner-console'?'owner-console:':'reusable-board:')+eventId+':*');
    if(!row||rows.length!==1||rows[0].expires!==ASSOCIATION_EXPIRY)return null;
    const record=decode(rows[0]),a=record.approval,p=JSON.parse(row.payload_json),assoc=PREFIX+'enrollment:'+reusableBinding.enrollmentId+':'+eventId;
-   if(!exact(record,['v','source','approval','workSha256'])||record.v!==1||record.source!=='authenticated-reusable-board'||!(exact(a,['v','purpose','enrollmentId','inputSha256','issuedAt','expiresAt'])||exact(a,['v','purpose','enrollmentId','inputSha256','issuedAt','expiresAt','maxCompletionTokens'])&&a.maxCompletionTokens===4096)||a.v!==1||!['public-source-review','sanitized-source-proposal'].includes(a.purpose)||a.enrollmentId!==reusableBinding.enrollmentId||!hex(a.inputSha256)||!integer(a.issuedAt)||!integer(a.expiresAt)||a.expiresAt-a.issuedAt<1000||a.expiresAt-a.issuedAt>3600000||!db.prepare('SELECT 1 FROM relay_nonces WHERE nonce=? AND expires=?').get(assoc,ASSOCIATION_EXPIRY)||record.workSha256!==admissionHash(row.payload_json)||canonical(p)!==row.payload_json||p.ownerId!==reusableBinding.ownerId||row.owner!==p.ownerId||row.task!==p.taskId||row.message_id!==p.requestId||row.grant_id!==p.grantId||row.grant_expires!==a.expiresAt||p.grantExpiresAt!==a.expiresAt||row.payload_hash!==p.payloadHash||admissionHash(canonical({requestText:p.request?.text,taskContext:p.context}))!==a.inputSha256)return null;
+   if(!exact(record,['v','source','approval','workSha256'])||record.v!==1||record.source!==source||!(exact(a,['v','purpose','enrollmentId','inputSha256','issuedAt','expiresAt'])||exact(a,['v','purpose','enrollmentId','inputSha256','issuedAt','expiresAt','maxCompletionTokens'])&&a.maxCompletionTokens===4096)||a.v!==1||!['public-source-review','sanitized-source-proposal'].includes(a.purpose)||a.enrollmentId!==reusableBinding.enrollmentId||!hex(a.inputSha256)||!integer(a.issuedAt)||!integer(a.expiresAt)||a.expiresAt-a.issuedAt<1000||a.expiresAt-a.issuedAt>3600000||!db.prepare('SELECT 1 FROM relay_nonces WHERE nonce=? AND expires=?').get(assoc,ASSOCIATION_EXPIRY)||record.workSha256!==admissionHash(row.payload_json)||canonical(p)!==row.payload_json||p.ownerId!==reusableBinding.ownerId||row.owner!==p.ownerId||row.task!==p.taskId||row.message_id!==p.requestId||row.grant_id!==p.grantId||row.grant_expires!==a.expiresAt||p.grantExpiresAt!==a.expiresAt||row.payload_hash!==p.payloadHash||admissionHash(canonical({requestText:p.request?.text,taskContext:p.context}))!==a.inputSha256)return null;
    return {row,payload:p,approval:a};
   }catch{return null;}
+ }
+ function commitReusableBoard(options){return commitReusable({...options,source:'authenticated-reusable-board'});}
+ function getReusableBoard(id){return getReusable(id,'authenticated-reusable-board');}
+ function getWorkspaceWork(id){return workspaceEnabled===true?getReusable(id,'authenticated-owner-console'):null;}
+ function commitWorkspace({draft,proof,currentAvailability,revalidate}){
+  if(workspaceEnabled!==true)stop('production_admission_disabled');
+  return commitReusable({payload:draft.payload,approval:draft.approval,currentAvailability,revalidate,source:'authenticated-owner-console',beforeInsert(p,old){
+   const {row,record}=inspect(proof);
+   if(proof.inputSha256!==draft.draftSha256||proof.entryId!==p.requestId||proof.slotId!=='workspace'||proof.catalogueSha256!==draft.configurationSha256)stop('approval_invalid');
+   if(!old&&(record.used||record.expiresAt<=clock()))stop('approval_expired');
+   if(!old)db.prepare('UPDATE relay_nonces SET nonce=? WHERE nonce=?').run(key(proof.scope,admissionHash(proof.nonce),{...record,used:true}),row.nonce);
+  }});
  }
  function listReusableBoard(){
   if(reusableBoardEnabled!==true||!reusableBinding)return [];
   const rows=db.prepare("SELECT event_id FROM relay_jobs WHERE state IN ('queued','claimed','invoking') ORDER BY created_at,event_id LIMIT 9").all();
-  if(rows.length>8)stop('queue_capacity');return rows.map(x=>x.event_id).filter(id=>getReusableBoard(id));
+  if(rows.length>8)stop('queue_capacity');return rows.map(x=>x.event_id).filter(id=>getReusableBoard(id)||getWorkspaceWork(id));
+ }
+
+ // New owner-console metadata uses a separate durable namespace. It neither
+ // changes the schema nor rewrites any legacy grant, invocation or answer.
+ const workspaceScope=()=>admissionHash(reusableBinding?.ownerId??'');
+ const draftPrefix=id=>PREFIX+'workspace:'+workspaceScope()+':draft:'+id+':';
+ function getWorkspaceDraft(requestId){
+  if(workspaceEnabled!==true||typeof requestId!=='string'||!/^[a-f0-9-]{36}$/.test(requestId))return null;
+  const rows=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 2').all(draftPrefix(requestId)+'*');
+  if(!rows.length)return null;if(rows.length!==1||rows[0].expires!==ASSOCIATION_EXPIRY)stop('approval_record_invalid');return decode(rows[0]);
+ }
+ function getWorkspaceDraftByRef(ref){
+  if(workspaceEnabled!==true||!hex(ref))return null;
+  const prefix=PREFIX+'workspace:'+workspaceScope()+':ref:'+ref+':';
+  const rows=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 2').all(prefix+'*');
+  if(!rows.length)return null;if(rows.length!==1||rows[0].expires!==ASSOCIATION_EXPIRY)stop('approval_record_invalid');
+  const d=getWorkspaceDraft(rows[0].nonce.slice(prefix.length));if(!d||d.payload.eventId!==ref)stop('approval_record_invalid');return d;
+ }
+ function saveWorkspaceDraft(draft){
+  if(workspaceEnabled!==true||draft.payload.ownerId!==reusableBinding?.ownerId)stop('production_admission_disabled');
+  return transaction(()=>{
+   const old=getWorkspaceDraft(draft.payload.requestId);
+   if(old){
+    const same=old.payload.taskId===draft.payload.taskId&&old.payload.request.text===draft.payload.request.text&&canonical(old.payload.context)===canonical(draft.payload.context)&&old.approval.purpose===draft.approval.purpose&&old.configurationSha256===draft.configurationSha256;
+    if(!same)stop('draft_conflict');return old;
+   }
+   const all=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 10001').all(PREFIX+'workspace:'+workspaceScope()+':draft:*');
+   let pending=0;
+   for(const row of all){const d=decode(row);if(!get(d.payload?.eventId)&&d.approval?.expiresAt>clock())pending++;}
+   if(all.length>=10000||pending>=16)stop('queue_capacity');
+   db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(draftPrefix(draft.payload.requestId)+Buffer.from(canonical(draft)).toString('base64url'),ASSOCIATION_EXPIRY);
+   db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(PREFIX+'workspace:'+workspaceScope()+':ref:'+draft.payload.eventId+':'+draft.payload.requestId,ASSOCIATION_EXPIRY);return draft;
+  });
+ }
+ function workspaceReview(ref){
+  if(workspaceEnabled!==true||!hex(ref))stop('request_invalid');
+  const rows=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 101').all(PREFIX+'workspace:'+workspaceScope()+':review:'+ref+':*');
+  if(rows.length>100)stop('review_invalid');
+  const history=rows.map(row=>{if(row.expires!==ASSOCIATION_EXPIRY)stop('review_invalid');const r=decode(row);if(!exact(r,['v','ref','revision','decision','note','resultSha256','recordedAt'])||r.v!==1||r.ref!==ref||!integer(r.revision)||r.revision<1||!['accepted','changes_requested'].includes(r.decision)||typeof r.note!=='string'||r.note.length>2000||!hex(r.resultSha256)||!integer(r.recordedAt))stop('review_invalid');return r;}).sort((a,b)=>a.revision-b.revision);
+  if(history.some((r,i)=>r.revision!==i+1))stop('review_invalid');
+  return {revision:history.length,latest:history.at(-1)??null,history};
+ }
+ function saveWorkspaceReview({ref,expectedRevision,decision,note,resultSha256}){
+  return transaction(()=>{
+   if(!integer(expectedRevision)||!['accepted','changes_requested'].includes(decision)||typeof note!=='string'||note.length>2000||!hex(resultSha256))stop('request_invalid');
+   const row=get(ref);if(!row||row.owner!==reusableBinding?.ownerId||row.state!=='completed')stop('review_unavailable');
+   let result;try{result=JSON.parse(row.result_json);}catch{stop('review_unavailable');}
+   if(typeof result.body!=='string'||admissionHash(result.body)!==resultSha256)stop('review_unavailable');
+   const review=workspaceReview(ref),next={v:1,ref,revision:expectedRevision+1,decision,note,resultSha256,recordedAt:clock()};
+   // A lost review response is safe to repeat with the exact prior revision.
+   if(review.revision===expectedRevision+1&&review.latest.decision===decision&&review.latest.note===note&&review.latest.resultSha256===resultSha256)return review;
+   if(review.revision!==expectedRevision)stop('review_conflict');if(review.revision>=100)stop('queue_capacity');
+   const key=PREFIX+'workspace:'+workspaceScope()+':review:'+ref+':'+next.revision+':'+Buffer.from(canonical(next)).toString('base64url');
+   db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(key,ASSOCIATION_EXPIRY);return workspaceReview(ref);
+  });
  }
  // Disposable SQLite fixture for reusable admission. This is not connected to
  // the receiver and cannot authorize production work or invoke a provider.
@@ -282,7 +350,7 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
    if(changed.changes!==1)return null;const claimed=get(row.event_id);return {...claimed,request_id:claimed.event_id};
   });
  }
- return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,reconcileEligible,claimEligible,
+ return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,commitWorkspace,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,saveWorkspaceReview,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,reconcileEligible,claimEligible,
   close(){db.close();if(!relayStore)relay.close();},
  });
 }

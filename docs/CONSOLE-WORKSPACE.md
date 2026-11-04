@@ -7,14 +7,14 @@ The **Documentation ↗** link in the shared header opens the guide index in a n
 | View | What to use it for |
 | --- | --- |
 | Overview | Check service reachability, provider/new-work availability, result recovery, scoped job counts and recent activity. Read the blocking reason and observation age. |
-| Jobs | Inspect recorded job metadata. Choose a completed row and Open saved result when its result is recoverable from the current catalogue. |
-| Requests | Review one enrolled exact input/hash and slot, approve and queue available work, or check an existing saved result. |
+| Jobs | Inspect recorded jobs. In v1, choose a named row and Open request for progress/results across the configured owner; legacy hosts retain finite-catalogue result selection. |
+| Requests | In v1, create an ordinary brief, review exact input/limits, approve one call, recover/export its answer and record a local review. Legacy hosts show the finite picker. |
 | Groq | Watch current provider availability, relay outcome totals, recent activity and observation time. Request limits and safeguards are collapsed below the live data. |
 | System | Inspect readable version, sequence, source commit, physical release fingerprint and dated updater activity. |
 
 ![Choose new work or recover a saved result](images/using-picard.svg)
 
-## New work versus recovery
+## Legacy finite picker: new work versus recovery
 
 Reading status, browsing job metadata, refreshing and checking a saved result do not make an AI call. Approve and queue can register one exact available request for a bounded provider invocation. It is disabled for spent or unavailable authority.
 
@@ -34,7 +34,7 @@ Overview includes failed jobs; Running combines claimed and invoking jobs. Groq 
 
 Views use hash routes; selected jobs/results use `#jobs/<ref>` and `#requests/<ref>`. Reload and successful sign-in preserve the intended destination. If browser history restores a loaded selected job that the retained filter would hide, Show changes to All loaded jobs so the job remains inspectable. Explicitly choosing a filter clears selection normally.
 
-Jobs filters apply to loaded rows only. Paging is manual and capped at 100 loaded rows. Automatic history refresh updates the latest page; loading more than 25 rows retains those older pages and their recorded observation time until Refresh jobs is used. Live status totals continue to refresh. The current enrolled request catalogue may not include every job in metadata history. A result outside that catalogue is explained; a different result is never substituted.
+Jobs filters apply to loaded rows only. Paging is manual and capped at 100 loaded rows. Automatic history refresh updates the latest page; loading more than 25 rows retains those older pages and their recorded observation time until Refresh jobs is used. Live status totals continue to refresh. The legacy finite picker may not include every job in metadata history. V1 owner result recovery is independent of that catalogue. A different result is never substituted.
 
 ## Time, failure and privacy
 
@@ -47,3 +47,11 @@ Logout, authentication loss and pagehide clear private inputs/results, selection
 The insignia and counter animations are bounded and pausable, respect reduced motion and stop when the page is hidden. Mechanical Overview counters roll only changed Overview digits upward or downward for an actual observed change. Initial, unchanged and unknown values stay static; assistive tools receive the exact target immediately. A newer observation cancels an unfinished roll, and authentication clearing removes every old glyph. The v0.1.25 installed-host verification is recorded in [Status](STATUS.md). On narrow screens the input/result disclosures and normal page flow reduce nested scrolling. The complete live workflow should be checked at desktop, 390px and 320px widths after UI changes.
 
 See [Quickstart](QUICKSTART.md), [limitations](LIMITATIONS.md), [API](API.md) and [known work](WORK-REGISTER.md). The synthetic console preview is useful for layout/regression tests; it does not prove live authentication, TLS or provider behavior.
+
+## V1 request-to-result workspace
+
+With explicit workspace activation, Requests uses a normal composer instead of the finite input picker. See [V1](V1.md) for the exact workflow. Prepared drafts are durable and have opaque links, but do not enter the queue until the signed-in owner approves the exact saved text and limits. Changing a brief prepares a separate draft; a spent, expired or uncertain job is never renewed by editing or refreshing it.
+
+The workspace can recover valid results for the configured owner across tasks, independent of the current finite catalogue. Job names are shown in the owner workspace history. Draft and result text stays private; sign-out clears the form, rendered answer, review notes, pending reads and generated download URLs.
+
+The original generated body and result SHA-256 remain unchanged. Review history is append-only with revision checks. Picard reviews are local assessments, not task-board acceptance or messages to another system. Exported Markdown, individual fenced code blocks and JSON handoffs are inert files. Measured usage and billed cost are explicitly unknown.

@@ -50,6 +50,18 @@ Picard Relay is a lightweight Node.js + SQLite relay for bounded AI requests. It
 
 **Status: offline preview plus separately enrolled signed runtime.** The simplest working entry point is an offline demo. The signed-runtime source supports an exact-scoped Groq text adapter, private authenticated console and opt-in signed updates after separately reviewed host enrollment. It is not a portable board application or universal provider router. This repository stores code and signed source envelopes. **GitHub Actions tests, signs and publishes source releases only; it never deploys.**
 
+## V1 request workspace
+
+The v1 source adds ordinary request creation, exact-input approval, named job history, saved answer/code downloads, provenance handoff and persistent owner reviews. It reuses the durable one-call relay and existing Groq enrollment. Read the [v1 guide](docs/V1.md) and [machine-readable workspace contract](docs/workspace-contract.json).
+
+Try the complete workflow locally with Node 24:
+
+```sh
+npm run preview:v1
+```
+
+Open the printed loopback address. This is a clearly marked synthetic preview with disposable storage and no external AI calls. The production owner workspace requires explicit host activation; current installed verification remains separately recorded in [Status](docs/STATUS.md).
+
 ## Try it locally — no account or API key
 
 Install Node.js 24 (includes `node:sqlite`), Git, and the OpenSSL CLI for the local TLS test. No npm dependencies are required.
@@ -70,7 +82,7 @@ Expected demo ending: `One synthetic request, one stored answer, duplicate repla
 - Durable SQLite outbox, leases, replay detection, crash reconciliation and signed request/response protocol.
 - Offline fixtures and real separate-process SQLite race/crash tests.
 - A fixed Groq `openai/gpt-oss-20b` text-only adapter, disabled by default. No tools, paid fallback, automatic model substitution or automatic inference retries.
-- A durable one-shot adapter with legacy `Reply Hello World` support and exact approved review/proposal requests. The v3 gate separates retained Free-policy enrollment from each request's short expiry; no arbitrary task or tool execution is enabled.
+- A durable one-shot adapter with legacy `Reply Hello World` support and exact approved review/proposal requests. The v3 gate separates retained Free-policy enrollment from each request's short expiry; generated text/code remains inert and no tool execution is enabled.
 - Loopback-only HTTP receiver suitable for a separately configured TLS reverse proxy.
 - Fixed-endpoint native HTTPS transport compatible with `node --jitless`; certificate verification stays on. A local TLS fixture tests the adapter without calling Groq.
 - [Manual deployment notes](docs/DEPLOYMENT.md), configuration templates and [verification boundaries](docs/STATUS.md).

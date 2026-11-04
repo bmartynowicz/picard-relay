@@ -5,10 +5,10 @@ This page describes the current source contract. Installation-specific settings 
 | Area | Supported now | Limit / consequence |
 | --- | --- | --- |
 | Provider | Fixed Groq `openai/gpt-oss-20b` text proposals | No other live provider, automatic model selection or paid fallback. |
-| Requests | Exact approved, bounded, one-shot requests | No arbitrary prompt textbox, autonomous task loop or automatic renewal. |
+| Requests | Exact approved, bounded, one-shot requests | V1 supports owner text drafts with exact approval. No autonomous task loop or automatic renewal. |
 | Finite admission | At most 8 catalogue entries and 8 slots total | One configured owner/task scope; catalogue validity at most 24 hours, individual request lifetime at most 1 hour. Enrolling new work is an operator task. |
 | Request input | Request text at most 4,000 characters; bounded context and encoded sizes | See validators for UTF-8 byte limits and exact schemas. |
-| Output | At most 512 output tokens for the bounded admission policy | Provider output can be incomplete, wrong or unsuitable. Completed is delivery status, not quality approval. |
+| Output | Workspace: 4,096 output tokens; finite catalogue: 512 | Provider output can be incomplete, wrong or unsuitable. Completed is delivery status, not quality approval. |
 | Execution | Inert text/code display and offline executor fixtures | Generated code, tools and shell commands are not executed by the live relay. |
 | Recovery | Durable correlated saved answers | Not a guarantee that a provider-side result survives every failure. Uncertain work cannot be replayed automatically. |
 | Console owner | Password authentication, one active session, 8-hour absolute session lifetime | No multiuser roles, SSO, MFA, self-service reset or account-management UI. Login/setup hashing is rate-limited. |
@@ -27,3 +27,11 @@ Tests use synthetic inputs and local fixtures unless a dated evidence record say
 The earlier live audit used the old catalogue-task scope and showed two completed jobs. A later live reconciliation found 13 completed, 1 failed and 3 uncertain records for the configured owner; the console-scope mismatch is tracked as PR-BUG-005. Queued/running/uncertain/error scenarios are covered by regression fixtures, but the audit did not manufacture those states in the live ledger. Physical phone interaction, a complete assistive-technology audit, arbitrary power loss, disk exhaustion and all fresh-host configurations remain outside that live UI check.
 
 See [Status](STATUS.md) for dated evidence and [Work register](WORK-REGISTER.md) for requested improvements. A documentation example or backlog item does not itself authorize live calls, access changes or installation.
+
+## V1 source changes
+
+With BRIDGE_WORKSPACE_ENABLED explicitly enabled, ordinary bounded owner text requests are supported through a prepare/review/approve flow. The former no-arbitrary-console-input limit applies to the legacy finite picker. Workspace requests allow 4,096 output tokens; finite catalogue requests keep their 512-token ceiling. Both preserve one call, no tools, no automatic retries and no paid fallback.
+
+V1 adds local reviews and exports, not automatic implementation, quality validation or Board acceptance. Only fenced code is offered as individual downloads; the original full answer is always available. Usage and billed cost are not captured or inferred from configured ceilings. Host setup and provider enrollment remain explicit Linux operator procedures, not a portable one-command installer.
+
+These are source capabilities awaiting release qualification and activation; the installed version and dated verification are listed separately in Status.

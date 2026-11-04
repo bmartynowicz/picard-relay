@@ -7,7 +7,7 @@ import {createAdmissionStore,admissionHash,legacyMarkerName,stop} from './admiss
 import {readBoundAdmissionPolicy} from './admission-policy.mjs';
 import {validCostEnrollmentMetadata} from './admission-enrollment.mjs';
 import {createAdmissionAssistantAdapter} from './admission-dispatch.mjs';
-import {createAdmissionHandler} from './admission-handler.mjs';
+import {createAdmissionHandler,createWorkspaceHandler} from './admission-handler.mjs';
 import {admissionConsoleHtml} from './admission-ui.mjs';
 import {groqHttpsFetch} from './https-fetch.mjs';
 import {TextDecoder} from 'node:util';
@@ -55,6 +55,7 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
  if(activationEnabled!==true)return null;
  if(process.platform!=='linux'||config?.admissionEnabled!==true||config.consoleEnabled!==true||!config.consoleOrigins?.length||env.BRIDGE_PROVIDER!=='groq'||env.GROQ_ENABLED!=='true'||env.GROQ_ONE_SHOT!=='true'||config.assistantId!=='groq:openai/gpt-oss-20b')stop('admission_configuration_invalid');
  if(config.admissionReusableBoardEnabled===true&&config.admissionSignedBridgeEnabled!==true)stop('admission_configuration_invalid');
+ if(config.workspaceEnabled===true&&config.admissionReusableBoardEnabled!==true)stop('admission_configuration_invalid');
  // Anchor to the EXISTING retained enrollment and key. A catalogue cannot invent
  // another enrollment to evade an old shared uncertainty/cost latch.
  const gateFile=readExistingAdmissionFile(env.GROQ_FREE_GATE_FILE),keyFile=readExistingAdmissionFile(env.GROQ_API_KEY_FILE),legacy=JSON.parse(gateFile.text),apiKey=keyFile.text.trim(),e=legacy.costEnrollment;
@@ -65,14 +66,15 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
  const loadLegacyBaseline=createLegacyBaselineLoader({activationEnabled:true,file:config.admissionLegacyBaselineFile,expectedSha256:config.admissionLegacyBaselineSha256,expectedUid:0,expectedGid:process.getgid()});
  const loadPolicy=()=>{for(const old of [gateFile,keyFile]){if(fs.realpathSync(old.file)!==old.file||fingerprint(fs.lstatSync(old.file,{bigint:true}))!==old.identity)stop('admission_configuration_changed');}return catalogueLoader();};
  readBoundAdmissionPolicy(loadPolicy,binding);
- const adapter=createAdmissionAssistantAdapter({activationEnabled:true,signedBridgeEnabled:config.admissionSignedBridgeEnabled===true,reusableBoardEnabled:config.admissionReusableBoardEnabled===true,bridgeKeyId:config.keyId,loadPolicy,binding,apiKey,markerDirectory,now,fetchImpl});
+ const adapter=createAdmissionAssistantAdapter({activationEnabled:true,signedBridgeEnabled:config.admissionSignedBridgeEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBoardEnabled:config.admissionReusableBoardEnabled===true,bridgeKeyId:config.keyId,loadPolicy,binding,apiKey,markerDirectory,now,fetchImpl});
  return {adapter,attach({store,control,auth,baseHtml}){
   if(!auth)stop('admission_configuration_invalid');
-  const admissionStore=createAdmissionStore({activationEnabled:true,dbPath:config.dbPath,relayStore:store,now,loadLegacyBaseline,legacyBinding:binding,reusableBoardEnabled:config.admissionReusableBoardEnabled===true,reusableBinding:{ownerId:binding.ownerId,enrollmentId:binding.enrollmentId},readLegacyMarkers:names=>readLegacyAdmissionMarkers(markerDirectory,names)});
+  const admissionStore=createAdmissionStore({activationEnabled:true,dbPath:config.dbPath,relayStore:store,now,loadLegacyBaseline,legacyBinding:binding,reusableBoardEnabled:config.admissionReusableBoardEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBinding:{ownerId:binding.ownerId,enrollmentId:binding.enrollmentId},readLegacyMarkers:names=>readLegacyAdmissionMarkers(markerDirectory,names)});
   try{
   adapter.attachStore(admissionStore,{accepting:()=>control.accepting});
   const handler=createAdmissionHandler({activationEnabled:true,store:admissionStore,auth,loadPolicy,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability});
-  return {handler,html:admissionConsoleHtml(baseHtml,{activationEnabled:true}),dispatchStore:{...store,claimNext:input=>adapter.claimNext(input)},close:()=>admissionStore.close()};
+  const workspace=createWorkspaceHandler({enabled:config.workspaceEnabled===true,store:admissionStore,auth,loadPolicy,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability});
+  return {handler:async(req,res)=>await workspace(req,res)||await handler(req,res),html:admissionConsoleHtml(baseHtml,{activationEnabled:true,workspaceEnabled:config.workspaceEnabled===true}),dispatchStore:{...store,claimNext:input=>adapter.claimNext(input)},close:()=>admissionStore.close()};
   }catch{admissionStore.close();stop('admission_configuration_invalid');}
  }};
 }
