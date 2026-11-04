@@ -46,6 +46,7 @@ A read-only live comparison on November 3, 2026 showed two completed jobs in the
 | PR-FTR-003 | Broader routine request enrollment | Live-verified on v1.0.26: ordinary drafts and exact approval on the explicitly activated enrolled host. Owner review remains separate. |
 | PR-FTR-004 | Controlled execution | Offline fixtures only. No live generated code, shell or tools are executed. |
 | PR-FTR-005 | Portable task-board integration | Planned. The original consuming Board app is not included in this repository. |
+| PR-FTR-008 | Separate zero-dollar compute broker | Offline foundation: MCP discovery/planning, durable reservations/results and fixed local fixtures. Live Oracle/second-provider adapters, verified account cost controls and two-provider execution remain unfinished. See [preview](../experimental/compute-broker/README.md). |
 
 Unqualified power-loss/disk-full behavior, physical phone/screen-reader coverage and fresh-host portability are [verification limits](LIMITATIONS.md), not evidence of a specific observed failure. This snapshot does not assert owner acceptance or enumerate unrelated private Board work.
 

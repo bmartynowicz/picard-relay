@@ -355,6 +355,25 @@
         "allJobAndMarkerHashesUnchangedAcrossRestart": true,
         "ownerAcceptance": false
       }
+    },
+    {
+      "id": "PR-FTR-008",
+      "kind": "feature",
+      "title": "Separate zero-dollar compute broker",
+      "status": "fixture_only",
+      "behavior": "Offline MCP/SQLite foundation with strict eligibility, atomic reservations, at-most-once invocation intent, saved results and two fixed local fixture resources. No live cloud execution.",
+      "sourceFiles": [
+        "experimental/compute-broker/src/policy.mjs",
+        "experimental/compute-broker/src/store.mjs",
+        "experimental/compute-broker/src/broker.mjs",
+        "experimental/compute-broker/mcp.mjs"
+      ],
+      "tests": [
+        "experimental/compute-broker/test/policy.test.mjs",
+        "experimental/compute-broker/test/broker.test.mjs",
+        "experimental/compute-broker/test/mcp.test.mjs"
+      ],
+      "remaining": "Verify actual account quotas and preventive cost controls, implement authenticated bounded adapters and artifact/log transport, and execute across Oracle plus one independent eligible provider. Not deployed or complete."
     }
   ]
 }

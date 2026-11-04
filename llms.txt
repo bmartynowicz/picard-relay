@@ -22,6 +22,8 @@
 - [Limitations](docs/LIMITATIONS.md)
 - [Known work](docs/WORK-REGISTER.md)
 - [Dated verification status](docs/STATUS.md)
+- [Offline compute-broker preview](experimental/compute-broker/README.md): separate MCP process, local fixtures only; no live provider enrollment.
+- [Compute contract](experimental/compute-broker/contract.json): machine-readable preview limits and unfinished live-provider milestone.
 
 ## Interpretation
 Top-level src is the offline/preview tree. experimental/runtime-control/src is the complete signed-runtime source. Their roles differ; do not assume a root source edit updates an enrolled host. GitHub signs/publishes source; separately enrolled hosts install it. Completed means saved response, not correct/executed/deployed/accepted work. Free-policy enrollment is retained configuration evidence, not a current billing check. Uncertain invocations remain spent and must not be automatically replayed. Older checkpoint documents are historical; use the current index, actual source/tests and dated host evidence.
