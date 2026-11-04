@@ -4,6 +4,7 @@ import { StringDecoder } from 'node:string_decoder';
 import { createStore } from './src/store.mjs';
 import { createBroker } from './src/broker.mjs';
 import { fixtureAdapters, fixtureResources } from './src/fixtures.mjs';
+import { observeProjectCi, commitIdentity } from './src/github-ci.mjs';
 
 const options = process.argv.slice(2);
 let fixtureMode = false;
@@ -35,6 +36,8 @@ const jobSchema = { type: 'object', additionalProperties: false,
 const emptySchema = { type: 'object', properties: {}, additionalProperties: false };
 const idSchema = { type: 'object', additionalProperties: false,
   properties: { id: { type: 'string', pattern: '^[a-z0-9-]{1,80}$' } }, required: ['id'] };
+const ciSchema = { type: 'object', additionalProperties: false,
+  properties: { commitSha: { type: 'string', pattern: '^[0-9a-f]{40}$' } }, required: ['commitSha'] };
 const tools = [
   ['compute_discover', 'Read the eligible resource registry. No live cloud execution provider is enrolled.', emptySchema, true],
   ['compute_plan', 'Check eligibility and quota without reserving or executing.', jobSchema, true],
@@ -42,8 +45,9 @@ const tools = [
   ['compute_run', 'Execute a reserved LOCAL FIXTURE once. Cannot run cloud jobs, shell commands or generated code.', idSchema, false],
   ['compute_get', 'Read a saved job or result. No retry or provider call.', idSchema, true],
   ['compute_list', 'Read up to 100 recent jobs in this private local broker database.', emptySchema, true],
+  ['compute_ci_status', 'Read live public Picard project CI status for one commit. Three bounded public GETs maximum; no token, dispatch or retry.', ciSchema, true],
 ].map(([name, description, inputSchema, readOnlyHint]) => ({ name, description, inputSchema,
-  annotations: { readOnlyHint, destructiveHint: false, idempotentHint: true, openWorldHint: false } }));
+  annotations: { readOnlyHint, destructiveHint: false, idempotentHint: true, openWorldHint: name === 'compute_ci_status' } }));
 let initialized = false;
 let ready = false;
 let pending = 0;
@@ -83,16 +87,20 @@ async function handle(message) {
   if (tool.inputSchema === emptySchema && Object.keys(args).length !== 0) return error(id, -32602, 'Unexpected arguments');
   if (tool.inputSchema === idSchema && (Object.keys(args).length !== 1 || !Object.hasOwn(args, 'id')))
     return error(id, -32602, 'Only job id is accepted');
+  if (tool.inputSchema === ciSchema && (Object.keys(args).length !== 1 || !commitIdentity(args.commitSha)))
+    return error(id, -32602, 'Only a 40-character lowercase commit SHA is accepted');
   try {
     const data = name === 'compute_discover' ? broker.discover()
       : name === 'compute_plan' ? broker.plan(args)
       : name === 'compute_submit' ? broker.submit(args)
       : name === 'compute_run' ? await broker.run(args.id)
-      : name === 'compute_get' ? broker.get(args.id) : broker.list();
+      : name === 'compute_get' ? broker.get(args.id)
+      : name === 'compute_ci_status' ? await observeProjectCi(args.commitSha) : broker.list();
     return result({ content: [{ type: 'text', text: JSON.stringify(data) }],
-      structuredContent: { executionMode: fixtureMode ? 'local-fixtures' : 'disabled', data } });
+      structuredContent: { executionMode: name === 'compute_ci_status' ? 'read-only-project-ci' : fixtureMode ? 'local-fixtures' : 'disabled', data } });
   } catch (failure) {
-    const known = ['invalid_job', 'unknown_job_field', 'invalid_job_id', 'job_not_found', 'job_identity_conflict'];
+    const known = ['invalid_job', 'unknown_job_field', 'invalid_job_id', 'job_not_found', 'job_identity_conflict',
+      'invalid_commit_sha', 'project_ci_unavailable', 'project_ci_response_too_large', 'public_project_required', 'invalid_project_ci_response'];
     return result({ isError: true, content: [{ type: 'text', text: known.includes(failure.message) ? failure.message : 'broker_operation_failed' }] });
   }
 }

@@ -46,9 +46,9 @@ function client(t, { demo = false, database } = {}) {
   }
   return { child, messages, request, initialize, db, exited, call: (name, args) => request('tools/call', { name, arguments: args }) };
 }
-test('stdio session requires initialization and advertises six bounded tools', async t => {
+test('stdio session requires initialization and advertises seven bounded tools', async t => {
   const c = client(t); assert.equal((await c.request('tools/list')).error.code, -32002);
-  await c.initialize(); const listed = await c.request('tools/list'); assert.equal(listed.result.tools.length, 6);
+  await c.initialize(); const listed = await c.request('tools/list'); assert.equal(listed.result.tools.length, 7);
   assert.equal((await c.call('compute_discover', {})).result.structuredContent.data.liveCloudExecutionEnabled, false);
   assert.equal((await c.call('compute_submit', job())).result.structuredContent.data.state, 'blocked');
   assert.equal((await c.call('compute_run', { id: 'first' })).result.structuredContent.data.state, 'blocked');
@@ -67,6 +67,7 @@ test('MCP rejects unknown tool arguments, commands and malformed messages', asyn
   const c = client(t, { demo: true }); await c.initialize();
   assert.equal((await c.call('compute_run', { id: 'x', command: 'nope' })).error.code, -32602);
   assert.equal((await c.call('compute_discover', { secret: 'nope' })).error.code, -32602);
+  assert.equal((await c.call('compute_ci_status', { commitSha: 'main' })).error.code, -32602);
   assert.equal((await c.call('compute_submit', job('bad', { operation: 'shell' }))).result.isError, true);
   c.child.stdin.write('not-json\n'); await c.request('ping');
   assert.ok(c.messages.some(message => message.error?.code === -32700));

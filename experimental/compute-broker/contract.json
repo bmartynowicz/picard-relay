@@ -1,21 +1,35 @@
 {
   "schemaVersion": 1,
   "updatedAt": "2026-11-04",
-  "status": "offline_foundation",
+  "status": "offline_execution_foundation_with_live_ci_observer",
   "liveCloudExecutionEnabled": false,
   "liveComputeProvidersEnrolled": 0,
   "twoProviderEndToEndVerified": false,
   "defaultExecutionMode": "disabled",
   "demoExecutionMode": "local-fixtures",
-  "simulatedArchitectureLabels": ["x64", "arm64"],
+  "simulatedArchitectureLabels": [
+    "x64",
+    "arm64"
+  ],
   "hardwareEmulation": false,
   "networkListener": false,
   "mcpProtocolVersion": "2025-06-18",
   "entrypoint": "experimental/compute-broker/mcp.mjs",
   "runtime": "Node.js 24",
   "database": "Separate private SQLite ledger; never a production Picard database",
-  "operations": ["word-count", "sha256"],
-  "tools": ["compute_discover", "compute_plan", "compute_submit", "compute_run", "compute_get", "compute_list"],
+  "operations": [
+    "word-count",
+    "sha256"
+  ],
+  "tools": [
+    "compute_discover",
+    "compute_plan",
+    "compute_submit",
+    "compute_run",
+    "compute_get",
+    "compute_list",
+    "compute_ci_status"
+  ],
   "limits": {
     "resourceCount": 64,
     "observationAgeMs": 60000,
@@ -28,7 +42,10 @@
     "listedJobs": 100
   },
   "costPolicy": {
-    "eligibleClasses": ["permanent-free", "free-public-ci"],
+    "eligibleClasses": [
+      "permanent-free",
+      "free-public-ci"
+    ],
     "requiresMaximumIncrementalUsd": 0,
     "rejectsUnknownPaidTrial": true,
     "independentLiveBillingVerification": false,
@@ -37,6 +54,30 @@
     "paidFallback": false
   },
   "uncertainOutcome": "retain reservation; no retry, failover or automatic startup recovery",
-  "unsupported": ["remote code execution", "shell commands", "live provider adapters", "GPU jobs", "artifact file retrieval", "multi-tenant access", "HTTP MCP", "OS resource isolation"],
-  "nextMilestone": "Verify account quotas/cost controls, enroll Oracle plus one permitted independent provider, implement secure bounded adapters and demonstrate two-provider execution with results/logs/artifacts."
+  "unsupported": [
+    "remote code execution",
+    "shell commands",
+    "live provider adapters",
+    "GPU jobs",
+    "artifact file retrieval",
+    "multi-tenant access",
+    "HTTP MCP",
+    "OS resource isolation"
+  ],
+  "nextMilestone": "Verify account quotas/cost controls, enroll Oracle plus one permitted independent provider, implement secure bounded adapters and demonstrate two-provider execution with results/logs/artifacts.",
+  "liveReadOnlyProvider": "github-actions public project CI",
+  "selectedSecondBackend": "github-public-project-ci",
+  "githubCiObserver": {
+    "repository": "bmartynowicz/picard-relay",
+    "workflow": ".github/workflows/compute-broker-tests.yml",
+    "dispatchEnabled": false,
+    "credentialsRequired": false,
+    "maximumGetRequests": 3,
+    "requestTimeoutMs": 5000,
+    "responseBytes": 131072,
+    "runMatches": 3,
+    "jobs": 10,
+    "stepsPerJob": 20,
+    "automaticRetries": 0
+  }
 }

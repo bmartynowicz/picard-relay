@@ -140,6 +140,10 @@
     {
       "path": "experimental/compute-broker/src/broker.mjs",
       "role": "separate offline compute broker; fixed local fixtures only, outside signed runtime"
+    },
+    {
+      "path": "experimental/compute-broker/src/github-ci.mjs",
+      "role": "read-only exact-commit observation of public Picard project CI; no credentials or dispatch"
     }
   ],
   "release": {

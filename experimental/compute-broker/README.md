@@ -1,6 +1,6 @@
 # Compute broker preview
 
-**Status: offline foundation, November 4, 2026. No live compute provider is enrolled.** This package lets an AI client discover a registry, plan a small job, reserve capacity, execute an explicitly enabled local fixture and retrieve its saved result. It is a separate process and database from Picard's live AI-request relay. Picard generated an initial eligibility-selector proposal; reviewed corrections are described in [PROVENANCE.md](PROVENANCE.md).
+**Status: offline execution foundation with live read-only project CI observation, November 4, 2026. No live compute executor is enrolled.** This package lets an AI client discover a registry, plan a small job, reserve capacity, execute an explicitly enabled local fixture and retrieve its saved result. It can also read this public project's GitHub CI status for an exact commit. It is a separate process and database from Picard's live AI-request relay. Picard generated an initial eligibility-selector proposal; reviewed corrections are described in [PROVENANCE.md](PROVENANCE.md).
 
 The requested network still needs secure real-provider adapters and successful execution across two independent providers. Two simulated architecture resources are not two cloud providers. This code is outside the signed runtime allowlist and is not deployed by Picard's updater.
 
@@ -69,6 +69,7 @@ Execution is disabled by default. Add `--demo` only to enable the two **local fi
 | `compute_run` | Invoke a reserved local fixture once. Input `{ "id": "sample-one" }`. |
 | `compute_get` | Saved job/result by ID; unknown ID returns null. |
 | `compute_list` | Up to 100 recent jobs. Empty arguments. |
+| `compute_ci_status` | Live read-only GitHub CI for `{ "commitSha": "<40 lowercase hex characters>" }` in `bmartynowicz/picard-relay` only. |
 
 Example job for `compute_plan` or `compute_submit`:
 
@@ -85,6 +86,10 @@ Example job for `compute_plan` or `compute_submit`:
 ```
 
 Jobs use `reserved → invoking → completed | uncertain`; a pre-invocation eligibility change produces `failed`. Ineligible submissions start and stay `blocked`. The job ID binds the normalized input, not a user identity or provider approval. This single-account preview has no network authentication or tenant isolation.
+
+Brian selected **GitHub public-project CI** for the second backend on November 4. `compute_ci_status` provides its first live integration: up to three public HTTPS GET requests, each with a five-second deadline and 128 KiB response ceiling, check the public repository, matching pull-request workflow run and up to ten jobs. It does not use credentials, follow redirects, dispatch, rerun, download artifacts or retry. Rate limits/unavailable APIs return an error; a missing matching run returns `found: false`. It reads at most the first three run matches for the commit, and reports truncation for job/step lists. Call it explicitly; discovery/demo/tests do not contact GitHub. This is current provider data, separate from the private saved fixture ledger.
+
+The [first public CI run](https://github.com/bmartynowicz/picard-relay/actions/runs/41889597537) passed for commit `2aca378414d18cb1c524e7a1eb1bbb3db8cc0ec1`. That proves this repository's fixed CI checks ran on GitHub; it does not prove broker-driven dispatch or completion of the two-provider network.
 
 For actual process interruption, stop **every** broker sharing the database before manually calling the library's `recover()` in an offline maintenance process. It changes `invoking` to `uncertain`, preserves reservations and never resends. Startup does not auto-recover another process's in-flight work. Backup/restore, disk-full, power-loss and multi-host database operation remain unqualified.
 
