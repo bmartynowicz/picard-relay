@@ -22,7 +22,7 @@ The console's reviewed-correction note is deliberately specific to one immutable
 
 ## Verification limits
 
-Tests use synthetic inputs and local fixtures unless a dated evidence record says otherwise. Provider calls are excluded from normal tests and deployment checks. Passing tests, publishing a signature and installing a release are distinct results.
+Tests use synthetic inputs and local fixtures unless a dated evidence record says otherwise. Provider calls are excluded from normal tests. A deployment smoke call is claimed only when a dated record explicitly documents it. Passing tests, publishing a signature and installing a release are distinct results.
 
 The earlier live audit used the old catalogue-task scope and showed two completed jobs. A later live reconciliation found 13 completed, 1 failed and 3 uncertain records for the configured owner; the console-scope mismatch is tracked as PR-BUG-005. Queued/running/uncertain/error scenarios are covered by regression fixtures, but the audit did not manufacture those states in the live ledger. Physical phone interaction, a complete assistive-technology audit, arbitrary power loss, disk exhaustion and all fresh-host configurations remain outside that live UI check.
 
@@ -34,4 +34,4 @@ With BRIDGE_WORKSPACE_ENABLED explicitly enabled, ordinary bounded owner text re
 
 V1 adds local reviews and exports, not automatic implementation, quality validation or Board acceptance. Only fenced code is offered as individual downloads; the original full answer is always available. Usage and billed cost are not captured or inferred from configured ceilings. Host setup and provider enrollment remain explicit Linux operator procedures, not a portable one-command installer.
 
-These are source capabilities awaiting release qualification and activation; the installed version and dated verification are listed separately in Status.
+These capabilities were installed and explicitly activated on the recorded enrolled host as v1.0.26. One generic live provider smoke request, exact exports, restart recovery and desktop/phone checks passed; owner acceptance remains separate. Other installations still require explicit activation. Exact release identity and dated verification are listed in [Status](STATUS.md).

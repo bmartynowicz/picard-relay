@@ -196,9 +196,47 @@
       "id": "PR-FTR-003",
       "kind": "feature",
       "title": "Broader routine request enrollment",
-      "status": "source_candidate",
-      "currentLimit": "V1 owner workspace implemented behind explicit host activation; installed verification remains separate.",
-      "next": "Qualify full source and browser workflow, review and activate the explicit owner admission authority."
+      "status": "verified_on_deployment",
+      "currentLimit": "Ordinary owner drafts and exact one-call approval are live on the explicitly activated enrolled host. Other owners, providers and portable onboarding remain outside this scope.",
+      "next": "Owner usability review; retain separate enrollment and no-retry limits.",
+      "remaining": "Installed, activated and live-verified on the enrolled host; owner acceptance remains separate.",
+      "verification": {
+        "verifiedAt": "2026-11-04T03:02:42Z",
+        "release": "1.0.26",
+        "sequence": 26002,
+        "sourceCommit": "cae592b60114118dc11bb794fde59932ab8ef2ee",
+        "releaseHash": "ead28a19e2f4d38bf8e1b5203dc8ced3ce41b30596802903a11cb57439a556d4",
+        "pullRequest": "https://github.com/bmartynowicz/picard-relay/pull/6",
+        "workflow": "https://github.com/bmartynowicz/picard-relay/actions/runs/41763218647",
+        "workflowAttempt": 2,
+        "installedModuleCount": 20,
+        "allInstalledBytesMatchSignedManifestAndMergedSource": true,
+        "workspaceActivated": true,
+        "productionBrowserChecks": [
+          "ordinary composer and exact approval",
+          "one completed live Groq call",
+          "named history with all 18 jobs",
+          "historical result and reviewed correction",
+          "exact Markdown/code/JSON downloads",
+          "output-bound local review persisted after reload and runtime restart",
+          "System identity and successful updater activity",
+          "desktop/390px/320px layouts without overflow",
+          "reduced motion"
+        ],
+        "historicalRowsPreserved": 17,
+        "baselineInvocationMarkersPreserved": 18,
+        "newSmokeJobs": 1,
+        "newInvocationMarkers": 1,
+        "providerCalls": 1,
+        "smokeResultSha256": "45769e56d38640d81dd0e4f78f914cf82487e2b86e530f8cd8a82f411523ca5a",
+        "ledgerStateCounts": {
+          "completed": 14,
+          "failed": 1,
+          "uncertain": 3
+        },
+        "allJobAndMarkerHashesUnchangedAcrossRestart": true,
+        "ownerAcceptance": false
+      }
     },
     {
       "id": "PR-FTR-004",
@@ -266,7 +304,7 @@
       "id": "PR-FTR-007",
       "kind": "feature",
       "title": "V1 request-to-result owner workspace",
-      "status": "source_candidate",
+      "status": "verified_on_deployment",
       "behavior": "Normal request composer; immutable durable drafts; exact session-bound approval; named history; owner-wide recovery; inert answer/code/provenance exports; append-only output-bound local reviews; backup rehearsal.",
       "sourceFiles": [
         "experimental/runtime-control/src/admission-handler.mjs",
@@ -279,7 +317,44 @@
         "experimental/runtime-control/test/workspace-http.test.mjs",
         "experimental/runtime-control/test/workspace-backup.test.mjs"
       ],
-      "remaining": "Complete source/browser qualification, review and separate deployment/activation; no owner acceptance claimed."
+      "remaining": "Installed, activated and live-verified on the enrolled host; owner acceptance remains separate.",
+      "verification": {
+        "verifiedAt": "2026-11-04T03:02:42Z",
+        "release": "1.0.26",
+        "sequence": 26002,
+        "sourceCommit": "cae592b60114118dc11bb794fde59932ab8ef2ee",
+        "releaseHash": "ead28a19e2f4d38bf8e1b5203dc8ced3ce41b30596802903a11cb57439a556d4",
+        "pullRequest": "https://github.com/bmartynowicz/picard-relay/pull/6",
+        "workflow": "https://github.com/bmartynowicz/picard-relay/actions/runs/41763218647",
+        "workflowAttempt": 2,
+        "installedModuleCount": 20,
+        "allInstalledBytesMatchSignedManifestAndMergedSource": true,
+        "workspaceActivated": true,
+        "productionBrowserChecks": [
+          "ordinary composer and exact approval",
+          "one completed live Groq call",
+          "named history with all 18 jobs",
+          "historical result and reviewed correction",
+          "exact Markdown/code/JSON downloads",
+          "output-bound local review persisted after reload and runtime restart",
+          "System identity and successful updater activity",
+          "desktop/390px/320px layouts without overflow",
+          "reduced motion"
+        ],
+        "historicalRowsPreserved": 17,
+        "baselineInvocationMarkersPreserved": 18,
+        "newSmokeJobs": 1,
+        "newInvocationMarkers": 1,
+        "providerCalls": 1,
+        "smokeResultSha256": "45769e56d38640d81dd0e4f78f914cf82487e2b86e530f8cd8a82f411523ca5a",
+        "ledgerStateCounts": {
+          "completed": 14,
+          "failed": 1,
+          "uncertain": 3
+        },
+        "allJobAndMarkerHashesUnchangedAcrossRestart": true,
+        "ownerAcceptance": false
+      }
     }
   ]
 }

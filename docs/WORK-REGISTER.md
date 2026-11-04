@@ -1,6 +1,6 @@
 # Known bugs and feature requests
 
-Snapshot: **November 3, 2026**. The owner's private task board is the operational record. This is a sanitized product summary, not an exhaustive issue tracker or authorization to start every item. Machine-readable records and state definitions are in [work-register.json](work-register.json).
+Snapshot: **November 4, 2026 UTC**. The owner's private task board is the operational record. This is a sanitized product summary, not an exhaustive issue tracker or authorization to start every item. Machine-readable records and state definitions are in [work-register.json](work-register.json).
 
 ## Fixed live-audit findings
 
@@ -43,7 +43,7 @@ A read-only live comparison on November 3, 2026 showed two completed jobs in the
 | PR-FTR-006 | Mechanical rolling Overview counters | Verified on v0.1.25. Exact installed-source UI regressions and authenticated desktop/phone checks passed; real job counts and stored results preserved. Owner acceptance remains separate. |
 | PR-FTR-001 | Additional provider connectors | Paused. Groq remains the only supported live provider; there is no paid fallback. |
 | PR-FTR-002 | Portable host onboarding/installer | Planned. Current deployment needs explicit Linux host enrollment and verification. |
-| PR-FTR-003 | Broader routine request enrollment | V1 source candidate provides ordinary console drafts and exact approval behind explicit host activation; deployment and owner review remain separate. |
+| PR-FTR-003 | Broader routine request enrollment | Live-verified on v1.0.26: ordinary drafts and exact approval on the explicitly activated enrolled host. Owner review remains separate. |
 | PR-FTR-004 | Controlled execution | Offline fixtures only. No live generated code, shell or tools are executed. |
 | PR-FTR-005 | Portable task-board integration | Planned. The original consuming Board app is not included in this repository. |
 
@@ -51,6 +51,6 @@ Unqualified power-loss/disk-full behavior, physical phone/screen-reader coverage
 
 When changing a record, update its structured state and dated evidence as well as this summary. Keep source implementation, tests, deployment verification and human acceptance distinct. For current installed evidence, use [Status](STATUS.md).
 
-## V1 source candidate
+## V1 deployed and verified
 
-PR-FTR-007 adds the complete owner request-to-result workspace, exports, local reviews and consistent backup rehearsal behind explicit host activation. PR-FTR-003 now has a source candidate for ordinary console requests. See [V1](V1.md) for scope and limitations. This entry does not claim installation or acceptance.
+PR-FTR-007 and PR-FTR-003 are installed and explicitly activated on v1.0.26 / sequence 26002 after [PR #6](https://github.com/bmartynowicz/picard-relay/pull/6). One generic live Groq smoke request completed; exact answer/code/JSON downloads, persisted local review, named history, historical result recovery and desktop/phone checks passed. All 17 historical job rows and 18 markers were preserved. The smoke test adds one completed job and one marker; saved state survived a guarded restart without another invocation. Source fixture qualification is separate from these actual live checks. See [Status](STATUS.md) for exact source/release identity and [V1](V1.md) for scope and limitations. Owner acceptance remains separate.

@@ -1,16 +1,22 @@
 # Verification status
 
-Last documentation review: **November 3, 2026**. This page separates a reusable source contract from one enrolled host's dated observations. Read [Limitations](LIMITATIONS.md) and [known work](WORK-REGISTER.md) alongside it.
+Last documentation review: **November 4, 2026 UTC**. This page separates a reusable source contract from one enrolled host's dated observations. Read [Limitations](LIMITATIONS.md) and [known work](WORK-REGISTER.md) alongside it.
 
-## V1 source candidate — installation separate
+## Current verified release — v1 workspace
 
-The v1 owner workspace is implemented on an isolated branch: ordinary requests, durable drafts, session-bound exact approval, named owner history, cross-task result recovery, answer/code/JSON exports, append-only output-bound reviews and a consistent backup utility. Activation remains explicitly disabled by default. The existing installed host is still described below; no v1 production activation or live provider call is claimed.
+On November 3, 2026 at 9:55 PM EST (November 4 UTC), **v1.0.26 / sequence 26002** was installed through the enrolled updater. Source: `cae592b60114118dc11bb794fde59932ab8ef2ee`; physical release: `ead28a19e2f4d38bf8e1b5203dc8ced3ce41b30596802903a11cb57439a556d4`. All 20 installed modules match the signed manifest and merged source. [PR #6](https://github.com/bmartynowicz/picard-relay/pull/6) is merged. The [signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41763218647) passed on attempt 2 with unchanged source after an initial pre-existing CLI deadline-test timing failure. No runtime change was made to obtain that rerun.
 
-Normal and jitless Node 24.22.2 qualification covers real owner setup/login over loopback HTTP, actual one-call marker files with a synthetic provider transport, restart recovery, interrupted invocation stops, duplicate and lost-response handling, result review conflicts and isolated backup restore. Browser/DOM tests cover inert formatting, exact file exports, failed/future observations, navigation races, sign-out clearing and reduced motion. All fixtures use synthetic inputs and no external provider calls.
+At 9:59 PM EST the existing host was explicitly activated with `BRIDGE_WORKSPACE_ENABLED=true` and exact workspace HTTPS routes. Every other runtime setting and existing proxy directive was preserved. A protected operator checkpoint contains the pre-activation ledger, invocation markers, auth state and configuration; the ledger backup passed integrity checking. The updater's existing pinned signature and sequence policy remained in force; SELinux remained Enforcing.
 
-The real-authentication fixture process observed roughly 98–101 MB RSS. This is a fixture measurement, not a production capacity or sustained-load guarantee. See [V1](V1.md), [structured contract](workspace-contract.json) and [Limitations](LIMITATIONS.md).
+Authenticated production verification completed at 10:02 PM EST. One clearly titled, generic deployment smoke request was prepared, reviewed and approved in the ordinary workspace, then completed through real Groq. Copy and actual Markdown/code/JSON downloads match the saved answer and output hash. A validation-only local review persisted after reload and a guarded service restart; all job and marker hashes were unchanged across that restart, with no second invocation. Generated code was not executed.
 
-## Current verified release
+All 17 historical job rows and 18 historical invocation markers are unchanged from the protected pre-activation checkpoint. The smoke test adds exactly one completed job and one marker: current counts are **14 completed / 1 failed / 3 uncertain**, with no queued/running work. Named Jobs history shows all 18 records, and an old result with its reviewed correction remains recoverable. System shows the exact v1 release and successful running updater activity. Eight unauthenticated/cross-origin/unlisted-route checks passed.
+
+Desktop, 390px and 320px screenshots were inspected without horizontal overflow; reduced motion disables motion controls, and temporary emulation was reset. Service, provider and result recovery are ready; there is no busy/draining/unresolved invocation or STOP/HOLD/update journal/pending cost latch. This is deployment validation, not owner acceptance or a capacity guarantee.
+
+Source qualification separately passed full Linux Node 24.22.2 updater/runtime/socket checks and 21 new v1 checks normally and jitless. These use synthetic transports and real loopback owner authentication, marker files and restart/uncertainty boundaries. The roughly 98–101 MB RSS observation belongs to that fixture, not a production load test. See [V1](V1.md), [structured contract](workspace-contract.json) and [Limitations](LIMITATIONS.md).
+
+## v0.1.25 verification
 
 On November 3, 2026 at 7:45 PM EST (November 4 UTC), **v0.1.25 / sequence 25001** was installed through the enrolled updater. Source: `d5e64bbe625a695d06b3101d60ec7dfab4b4f38c`; physical release: `331d497940e6b730b244f6fb2630ba5f646686dfd53cf8e1b86e3d0f187bd5e2`.
 
