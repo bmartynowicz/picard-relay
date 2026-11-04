@@ -144,6 +144,10 @@
     {
       "path": "experimental/compute-broker/src/github-ci.mjs",
       "role": "read-only exact-commit observation of public Picard project CI; no credentials or dispatch"
+    },
+    {
+      "path": "experimental/compute-broker/src/oracle-inventory.mjs",
+      "role": "operator-configured pinned SSH inventory; no account API, execution enrollment or billing assertion"
     }
   ],
   "release": {

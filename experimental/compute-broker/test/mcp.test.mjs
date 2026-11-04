@@ -46,12 +46,15 @@ function client(t, { demo = false, database } = {}) {
   }
   return { child, messages, request, initialize, db, exited, call: (name, args) => request('tools/call', { name, arguments: args }) };
 }
-test('stdio session requires initialization and advertises seven bounded tools', async t => {
+test('stdio session requires initialization and advertises eight bounded tools', async t => {
   const c = client(t); assert.equal((await c.request('tools/list')).error.code, -32002);
-  await c.initialize(); const listed = await c.request('tools/list'); assert.equal(listed.result.tools.length, 7);
+  await c.initialize(); const listed = await c.request('tools/list'); assert.equal(listed.result.tools.length, 8);
   assert.equal((await c.call('compute_discover', {})).result.structuredContent.data.liveCloudExecutionEnabled, false);
   assert.equal((await c.call('compute_submit', job())).result.structuredContent.data.state, 'blocked');
   assert.equal((await c.call('compute_run', { id: 'first' })).result.structuredContent.data.state, 'blocked');
+  const oracle = await c.call('compute_oracle_status', {});
+  assert.equal(oracle.result.structuredContent.executionMode, 'read-only-oracle-inventory');
+  assert.equal(oracle.result.structuredContent.data.configured, false);
 });
 test('MCP demo submits, runs and retrieves one local fixture with Unicode input', async t => {
   const c = client(t, { demo: true }); await c.initialize();

@@ -1,6 +1,6 @@
 # Compute broker preview
 
-**Status: offline execution foundation with live read-only project CI observation, November 4, 2026. No live compute executor is enrolled.** This package lets an AI client discover a registry, plan a small job, reserve capacity, execute an explicitly enabled local fixture and retrieve its saved result. It can also read this public project's GitHub CI status for an exact commit. It is a separate process and database from Picard's live AI-request relay. Picard generated an initial eligibility-selector proposal; reviewed corrections are described in [PROVENANCE.md](PROVENANCE.md).
+**Status: offline execution foundation with live read-only Oracle inventory and project CI observation, November 4, 2026. No live compute executor is enrolled.** This package lets an AI client discover a registry, plan a small job, reserve capacity, execute an explicitly enabled local fixture and retrieve its saved result. It can also read the configured Oracle micro VM's current capacity and this public project's GitHub CI status for an exact commit. It is a separate process and database from Picard's live AI-request relay. Picard generated an initial eligibility-selector proposal; reviewed corrections are described in [PROVENANCE.md](PROVENANCE.md).
 
 The requested network still needs secure real-provider adapters and successful execution across two independent providers. Two simulated architecture resources are not two cloud providers. This code is outside the signed runtime allowlist and is not deployed by Picard's updater.
 
@@ -70,6 +70,7 @@ Execution is disabled by default. Add `--demo` only to enable the two **local fi
 | `compute_get` | Saved job/result by ID; unknown ID returns null. |
 | `compute_list` | Up to 100 recent jobs. Empty arguments. |
 | `compute_ci_status` | Live read-only GitHub CI for `{ "commitSha": "<40 lowercase hex characters>" }` in `bmartynowicz/picard-relay` only. |
+| `compute_oracle_status` | Live read-only VM inventory with empty arguments. Requires an explicit private SSH profile; otherwise returns `configured: false`. |
 
 Example job for `compute_plan` or `compute_submit`:
 
@@ -91,13 +92,21 @@ Brian selected **GitHub public-project CI** for the second backend on November 4
 
 The [first public CI run](https://github.com/bmartynowicz/picard-relay/actions/runs/41889597537) passed for commit `2aca378414d18cb1c524e7a1eb1bbb3db8cc0ec1`. That proves this repository's fixed CI checks ran on GitHub; it does not prove broker-driven dispatch or completion of the two-provider network.
 
+For Oracle observation, pass `--oracle-profile /private/path/oracle.json` in the MCP command. Copy [oracle-profile.example.json](oracle-profile.example.json) to a private location and replace its values with an **existing authorized** SSH host, user, private-key path, known-hosts path and absolute trusted SSH executable. Windows paths can use forward slashes in JSON. Do not put real profiles or keys in this repository. On POSIX, the profile must be an owned regular non-symlink file, mode 0600, at most 8 KiB. Windows ACL enforcement is not qualified. The operator controls this trusted local configuration; ordinary MCP callers cannot supply a host, command, executable or profile.
+
+`compute_oracle_status` starts one fixed read-only Python probe over pinned SSH. It disables user SSH configuration, agent use/forwarding and extra port forwards, requires the existing known-host entry, permits one connection attempt, caps stdout at 16 KiB and stops the local SSH process after eight seconds. Concurrent requests share one probe within the MCP process. It reads only selected instance metadata, OS memory and root-filesystem capacity. No package/worker is installed and no root command, job, resource creation or account API is used. The current implementation accepts the inspected x64 E2.1.Micro shape only. Transport errors are sanitized; there is no reconnect/retry. The existing key's privileges are not reduced by this observer; a future executor needs a dedicated restricted worker identity.
+
+The Oracle tool deliberately returns `accountQuota: null`, `costVerification: "unknown"` and `dispatchEnabled: false`. Logical CPUs and available RAM are machine measurements, not free-tier entitlement or scheduling capacity. The authenticated Console assessment below is a separate dated manual observation; it does not automatically enable execution.
+
 For actual process interruption, stop **every** broker sharing the database before manually calling the library's `recover()` in an offline maintenance process. It changes `invoking` to `uncertain`, preserves reservations and never resends. Startup does not auto-recover another process's in-flight work. Backup/restore, disk-full, power-loss and multi-host database operation remain unqualified.
 
 ## Provider readiness and next steps
 
 The [provider research](PROVIDERS.md) and [structured contract](contract.json) distinguish public allowances, account verification and executable adapters. An evidence reference in the selector is operator-supplied metadata, not an independent billing check or enforceable spending cap. Synthetic evidence is clearly labeled in demo resources. Defaults achieve zero cloud calls by disabling cloud execution; they do not establish a live zero-dollar network.
 
-The next implementation should enroll the existing Oracle VM and one eligible second provider after checking account-level quotas, hard cost controls, workload permissions and available access. GitHub public standard runners are a candidate for this project's CI jobs only; the current CLI identity has read access and no workflow-dispatch authority. General data jobs need an eligible VM or other permitted backend. Do not treat CI/notebook accounts as unrestricted remote workers.
+The authenticated Oracle Console check confirmed the existing micro VM is labeled **Always Free**, with one of two micro instances used in its availability domain and one 50 GB boot volume without additional attached disks. Permanent resource eligibility was checked separately from promotional credits. Cost overview and subscription pages remained blank through direct and in-console navigation, so current charges, remaining trial credits, trial expiry and complete billing controls were not verified. Trial credits remain excluded; no account upgrade, new resource or quota change was made. See [provider assessment](PROVIDERS.md).
+
+The next implementation should enroll the existing Oracle VM and GitHub public-project CI after checking preventive cost controls, workload permissions and available access. GitHub standard public runners are for this project's CI jobs only; the current CLI identity has read access and no workflow-dispatch authority. General data jobs need an eligible VM or other permitted backend. Do not treat CI/notebook accounts as unrestricted remote workers.
 
 Before live enablement, add pinned/authenticated transports, fixed allowlisted operations with OS resource controls, exact job authority, independent cost/quota refresh, safe artifact/log retrieval, provider-specific uncertainty reconciliation, and two-provider end-to-end evidence. Keep this package isolated from the production relay until that work is reviewed. Picard's additional AI-model connector task remains separate and paused.
 

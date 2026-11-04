@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "updatedAt": "2026-11-04",
-  "status": "offline_execution_foundation_with_live_ci_observer",
+  "status": "offline_execution_foundation_with_live_oracle_and_ci_observers",
   "liveCloudExecutionEnabled": false,
   "liveComputeProvidersEnrolled": 0,
   "twoProviderEndToEndVerified": false,
@@ -28,7 +28,8 @@
     "compute_run",
     "compute_get",
     "compute_list",
-    "compute_ci_status"
+    "compute_ci_status",
+    "compute_oracle_status"
   ],
   "limits": {
     "resourceCount": 64,
@@ -55,9 +56,9 @@
   },
   "uncertainOutcome": "retain reservation; no retry, failover or automatic startup recovery",
   "unsupported": [
-    "remote code execution",
-    "shell commands",
-    "live provider adapters",
+    "remote workload execution beyond the fixed read-only inventory probe",
+    "caller-supplied shell commands",
+    "live workload-execution adapters",
     "GPU jobs",
     "artifact file retrieval",
     "multi-tenant access",
@@ -65,7 +66,6 @@
     "OS resource isolation"
   ],
   "nextMilestone": "Verify account quotas/cost controls, enroll Oracle plus one permitted independent provider, implement secure bounded adapters and demonstrate two-provider execution with results/logs/artifacts.",
-  "liveReadOnlyProvider": "github-actions public project CI",
   "selectedSecondBackend": "github-public-project-ci",
   "githubCiObserver": {
     "repository": "bmartynowicz/picard-relay",
@@ -79,5 +79,35 @@
     "jobs": 10,
     "stepsPerJob": 20,
     "automaticRetries": 0
+  },
+  "liveReadOnlyProviders": [
+    "oracle micro VM inventory",
+    "github-actions public project CI"
+  ],
+  "oracleObserver": {
+    "profileRequired": true,
+    "sshHostKeyChecking": "strict",
+    "sshUserConfigDisabled": true,
+    "sshAgentDisabled": true,
+    "sshForwardingDisabled": true,
+    "connectionAttempts": 1,
+    "timeoutMs": 8000,
+    "stdoutBytes": 16384,
+    "singleFlightPerProcess": true,
+    "supportedShape": "VM.Standard.E2.1.Micro",
+    "accountQuota": null,
+    "costVerification": "unknown",
+    "dispatchEnabled": false
+  },
+  "oracleConsoleAssessment": {
+    "date": "2026-11-04",
+    "instanceLabel": "Always Free",
+    "microDomainLimit": 2,
+    "microDomainUsed": 1,
+    "microDomainAvailable": 1,
+    "bootVolumeGb": 50,
+    "additionalAttachedBlockVolumes": 0,
+    "billingAndSubscriptionViews": "blank",
+    "accountBillingControlsVerified": false
   }
 }
