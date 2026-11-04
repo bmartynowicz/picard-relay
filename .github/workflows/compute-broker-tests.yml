@@ -6,6 +6,7 @@ on:
       - 'docs/**'
       - 'llms.txt'
       - '.github/workflows/compute-broker-tests.yml'
+      - '.github/workflows/compute-worker.yml'
 permissions:
   contents: read
 jobs:

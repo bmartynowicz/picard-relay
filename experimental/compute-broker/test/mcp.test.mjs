@@ -1,17 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { job } from './helpers.mjs';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-function client(t, { demo = false, database } = {}) {
+function client(t, { demo = false, database, executionProfile } = {}) {
   const directory = database ? null : mkdtempSync(join(tmpdir(), 'picard-compute-mcp-'));
   const db = database ?? join(directory, 'ledger.sqlite');
   const child = spawn(process.execPath, [...(process.execArgv.includes('--jitless') ? ['--jitless'] : []),
-    join(root, 'mcp.mjs'), '--db', db, ...(demo ? ['--demo'] : [])], { stdio: ['pipe', 'pipe', 'pipe'] });
+    join(root, 'mcp.mjs'), '--db', db, ...(demo ? ['--demo'] : []),
+    ...(executionProfile ? ['--execution-profile', executionProfile] : [])], { stdio: ['pipe', 'pipe', 'pipe'] });
   let stderr = '', buffer = '', sequence = 0; const pending = new Map(), messages = [];
   child.stderr.on('data', data => { stderr += data; });
   child.stdout.setEncoding('utf8');
@@ -46,12 +47,14 @@ function client(t, { demo = false, database } = {}) {
   }
   return { child, messages, request, initialize, db, exited, call: (name, args) => request('tools/call', { name, arguments: args }) };
 }
-test('stdio session requires initialization and advertises eight bounded tools', async t => {
+test('stdio session requires initialization and advertises ten bounded tools', async t => {
   const c = client(t); assert.equal((await c.request('tools/list')).error.code, -32002);
-  await c.initialize(); const listed = await c.request('tools/list'); assert.equal(listed.result.tools.length, 8);
+  await c.initialize(); const listed = await c.request('tools/list'); assert.equal(listed.result.tools.length, 10);
+  assert.deepEqual((await c.call('compute_refresh_resources', {})).result.structuredContent.data, { executionEnabled: false, resources: [] });
   assert.equal((await c.call('compute_discover', {})).result.structuredContent.data.liveCloudExecutionEnabled, false);
   assert.equal((await c.call('compute_submit', job())).result.structuredContent.data.state, 'blocked');
   assert.equal((await c.call('compute_run', { id: 'first' })).result.structuredContent.data.state, 'blocked');
+  assert.equal((await c.call('compute_collect', { id: 'first' })).result.structuredContent.data.state, 'blocked');
   const oracle = await c.call('compute_oracle_status', {});
   assert.equal(oracle.result.structuredContent.executionMode, 'read-only-oracle-inventory');
   assert.equal(oracle.result.structuredContent.data.configured, false);
@@ -89,4 +92,15 @@ test('separate MCP processes retain saved results and prevent a second invocatio
 test('oversized unterminated MCP input fails cleanly without double-closing the store', async t => {
   const c = client(t); c.child.stdin.write('x'.repeat(65537));
   assert.equal(await c.exited, 0); assert.equal(c.messages[0].error.message, 'Message too large');
+});
+test('real MCP accepts a private disabled enrollment without making providers eligible', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'picard-compute-profile-'));
+  const profile = JSON.parse(readFileSync(join(root, 'execution-profile.example.json')));
+  const path = join(directory, 'execution.json'); writeFileSync(path, JSON.stringify(profile), { mode: 0o600 });
+  const c = client(t, { executionProfile: path }); await c.initialize();
+  assert.equal((await c.call('compute_refresh_resources', {})).result.structuredContent.data.executionEnabled, false);
+  const data = (await c.call('compute_discover', {})).result.structuredContent.data;
+  assert.equal(data.resources.length, 2); assert.ok(data.resources.every(r => !r.enabled));
+  assert.equal((await c.call('compute_submit', job())).result.structuredContent.data.state, 'blocked');
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
 });

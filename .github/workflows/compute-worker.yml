@@ -1,0 +1,48 @@
+name: Fixed public project compute worker
+run-name: picard-compute/${{ inputs.job_id }}/${{ inputs.job_sha256 }}
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        required: true
+        type: string
+      job_sha256:
+        required: true
+        type: string
+      worker_sha256:
+        required: true
+        type: string
+      source_sha:
+        required: true
+        type: string
+      job_json_b64:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  fixed-project-checks:
+    if: github.repository == 'bmartynowicz/picard-relay'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: worker
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.source_sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.22.1'
+      - name: Run exact approved public-project checks
+        env:
+          PICARD_JOB_JSON_B64: ${{ inputs.job_json_b64 }}
+          PICARD_EXPECTED_JOB_ID: ${{ inputs.job_id }}
+          PICARD_EXPECTED_JOB_SHA: ${{ inputs.job_sha256 }}
+          PICARD_EXPECTED_WORKER_SHA: ${{ inputs.worker_sha256 }}
+        run: node worker/experimental/compute-broker/src/github-job.mjs

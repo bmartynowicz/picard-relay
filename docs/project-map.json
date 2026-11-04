@@ -139,7 +139,7 @@
     },
     {
       "path": "experimental/compute-broker/src/broker.mjs",
-      "role": "separate offline compute broker; fixed local fixtures only, outside signed runtime"
+      "role": "separate compute broker with disabled-by-default fixed Oracle and GitHub CI adapters, outside signed runtime"
     },
     {
       "path": "experimental/compute-broker/src/github-ci.mjs",
@@ -148,6 +148,22 @@
     {
       "path": "experimental/compute-broker/src/oracle-inventory.mjs",
       "role": "operator-configured pinned SSH inventory; no account API, execution enrollment or billing assertion"
+    },
+    {
+      "path": "experimental/compute-broker/src/execution-profile.mjs",
+      "role": "private finite exact-job enrollment"
+    },
+    {
+      "path": "experimental/compute-broker/src/oracle-executor.mjs",
+      "role": "fixed provider execution and saved-result collection"
+    },
+    {
+      "path": "experimental/compute-broker/src/github-executor.mjs",
+      "role": "fixed provider execution and saved-result collection"
+    },
+    {
+      "path": "experimental/compute-broker/src/receipt.mjs",
+      "role": "bounded authenticated-context result validation"
     }
   ],
   "release": {
@@ -179,7 +195,8 @@
     "experimental/compute-broker/README.md",
     "experimental/compute-broker/PROVIDERS.md",
     "experimental/compute-broker/PROVENANCE.md",
-    "experimental/compute-broker/VERIFICATION.md"
+    "experimental/compute-broker/VERIFICATION.md",
+    "experimental/compute-broker/EXECUTION.md"
   ],
   "workRegister": "docs/work-register.json",
   "illustrations": [

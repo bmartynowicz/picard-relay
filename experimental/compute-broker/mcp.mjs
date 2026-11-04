@@ -6,10 +6,12 @@ import { createBroker } from './src/broker.mjs';
 import { fixtureAdapters, fixtureResources } from './src/fixtures.mjs';
 import { observeProjectCi, commitIdentity } from './src/github-ci.mjs';
 import { createOracleObserver, oracleProbePlan } from './src/oracle-inventory.mjs';
+import { createExecutionRegistry, readExecutionProfile } from './src/execution-profile.mjs';
 
 const options = process.argv.slice(2);
 let fixtureMode = false;
 let oracleProfile = null;
+let executionProfile = null;
 let database = resolve('.picard-compute/ledger.sqlite');
 for (let index = 0; index < options.length; index++) {
   if (options[index] === '--demo') fixtureMode = true;
@@ -19,18 +21,23 @@ for (let index = 0; index < options.length; index++) {
     if (!info.isFile() || info.isSymbolicLink() || info.size > 8192 || (process.platform !== 'win32'
       && ((info.mode & 0o077) !== 0 || info.uid !== process.getuid()))) throw Error('private_oracle_profile_required');
     oracleProfile = JSON.parse(readFileSync(filename, 'utf8')); oracleProbePlan(oracleProfile);
-  } else throw Error('usage: node mcp.mjs [--demo] [--db PRIVATE_DIRECTORY/ledger.sqlite] [--oracle-profile PRIVATE_FILE]');
+  } else if (options[index] === '--execution-profile' && options[index + 1]) {
+    executionProfile = readExecutionProfile(resolve(options[++index]));
+  } else throw Error('usage: node mcp.mjs [--demo] [--db PRIVATE_DIRECTORY/ledger.sqlite] [--oracle-profile PRIVATE_FILE] [--execution-profile PRIVATE_FILE]');
 }
+if (fixtureMode && executionProfile) throw Error('exclusive_execution_modes');
 mkdirSync(dirname(database), { recursive: true, mode: 0o700 });
 const observeConfiguredOracle = createOracleObserver(oracleProfile);
 const store = createStore(database);
-const broker = createBroker({ store, fixtureMode,
+const execution = createExecutionRegistry(executionProfile);
+const broker = createBroker({ store, fixtureMode, executionEnabled: execution.enabled, authorize: execution.authorize,
+  resources: execution.resources, adapters: execution.adapters,
   ...(fixtureMode ? { resources: fixtureResources, adapters: fixtureAdapters() } : {}) });
 
 const jobSchema = { type: 'object', additionalProperties: false,
   properties: {
     id: { type: 'string', pattern: '^[a-z0-9-]{1,80}$' },
-    operation: { type: 'string', enum: ['word-count', 'sha256'] },
+    operation: { type: 'string', enum: ['word-count', 'sha256', 'project-checks'] },
     workload: { type: 'string', enum: ['data', 'project-ci'] },
     arch: { type: 'string', enum: ['any', 'x64', 'arm64'] },
     needs: { type: 'object', additionalProperties: false, properties: {
@@ -47,16 +54,19 @@ const idSchema = { type: 'object', additionalProperties: false,
 const ciSchema = { type: 'object', additionalProperties: false,
   properties: { commitSha: { type: 'string', pattern: '^[0-9a-f]{40}$' } }, required: ['commitSha'] };
 const tools = [
-  ['compute_discover', 'Read the eligible resource registry. No live cloud execution provider is enrolled.', emptySchema, true],
+  ['compute_discover', 'Read saved resource eligibility and remaining local reservations. Does not contact providers.', emptySchema, true],
   ['compute_plan', 'Check eligibility and quota without reserving or executing.', jobSchema, true],
-  ['compute_submit', 'Persist one exact job and reserve quota. Default mode blocks; --demo enables LOCAL FIXTURES ONLY.', jobSchema, false],
-  ['compute_run', 'Execute a reserved LOCAL FIXTURE once. Cannot run cloud jobs, shell commands or generated code.', idSchema, false],
+  ['compute_submit', 'Persist one exact job and reserve quota. Live work requires an enabled private profile and exact job approval; --demo uses fixtures.', jobSchema, false],
+  ['compute_run', 'Invoke a reserved approved fixed operation once. No caller shell commands, retries or paid fallback.', idSchema, false],
+  ['compute_collect', 'Read a previously invoked job from its original provider and save its validated receipt. Never dispatches or retries execution.', idSchema, false],
+  ['compute_refresh_resources', 'Refresh enrolled provider readiness with bounded read-only probes. Does not renew cost evidence, quota or job approval.', emptySchema, false],
   ['compute_get', 'Read a saved job or result. No retry or provider call.', idSchema, true],
   ['compute_list', 'Read up to 100 recent jobs in this private local broker database.', emptySchema, true],
   ['compute_ci_status', 'Read live public Picard project CI status for one commit. Three bounded public GETs maximum; no token, dispatch or retry.', ciSchema, true],
   ['compute_oracle_status', 'Read fixed Oracle micro-VM inventory through an operator-configured pinned SSH profile. No execution enrollment or account billing assertion.', emptySchema, true],
 ].map(([name, description, inputSchema, readOnlyHint]) => ({ name, description, inputSchema,
-  annotations: { readOnlyHint, destructiveHint: false, idempotentHint: true, openWorldHint: ['compute_ci_status', 'compute_oracle_status'].includes(name) } }));
+  annotations: { readOnlyHint, destructiveHint: false, idempotentHint: true,
+    openWorldHint: ['compute_ci_status', 'compute_oracle_status', 'compute_run', 'compute_collect', 'compute_refresh_resources'].includes(name) } }));
 let initialized = false;
 let ready = false;
 let pending = 0;
@@ -82,7 +92,7 @@ async function handle(message) {
     initialized = true;
     return result({ protocolVersion: '2025-06-18', capabilities: { tools: {} },
       serverInfo: { name: 'picard-compute-broker-preview', version: '0.1.0' },
-      instructions: 'Workload execution is disabled by default; --demo uses local fixtures. Status tools can read public project CI and run one fixed read-only Oracle inventory probe over an explicitly configured SSH connection. No caller commands, generated-code jobs or paid fallback.' });
+      instructions: 'Execution is disabled by default. Live fixed workers require a private finite execution profile, fresh zero-dollar evidence and exact job approval. Refresh readiness before planning. GitHub accepts public-project checks only; collect retrieves saved outcomes without re-dispatch. No caller commands, retries, resource provisioning or paid fallback. --demo uses local fixtures.' });
   }
   if (!ready) return error(id, -32002, 'Initialize the session first');
   if (message.method === 'ping') return result({});
@@ -103,16 +113,20 @@ async function handle(message) {
       : name === 'compute_plan' ? broker.plan(args)
       : name === 'compute_submit' ? broker.submit(args)
       : name === 'compute_run' ? await broker.run(args.id)
+      : name === 'compute_collect' ? await broker.collect(args.id)
+      : name === 'compute_refresh_resources' ? await execution.refresh()
       : name === 'compute_get' ? broker.get(args.id)
       : name === 'compute_ci_status' ? await observeProjectCi(args.commitSha)
       : name === 'compute_oracle_status' ? await observeConfiguredOracle() : broker.list();
     return result({ content: [{ type: 'text', text: JSON.stringify(data) }],
       structuredContent: { executionMode: name === 'compute_ci_status' ? 'read-only-project-ci'
-        : name === 'compute_oracle_status' ? 'read-only-oracle-inventory' : fixtureMode ? 'local-fixtures' : 'disabled', data } });
+        : name === 'compute_oracle_status' ? 'read-only-oracle-inventory' : fixtureMode ? 'local-fixtures'
+          : execution.enabled ? 'enrolled-fixed-workers' : 'disabled', data } });
   } catch (failure) {
     const known = ['invalid_job', 'unknown_job_field', 'invalid_job_id', 'job_not_found', 'job_identity_conflict',
       'invalid_commit_sha', 'project_ci_unavailable', 'project_ci_response_too_large', 'public_project_required', 'invalid_project_ci_response',
-      'invalid_oracle_profile', 'oracle_inventory_unavailable', 'invalid_oracle_inventory'];
+      'invalid_oracle_profile', 'oracle_inventory_unavailable', 'invalid_oracle_inventory',
+      'execution_context_unavailable', 'invalid_worker_receipt'];
     return result({ isError: true, content: [{ type: 'text', text: known.includes(failure.message) ? failure.message : 'broker_operation_failed' }] });
   }
 }

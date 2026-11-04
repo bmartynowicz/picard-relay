@@ -16,7 +16,7 @@ Picard Relay accepts a narrowly approved AI request, records it durably, sends i
 | Understand constraints and unsupported behavior | [Limitations](LIMITATIONS.md) |
 | Find known bugs and requested features | [Work register](WORK-REGISTER.md), [structured register](work-register.json) |
 | Check what has actually been verified | [Status](STATUS.md) |
-| Explore the separate offline compute-broker foundation | [Compute broker preview](../experimental/compute-broker/README.md), [provider research](../experimental/compute-broker/PROVIDERS.md) |
+| Explore the separate compute broker and disabled execution adapters | [Compute broker preview](../experimental/compute-broker/README.md), [provider research](../experimental/compute-broker/PROVIDERS.md), [execution enrollment](../experimental/compute-broker/EXECUTION.md) |
 
 For AI tools, begin with [../llms.txt](../llms.txt), [../AGENTS.md](../AGENTS.md) and [project-map.json](project-map.json). The JSON files use stable IDs, explicit states and repository-relative paths. They contain no credentials or ready-to-run approval grants.
 

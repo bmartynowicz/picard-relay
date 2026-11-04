@@ -360,24 +360,37 @@
       "id": "PR-FTR-008",
       "kind": "feature",
       "title": "Separate zero-dollar compute broker",
-      "status": "fixture_only",
-      "behavior": "Offline MCP/SQLite foundation with strict eligibility, atomic reservations, at-most-once invocation intent, saved results and two fixed local fixture resources. No live cloud execution. Explicit MCP CI status reads live public GitHub data for the fixed project; Brian selected public-project CI as the second backend. Broker-driven cloud execution remains disabled. Authenticated Oracle Console confirmed Always Free VM/micro-domain quota; a separate pinned SSH observer exposes live OS capacity only. Full billing verification remains open.",
+      "status": "source_candidate",
+      "behavior": "PR #7 foundation merged. Fixed Oracle worker and GitHub public-project CI execution/collection adapters implemented, disabled by default, with finite exact-job profiles, durable context/intent, validated receipts/log tails/inline artifacts and no retries or provisioning. No live executor enrolled. Oracle current-month delayed cost estimate showed $0.00; trial credits remain excluded.",
       "sourceFiles": [
         "experimental/compute-broker/src/policy.mjs",
         "experimental/compute-broker/src/store.mjs",
         "experimental/compute-broker/src/broker.mjs",
         "experimental/compute-broker/mcp.mjs",
         "experimental/compute-broker/src/github-ci.mjs",
-        "experimental/compute-broker/src/oracle-inventory.mjs"
+        "experimental/compute-broker/src/oracle-inventory.mjs",
+        "experimental/compute-broker/src/execution-profile.mjs",
+        "experimental/compute-broker/src/oracle-executor.mjs",
+        "experimental/compute-broker/src/github-executor.mjs",
+        "experimental/compute-broker/src/worker.mjs",
+        "experimental/compute-broker/src/receipt.mjs",
+        ".github/workflows/compute-worker.yml"
       ],
       "tests": [
         "experimental/compute-broker/test/policy.test.mjs",
         "experimental/compute-broker/test/broker.test.mjs",
         "experimental/compute-broker/test/mcp.test.mjs",
         "experimental/compute-broker/test/github-ci.test.mjs",
-        "experimental/compute-broker/test/oracle-inventory.test.mjs"
+        "experimental/compute-broker/test/oracle-inventory.test.mjs",
+        "experimental/compute-broker/test/receipt.test.mjs",
+        "experimental/compute-broker/test/worker.test.mjs",
+        "experimental/compute-broker/test/live-broker.test.mjs",
+        "experimental/compute-broker/test/github-executor.test.mjs",
+        "experimental/compute-broker/test/oracle-executor.test.mjs",
+        "experimental/compute-broker/test/execution-profile.test.mjs",
+        "experimental/compute-broker/test/process.test.mjs"
       ],
-      "remaining": "Verify actual account quotas and preventive cost controls, implement authenticated bounded adapters and artifact/log transport, and execute across Oracle plus one independent eligible provider. Not deployed or complete."
+      "remaining": "Review/merge adapter source, configure dedicated Oracle identity/isolation and protected GitHub workflow/dispatch token, retain current cost controls, and verify real MCP jobs on both providers. No activation or complete two-provider claim."
     }
   ]
 }
