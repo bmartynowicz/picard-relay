@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 600" role="img" aria-labelledby="title desc">
+  <title id="title">Choose how to start with Picard Relay</title>
+  <desc id="desc">Four paths: run the offline terminal demo, open the synthetic local interface, use an enrolled host, or integrate as a developer or AI assistant. The first two use synthetic data; an enrolled host requires separate setup and approval.</desc>
+  <rect width="720" height="600" rx="18" fill="#10191e"/>
+  <g font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+    <text x="38" y="52" fill="#e7cc89" font-size="15" font-weight="600" letter-spacing="2">PICARD RELAY / START HERE</text>
+    <text x="38" y="91" fill="#edf0e9" font-size="29" font-weight="650">What would you like to do?</text>
+    <g fill="#1b272c" stroke="#50656b" stroke-width="1.5">
+      <rect x="38" y="120" width="644" height="86" rx="10"/>
+      <rect x="38" y="219" width="644" height="86" rx="10"/>
+      <rect x="38" y="318" width="644" height="86" rx="10"/>
+      <rect x="38" y="417" width="644" height="86" rx="10"/>
+    </g>
+    <g fill="#e7cc89" font-size="16" font-weight="700" text-anchor="middle">
+      <circle cx="75" cy="163" r="19" fill="#332d1d" stroke="#d7bf80"/><text x="75" y="169">1</text>
+      <circle cx="75" cy="262" r="19" fill="#332d1d" stroke="#d7bf80"/><text x="75" y="268">2</text>
+      <circle cx="75" cy="361" r="19" fill="#332d1d" stroke="#d7bf80"/><text x="75" y="367">3</text>
+      <circle cx="75" cy="460" r="19" fill="#332d1d" stroke="#d7bf80"/><text x="75" y="466">4</text>
+    </g>
+    <g fill="#edf0e9" font-size="24" font-weight="650">
+      <text x="111" y="154">See a terminal demo</text>
+      <text x="111" y="253">Try the interface locally</text>
+      <text x="111" y="352">Use an enrolled relay</text>
+      <text x="111" y="451">Build or integrate</text>
+    </g>
+    <g fill="#b9c5c8" font-size="21">
+      <text x="111" y="182">npm run demo · no provider call</text>
+      <text x="111" y="281">npm run preview:v1 · synthetic interface</text>
+      <text x="111" y="380">Private console · requires host setup</text>
+      <text x="111" y="479">API, development and AI guides</text>
+    </g>
+    <path d="M38 530H682" stroke="#50656b"/>
+    <text x="38" y="559" fill="#e7cc89" font-size="18">Previews do not call an AI provider or install production.</text>
+  </g>
+</svg>

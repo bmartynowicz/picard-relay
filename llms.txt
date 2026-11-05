@@ -2,6 +2,12 @@
 
 > Small Node.js + SQLite relay for exact approved, bounded AI requests and durable saved results. The current live-provider contract is Groq openai/gpt-oss-20b, one call per grant, no tools/execution/retries/paid fallback. This is not an autonomous coding agent or general task board.
 
+## Pick an entry point
+- No account or provider: Node 24, then `npm run demo` for a terminal-only synthetic request.
+- Local interface: `npm run preview:v1` opens the printed loopback address with disposable synthetic data; stop it with Ctrl+C.
+- Enrolled host: follow [Operations](docs/OPERATIONS.md) and [V1 workflow](docs/V1.md). An offline preview is not a production installation, and there is no one-command production installer.
+- Integration: read the [API reference](docs/API.md) and [workspace contract](docs/workspace-contract.json); the owner's private Board is not bundled.
+
 ## V1 workspace
 - [V1 workflow and acceptance](docs/V1.md): ordinary requests, exact approval, durable progress, inert artifacts and local reviews.
 - [Structured workspace contract](docs/workspace-contract.json): routes, schemas, limits, persistence and unsupported behaviors.
