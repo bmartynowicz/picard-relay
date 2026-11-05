@@ -11,6 +11,20 @@
     "authority": "Authenticated configured owner can approve new exact bounded text requests; no unauthenticated or implicit signed-client authority"
   },
   "flow": ["compose", "save inert draft", "review exact input and limits", "approve one call", "follow durable job", "recover saved result", "export and review"],
+  "training": {
+    "state": "source_candidate",
+    "ranks": [
+      {"id": "cadet", "requires": "owner sign-in", "tools": ["setup inspection", "history", "saved-result recovery", "diagnostics"]},
+      {"id": "ensign", "requires": "verified setup or a prior owned saved result", "tools": ["basic composer", "exact one-call approval", "answer copy/download", "local result review"]},
+      {"id": "lieutenant", "requires": "one validated owned saved result with an output-bound accepted or changes_requested review", "tools": ["code/review templates", "context", "task links", "individual code export", "JSON handoff export"]}
+    ],
+    "configurationProjection": {"v": 1, "hasSavedResult": "boolean", "hasReviewedResult": "boolean"},
+    "unknownProjection": null,
+    "scope": "configured owner across approved tasks",
+    "persistence": "derived from existing relay_jobs and owner-scoped append-only review records; no new schema",
+    "authority": "interface coaching only; does not change authenticated API permissions, invocation approval, quotas, execution authority or answer quality",
+    "networking": "one coalesced configuration read on sign-in; existing Requests refresh loop; no new timer"
+  },
   "provider": {"id": "groq:openai/gpt-oss-20b", "model": "openai/gpt-oss-20b", "callsPerRequest": 1, "maxOutputTokens": 4096, "tools": false, "executesGeneratedCode": false, "automaticRetries": 0, "paidFallback": false, "liveQuotaVerified": false, "liveBillingVerified": false, "measuredUsageTokens": null, "billedUsd": null},
   "draftSchema": {
     "additionalProperties": false,

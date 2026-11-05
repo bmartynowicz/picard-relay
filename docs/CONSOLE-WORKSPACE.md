@@ -30,6 +30,22 @@ When reusable Board admission is already enabled, Overview and Jobs show the con
 
 Overview includes failed jobs; Running combines claimed and invoking jobs. Groq uses the same current counts/history. These are relay records and availability observations, not a live Groq billing/quota API. No inferred remaining quota is displayed.
 
+## Learn the workflow and earn ranks
+
+The interface candidate keeps the spinning insignia, rolling counters and charcoal/brass colors. Your progress shows the next useful action. The Cadet ASCII insignia becomes an outlined vector emblem at Ensign, then a brighter faceted emblem at Lieutenant.
+
+| Rank | Earn it by | Interface tools |
+| --- | --- | --- |
+| Cadet | Sign in | Inspect setup, history, saved answers and diagnostics. |
+| Ensign | Finish owner authentication, durable storage and provider enrollment; previous saved work also counts | Compose a first request, approve its exact limits, read/copy/download its answer and record a review. |
+| Lieutenant | Complete and review one saved result; either Accept or Request changes counts | Add context/task links, use code/review templates, and export individual code files or a JSON handoff. |
+
+Existing owned results/reviews count immediately. Reviewing an old answer can complete training without another provider call. The interface unlocks teach the workflow; the authenticated owner API and all exact-input/cost/invocation checks retain their existing authority. Ranks never increase limits, validate answer quality, authorize execution or claim current provider availability. Status, recovery and basic answer exports stay accessible during training.
+
+Progress comes from the existing durable ledger and output-bound reviews, with no new schema or tracking store. A single indexed review lookup augments the existing workspace configuration response. The console reads it once on sign-in and coalesces concurrent loads; subsequent refreshes reuse the existing Requests polling. Unverifiable/stale progress earns no new rank or unlock. Authentication loss clears rank details and logo decorations.
+
+Progress leads Overview, above live readiness. Jobs, Groq and System offer the next useful action: setup, an unfinished draft/request, result review or new work. Continuing a draft preserves it. Navigation keeps a stable shape, lights the active number and uses a crisp press response. The raised sidebar and recessed dividers use static shading. Sign-in has a brief fade; pause/reduced motion disable transitions. The Refresh button includes a compact live/paused/stale/offline indicator; hover/accessibility text includes the full cadence or failure explanation. Scope and privacy details are in the small information disclosure. There are no new libraries, external assets or timers. This is a source candidate; installation and owner acceptance remain separate.
+
 ## Navigation and history
 
 Views use hash routes; selected jobs/results use `#jobs/<ref>` and `#requests/<ref>`. Reload and successful sign-in preserve the intended destination. If browser history restores a loaded selected job that the retained filter would hide, Show changes to All loaded jobs so the job remains inspectable. Explicitly choosing a filter clears selection normally.
