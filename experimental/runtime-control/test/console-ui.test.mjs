@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"3bf27c23aeb87da8069bc8849c9430cbf304619700a53716e954db8ff4f50772");
+assert.equal(createHash('sha256').update(script).digest('hex'),"a8d39667dfaee353f6a2d0b5f4c62af42073d333f9ab01c8d25145ab3166f7e5");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|@import|url\(/i.test(html.replace(/url\(#picard-metal-(?:face|recess)\)/g,'')));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -16,7 +16,7 @@ function harness(handler,{jobsHandler,clock=Date}={}){
  const dl={},wl={},ml={},pref={matches:false,addEventListener:(n,fn)=>ml[n]=fn};
  const document={visibilityState:'visible',getElementById:id=>{assert.ok(els.has(id));return els.get(id)},createElement:()=>element(),addEventListener:(n,fn)=>dl[n]=fn};
  const window={matchMedia:()=>pref,addEventListener:(n,fn)=>wl[n]=fn};let count=0;const requests=[],timers=new Map();
- vm.runInNewContext(script,{document,window,TextEncoder,AbortController,Date:clock,queueMicrotask,setTimeout:fn=>{timers.set(++count,fn);return count},clearTimeout:id=>timers.delete(id),fetch:async(path,options)=>{assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.ok(['/auth/state','/auth/setup','/auth/login','/auth/logout','/status'].includes(path)||path==='/jobs'||path.startsWith('/jobs?cursor='));if(options.method==='POST')assert.equal(options.headers['Content-Type'],'application/json');requests.push({path,options});return path.startsWith('/jobs')?(jobsHandler?jobsHandler(path,options):ok({v:1,rows:[],nextCursor:null,observedAt:health.observedAt})):handler(path,options)}});
+ vm.runInNewContext(script,{document,window,TextEncoder,AbortController,Date:clock,queueMicrotask,setTimeout:fn=>{timers.set(++count,fn);return count},clearTimeout:id=>timers.delete(id),fetch:async(path,options)=>{assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.ok(['/auth/state','/auth/setup','/auth/login','/auth/logout','/status','/updates'].includes(path)||path==='/jobs'||path.startsWith('/jobs?cursor='));if(options.method==='POST')assert.equal(options.headers['Content-Type'],'application/json');requests.push({path,options});return path.startsWith('/jobs')?(jobsHandler?jobsHandler(path,options):ok({v:1,rows:[],nextCursor:null,observedAt:health.observedAt})):handler(path,options)}});
  return {get:id=>els.get(id),els,requests,timers,wl,dl,ml,pref,document,animations,async submit(id){await els.get(id).listeners.submit({preventDefault(){}})},async click(id){await els.get(id).listeners.click()}};
 }
 let h=harness(async path=>path==='/auth/state'?ok({enrolled:false}):path==='/auth/setup'?ok({ok:true}):ok(health));await flush();assert.equal(h.get('setup-form').hidden,false);assert.equal(h.get('private').hidden,true);assert.deepEqual(h.requests.map(x=>x.path),['/auth/state']);
@@ -96,10 +96,10 @@ for(const name of ['jobs','groq','system','overview']){
  await app.click('nav-'+name);
  for(const other of ['overview','jobs','groq','system']){assert.equal(app.get('view-'+other).hidden,other!==name);assert.equal(app.get('nav-'+other).attrs['aria-current'],other===name?'page':'false');}
 }
-assert.equal(app.requests.length,requestsBeforeNavigation);await app.click('open-jobs');assert.equal(app.get('view-jobs').hidden,false);
+assert.deepEqual(app.requests.slice(requestsBeforeNavigation).map(r=>({path:r.path,method:r.options.method})),[{path:"/updates",method:"GET"}]);await app.click('open-jobs');assert.equal(app.get('view-jobs').hidden,false);
 await app.get('jobs-list').children[0].children[0].listeners.click();assert.equal(app.get('detail-ref').textContent,job.ref);assert.equal(app.get('job-details').hidden,false);assert.match(app.get('detail-reason').textContent,/Do not retry/);
 for(const [filter,expected] of [['completed',1],['active',1],['attention',1],['all',3]]){app.get('jobs-filter').value=filter;app.get('jobs-filter').listeners.change();assert.equal(app.get('jobs-list').children.length,expected);assert.equal(app.get('job-details').hidden,true);assert.equal(app.get('detail-ref').textContent,'-');}
-assert.equal(app.requests.length,requestsBeforeNavigation);assert.equal(app.get('activity-list').children.length,3);
+assert.deepEqual(app.requests.slice(requestsBeforeNavigation).map(r=>({path:r.path,method:r.options.method})),[{path:"/updates",method:"GET"}]);assert.equal(app.get('activity-list').children.length,3);
 assert.equal(app.get('groq-availability').textContent,'Not available for new work');assert.match(app.get('groq-blocking').textContent,/unavailable|not supplied|not reported/i);
 assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.match(html,/<details class="technical"><summary>Request limits and safeguards<\/summary>/);assert.equal((html.match(/<details/g)||[]).length,2);assert.match(html,/<details class="console-info"><summary aria-label="About status and privacy">/);
 
@@ -110,7 +110,7 @@ for(const event of ['logout','401','403','pagehide']){
  assert.equal(q.get('navigation').hidden,true);assert.equal(q.get('private').hidden,true);assert.equal(q.get('view-overview').hidden,false);assert.equal(q.get('view-jobs').hidden,true);assert.equal(q.get('activity-list').children.length,0);assert.equal(q.get('job-details').hidden,true);
  for(const id of ['detail-ref','detail-state','detail-created','detail-updated','detail-result'])assert.equal(q.get(id).textContent,'-');assert.equal(q.get('detail-reason').textContent,'');assert.equal(q.get('jobs-filter').value,'all');assert.equal(q.get('groq-availability').textContent,'Availability unknown');assert.equal(JSON.stringify([...q.els.values()]).includes(job.ref),false);
 }
-console.log('PASS console redesign: four peer views, no navigation network calls, loaded-row filters, metadata inspector, activity projection, truthful Groq state, no disclosures; logout/401/403/pagehide clear every added private field.');
+console.log('PASS console redesign: four peer views, System reads only update status, loaded-row filters, metadata inspector, activity projection, truthful Groq state, no disclosures; logout/401/403/pagehide clear every added private field.');
 
 // Independent review regression: a stale timer from the last good read must
 // never replace a later failure warning or make current health look operational.
@@ -185,3 +185,15 @@ for(let i=0;i<4;i++)await sky.click('logo-wrap');assert.notEqual(sky.get('consol
 for(let i=0;i<4;i++)await sky.click('logo-wrap');skyNow+=5001;await sky.click('logo-wrap');assert.equal(sky.get('console-surface').dataset.starfield,'true');for(let i=0;i<4;i++)await sky.click('logo-wrap');assert.equal(sky.get('console-surface').dataset.starfield,'false');assert.equal(sky.get('logo-wrap').attrs['aria-pressed'],'false');assert.equal(sky.requests.length,skyReads);assert.equal(sky.timers.size,skyTimers);
 await sky.click('motion');assert.equal(sky.get('console-surface').dataset.motion,'off');await sky.click('motion');sky.pref.matches=true;sky.ml.change();assert.equal(sky.get('console-surface').dataset.motion,'off');sky.pref.matches=false;sky.ml.change();sky.document.visibilityState='hidden';sky.dl.visibilitychange();assert.equal(sky.get('console-surface').dataset.motion,'off');
 console.log('PASS starfield: five deliberate activations toggle it, spaced clicks reset, no network/timers, and pause/reduced-motion/hidden-tab controls apply.');
+
+const updateValue=state=>({v:1,enabled:true,state,requestedAt:null,finishedAt:null,retryAt:null});
+let updateOutcome='idle',updatePosts=0;
+const updates=harness(async(path,options)=>path==='/auth/state'?ok({enrolled:true}):path==='/updates'?(options.method==='POST'?(updatePosts++,ok(updateValue(updateOutcome='checking'))):ok(updateValue(updateOutcome))):ok(health));
+await flush();await updates.click('nav-system');await flush();assert.equal(updates.get('update-check').disabled,false);
+await updates.click('update-check');assert.equal(updatePosts,1);assert.equal(updates.get('update-check').disabled,true);assert.match(updates.get('update-request-state').textContent,/Checking for updates/);
+updateOutcome='up_to_date';await updates.click('refresh');assert.equal(updates.get('update-request-state').textContent,'You’re up to date.');assert.equal(updatePosts,1);
+updateOutcome='held';await updates.click('refresh');assert.equal(updates.get('update-check').disabled,true);assert.match(updates.get('update-request-state').textContent,/Operator review/);
+await updates.click('logout');assert.equal(updates.get('update-request-state').textContent,'Not checked');assert.equal(updates.get('update-check').disabled,true);
+let lostPosts=0;const lostUpdate=harness(async(path,options)=>path==='/auth/state'?ok({enrolled:true}):path==='/updates'?(options.method==='POST'?(lostPosts++,Promise.reject(Error('synthetic lost response'))):ok(updateValue('idle'))):ok(health));
+await flush();await lostUpdate.click('nav-system');await flush();await lostUpdate.click('update-check');assert.equal(lostPosts,1);assert.equal(lostUpdate.get('update-check').textContent,'Check saved status');await lostUpdate.click('update-check');assert.equal(lostPosts,1);assert.equal(lostUpdate.requests.at(-1).options.method,'GET');
+console.log('PASS owner updates: authenticated read and one POST, checking/outcome/hold, auth clearing and read-only recovery after lost response.');

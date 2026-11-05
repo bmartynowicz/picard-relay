@@ -3,7 +3,7 @@
 relay.example.com {
     @read {
         method GET
-        path / /auth/state /status /jobs /workspace/config /workspace/history /request-catalogue
+        path / /auth/state /status /jobs /updates /workspace/config /workspace/history /request-catalogue
     }
     handle @read {
         reverse_proxy 127.0.0.1:8787
@@ -17,7 +17,7 @@ relay.example.com {
     }
     @write {
         method POST
-        path /auth/setup /auth/login /auth/logout /workspace/drafts /workspace/approvals /workspace/requests /request-approvals /requests /bridge/v1
+        path /auth/setup /auth/login /auth/logout /updates /workspace/drafts /workspace/approvals /workspace/requests /request-approvals /requests /bridge/v1
     }
     handle @write {
         request_body {

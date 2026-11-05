@@ -1,0 +1,7 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {runOwnerUpdateRequest} from './owner-request.mjs';
+function fixture(patch={}){let value={v:1,state:'idle',requestedAt:null,finishedAt:null,retryAt:null},calls=0,hash='old';return {d:{now:()=>1000000,readStatus:async()=>value,writeStatus:async v=>{value=v;},blocked:async()=>false,release:async()=>hash,check:async()=>{calls++;hash='new';},...patch},get value(){return value;},get calls(){return calls;}};}
+test('fixed request records installation, durable cooldown and no second check',async()=>{const f=fixture();assert.equal(await runOwnerUpdateRequest(f.d),'installed');assert.equal(f.calls,1);assert.equal(f.value.finishedAt,1000000);assert.equal(await runOwnerUpdateRequest(f.d),'cooldown');assert.equal(f.calls,1);});
+test('unchanged release means up to date; failed check is never success',async()=>{const f=fixture({check:async()=>{}});assert.equal(await runOwnerUpdateRequest(f.d),'up_to_date');const bad=fixture({check:async()=>{throw Error('synthetic');}});assert.equal(await runOwnerUpdateRequest(bad.d),'failed');});
+test('HOLD/STOP/policy/journal block before check; interrupted checks stay unknown',async()=>{const f=fixture({blocked:async()=>true});assert.equal(await runOwnerUpdateRequest(f.d),'held');assert.equal(f.calls,0);for(const state of ['checking','unknown']){const f=fixture({readStatus:async()=>({v:1,state,requestedAt:1,finishedAt:null,retryAt:2})});assert.equal(await runOwnerUpdateRequest(f.d),'unknown');assert.equal(f.calls,0);}});
