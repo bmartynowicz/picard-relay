@@ -25,6 +25,12 @@
     "authority": "interface coaching only; does not change authenticated API permissions, invocation approval, quotas, execution authority or answer quality",
     "networking": "one coalesced configuration read on sign-in; existing Requests refresh loop; no new timer"
   },
+  "appearance": {
+    "palette": "charcoal and brass",
+    "insignia": {"cadet": "rotating ASCII", "ensign": "rotating outline vector", "lieutenant": "rotating faceted vector"},
+    "navigation": "stable shape, lit active number, crisp press; static raised/recessed shading",
+    "starfield": {"default": false, "toggle": "five insignia clicks or keyboard activations", "maxGapMs": 5000, "persistence": "current page only", "navigationAffected": false, "contentSurface": "opaque charcoal floating panel", "effect": "two sparse CSS pixel-star layers with slow drift/glimmer", "pause": ["Pause motion", "prefers-reduced-motion", "hidden tab"], "canvas": false, "renderLoop": false, "externalAssets": false, "networkRequests": 0}
+  },
   "provider": {"id": "groq:openai/gpt-oss-20b", "model": "openai/gpt-oss-20b", "callsPerRequest": 1, "maxOutputTokens": 4096, "tools": false, "executesGeneratedCode": false, "automaticRetries": 0, "paidFallback": false, "liveQuotaVerified": false, "liveBillingVerified": false, "measuredUsageTokens": null, "billedUsd": null},
   "draftSchema": {
     "additionalProperties": false,

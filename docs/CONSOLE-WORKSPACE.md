@@ -46,6 +46,8 @@ Progress comes from the existing durable ledger and output-bound reviews, with n
 
 Progress leads Overview, above live readiness. Jobs, Groq and System offer the next useful action: setup, an unfinished draft/request, result review or new work. Continuing a draft preserves it. Navigation keeps a stable shape, lights the active number and uses a crisp press response. The raised sidebar and recessed dividers use static shading. Sign-in has a brief fade; pause/reduced motion disable transitions. The Refresh button includes a compact live/paused/stale/offline indicator; hover/accessibility text includes the full cadence or failure explanation. Scope and privacy details are in the small information disclosure. There are no new libraries, external assets or timers. This is a source candidate; installation and owner acceptance remain separate.
 
+The charcoal workspace panel always has the same floating layout. Activate the insignia five times to toggle only the pixel stars behind it; navigation stays opaque. Consecutive clicks/Enter/Space activations must be no more than five seconds apart; another five switch it off. Two sparse CSS layers drift/glimmer slowly behind the panel, with no canvas, render loop, external image or network request. Pause motion, reduced motion and hidden tabs stop the effects. The preference lasts for the current page and resets on reload.
+
 ## Navigation and history
 
 Views use hash routes; selected jobs/results use `#jobs/<ref>` and `#requests/<ref>`. Reload and successful sign-in preserve the intended destination. If browser history restores a loaded selected job that the retained filter would hide, Show changes to All loaded jobs so the job remains inspectable. Explicitly choosing a filter clears selection normally.

@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"2788c37769379523bbf0f8bc5321066d6c70f770f59f99c266b56afd23ed33f6");
+assert.equal(createHash('sha256').update(script).digest('hex'),"3bf27c23aeb87da8069bc8849c9430cbf304619700a53716e954db8ff4f50772");
 assert.equal(createHash('sha256').update(html.match(/aria-label="Picard Relay ASCII Starfleet insignia">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|@import|url\(/i.test(html));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -178,3 +178,10 @@ rollingValue=null;await roll.click('refresh');assert.equal(roll.get('completed')
 rollingValue=Number.MAX_SAFE_INTEGER;await roll.click('refresh');assert.equal(roll.get('completed').textContent,'—');assert.equal(roll.get('completed').attrs['aria-label'],'Unknown');
 roll.wl.pagehide();assert.equal(roll.get('completed').textContent,'—');assert.equal(roll.get('completed').children.length,0);assert.equal(roll.get('completed').dataset.counterValue,undefined);
 console.log('PASS mechanical counters: carry, decrease, unchanged read, interrupt, bounded large jump, exact accessible value, pause, unknown and auth clearing.');
+
+let skyNow=100000;class SkyClock extends Date{constructor(...args){super(...(args.length?args:[skyNow]));}static now(){return skyNow;}}
+const sky=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health),{clock:SkyClock});await flush();const skyReads=sky.requests.length,skyTimers=sky.timers.size;
+for(let i=0;i<4;i++)await sky.click('logo-wrap');assert.notEqual(sky.get('console-surface').dataset.starfield,'true');await sky.click('logo-wrap');assert.equal(sky.get('console-surface').dataset.starfield,'true');assert.equal(sky.get('logo-wrap').attrs['aria-pressed'],'true');
+for(let i=0;i<4;i++)await sky.click('logo-wrap');skyNow+=5001;await sky.click('logo-wrap');assert.equal(sky.get('console-surface').dataset.starfield,'true');for(let i=0;i<4;i++)await sky.click('logo-wrap');assert.equal(sky.get('console-surface').dataset.starfield,'false');assert.equal(sky.get('logo-wrap').attrs['aria-pressed'],'false');assert.equal(sky.requests.length,skyReads);assert.equal(sky.timers.size,skyTimers);
+await sky.click('motion');assert.equal(sky.get('console-surface').dataset.motion,'off');await sky.click('motion');sky.pref.matches=true;sky.ml.change();assert.equal(sky.get('console-surface').dataset.motion,'off');sky.pref.matches=false;sky.ml.change();sky.document.visibilityState='hidden';sky.dl.visibilitychange();assert.equal(sky.get('console-surface').dataset.motion,'off');
+console.log('PASS starfield: five deliberate activations toggle it, spaced clicks reset, no network/timers, and pause/reduced-motion/hidden-tab controls apply.');
