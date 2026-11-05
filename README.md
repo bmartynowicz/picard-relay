@@ -6,14 +6,9 @@ A small Node.js + SQLite relay that takes an exact approved AI request, sends it
 
 ## Choose your starting point
 
-| I want to… | Start here | What happens |
-| --- | --- | --- |
-| See a request and saved answer in the terminal | [Offline demo](docs/QUICKSTART.md#try-the-offline-demo) | Runs synthetic data locally; no account, API key, network or model call. |
-| Try the request interface | [V1 workspace](docs/V1.md) and `npm run preview:v1` | Opens a synthetic preview on your computer; it does not call an AI provider. |
-| Use or operate an enrolled relay | [Console guide](docs/CONSOLE-WORKSPACE.md) and [Operations](docs/OPERATIONS.md) | Uses a separately configured, authenticated host. Installation and provider enrollment are explicit operator steps. |
-| Help build or integrate Picard with an AI assistant | [AI entry point](llms.txt), [Development](docs/DEVELOPMENT.md) and [API reference](docs/API.md) | Explains source locations, checks and the signed protocol. |
+![Four ways to start: terminal demo, synthetic interface, enrolled relay, or integration guides](docs/images/choose-a-start.svg)
 
-The preview and a production installation are separate. There is no one-command production installer; see [limitations](docs/LIMITATIONS.md) before enrolling a host.
+[Terminal demo](docs/QUICKSTART.md#try-the-offline-demo) · [Interface preview](docs/V1.md) · [Enrolled host](docs/OPERATIONS.md) · [Developer and AI guides](llms.txt)
 
 ![How a Picard request travels](docs/images/request-flow.svg)
 

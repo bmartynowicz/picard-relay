@@ -37,9 +37,9 @@ Open the printed loopback address on the same computer; press Ctrl+C in the term
 
 ## Use the V1 owner workspace on an enrolled host
 
-When the operator has enabled the V1 workspace, open the supplied HTTPS console and sign in. In **Requests**, enter a title and input, select **Review request**, inspect the exact input and limits, then select **Approve one call**. A draft alone makes no model call. In **Jobs**, **Open request** recovers progress and saved results.
+When enabled, sign in to the supplied HTTPS console. In **Requests**, enter a title and input, select **Review request**, check the details, then **Approve one call**. A draft alone makes no model call. In **Jobs**, **Open request** recovers progress and saved results.
 
-Use **Copy answer**, **Download answer**, individual **Download code** controls or **Download handoff**. **Accept result** and **Request changes** save your review against that answer without editing it or sending another request. See the illustrated [V1 guide](V1.md). Hosts without the workspace enabled use the legacy picker below.
+Copy or download the answer, code or handoff; record a separate review when ready. See the illustrated [V1 guide](V1.md). Hosts without the workspace enabled use the legacy picker below.
 
 ## Use an enrolled host with the legacy finite picker
 
