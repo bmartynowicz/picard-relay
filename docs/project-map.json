@@ -175,7 +175,11 @@
     },
     {
       "path": "experimental/compute-broker/coding-check.mjs",
-      "role": "agent-facing exact-commit request preparation and read-only verified result collection; compute-broker normal/jitless scope"
+      "role": "agent-facing exact-commit full-repository request preparation and read-only per-group result collection; legacy broker-only receipt recovery"
+    },
+    {
+      "path": "experimental/compute-broker/src/repository-checks.mjs",
+      "role": "pinned seven-group repository plan; offline npm, private home, Linux process-group deadlines and exact per-group result validation"
     }
   ],
   "release": {

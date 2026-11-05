@@ -5,6 +5,7 @@ import { normalizeJob } from './src/job.mjs';
 import { workerSha256, jobSha256, hex256 } from './src/execution-protocol.mjs';
 import { validateReceipt } from './src/receipt.mjs';
 import { openMcp } from './src/mcp-client.mjs';
+import { repositoryResultState } from './src/repository-checks.mjs';
 
 export const REPOSITORY = 'bmartynowicz/picard-relay';
 export const DISPATCH_WORKFLOW = '.github/workflows/compute-broker-tests.yml';
@@ -14,12 +15,12 @@ const exact = (v, keys) => v && typeof v === 'object' && !Array.isArray(v)
 const integer = v => Number.isSafeInteger(v) && v > 0;
 const commit = v => typeof v === 'string' && /^[0-9a-f]{40}$/.test(v);
 const credential = v => typeof v === 'string' && /^[A-Za-z0-9_.-]{20,4096}$/.test(v);
-export function validateRequestEnvelope(value, now = Date.now()) {
+export function validateRequestEnvelope(value, now = Date.now(), expectedHash = workerSha256()) {
   if (!exact(value, ['schemaVersion', 'enabled', 'approvedAt', 'validUntil', 'workerRef', 'workerCommit', 'workerSha256', 'job'])
     || value.schemaVersion !== 1 || value.enabled !== true || !integer(value.approvedAt) || value.approvedAt > now
     || !integer(value.validUntil) || value.validUntil <= now || value.validUntil > value.approvedAt + 86_400_000
     || now - value.approvedAt > 86_400_000 || !/^compute-worker-v[1-9][0-9]*$/.test(value.workerRef)
-    || !commit(value.workerCommit) || !hex256(value.workerSha256) || value.workerSha256 !== workerSha256()) throw Error('unattended_request_denied');
+    || !commit(value.workerCommit) || !hex256(value.workerSha256) || value.workerSha256 !== expectedHash) throw Error('unattended_request_denied');
   const job = normalizeJob(value.job);
   if (job.operation !== 'project-checks' || job.workload !== 'project-ci' || job.arch !== 'x64'
     || job.needs.cpuMs !== 360_000 || job.needs.ramMb !== 4096 || job.needs.diskMb !== 0 || job.needs.gpus !== 0
@@ -28,7 +29,8 @@ export function validateRequestEnvelope(value, now = Date.now()) {
 }
 export function validateRequest(value, env, event, now = Date.now()) {
   const request = validateRequestEnvelope(value, now), job = request.job, pr = event?.pull_request;
-  if (env.GITHUB_ACTIONS !== 'true' || env.GITHUB_REPOSITORY !== REPOSITORY || env.GITHUB_ACTOR !== 'bmartynowicz'
+  if (request.workerRef !== 'compute-worker-v2'
+    || env.GITHUB_ACTIONS !== 'true' || env.GITHUB_REPOSITORY !== REPOSITORY || env.GITHUB_ACTOR !== 'bmartynowicz'
     || env.GITHUB_EVENT_NAME !== 'pull_request' || env.GITHUB_RUN_ATTEMPT !== '1'
     || !/^[1-9][0-9]*$/.test(env.GITHUB_RUN_ID ?? '') || !integer(Number(env.GITHUB_RUN_ID))
     || pr?.user?.login !== 'bmartynowicz' || pr?.head?.repo?.full_name !== REPOSITORY
@@ -88,13 +90,14 @@ export async function runUnattended(value, { env = process.env, event, temporary
     log({ marker: 'PICARD_UNATTENDED_INTENT_V1', jobId: request.job.id, inputHash: jobSha256(request.job),
       workflowRunId: Number(env.GITHUB_RUN_ID), maximumDispatches: 1 });
     result = await session.call('compute_run', { id: request.job.id }); // Exactly one execution call.
-    for (let reads = 0; ['pending', 'uncertain', 'invoking'].includes(result.state) && reads < 18; reads++) {
+    for (let reads = 0; ['pending', 'uncertain', 'invoking'].includes(result.state) && reads < 120; reads++) {
       await wait(5000); result = await session.call('compute_collect', { id: request.job.id });
     }
     const receipt = result.result;
-    if (result.state !== 'completed' || !validateReceipt(receipt, { jobId: request.job.id,
+    if (!['completed', 'failed'].includes(result.state) || !validateReceipt(receipt, { jobId: request.job.id,
       jobSha256: jobSha256(request.job), workerSha256: request.workerSha256 })
-      || receipt.result.sourceSha !== request.job.input.text || receipt.result.normalExitCode !== 0 || receipt.result.jitlessExitCode !== 0)
+      || receipt.state !== result.state || receipt.result?.sourceSha !== request.job.input.text
+      || repositoryResultState(receipt.result) !== receipt.state)
       throw Error('unattended_outcome_not_completed_no_retry');
     // Read-only replay, never another dispatch; compute_get also works after restart without credentials.
     const saved = await session.call('compute_get', { id: request.job.id });
@@ -109,7 +112,8 @@ export async function runUnattended(value, { env = process.env, event, temporary
   const runs = await get('/actions/workflows/compute-worker.yml/runs?event=workflow_dispatch&per_page=20');
   const matches = runs.workflow_runs?.filter(r => r.display_title === `picard-compute/${request.job.id}/${jobSha256(request.job)}`
     && r.head_sha === request.workerCommit && r.event === 'workflow_dispatch' && r.path === '.github/workflows/compute-worker.yml');
-  if (matches?.length !== 1 || matches[0].run_attempt !== 1 || matches[0].conclusion !== 'success') throw Error('worker_run_identity_mismatch');
+  if (matches?.length !== 1 || matches[0].run_attempt !== 1
+    || matches[0].conclusion !== (result.state === 'completed' ? 'success' : 'failure')) throw Error('worker_run_identity_mismatch');
   const summary = { schemaVersion: 1, marker: 'PICARD_UNATTENDED_RESULT_V1', jobId: request.job.id,
     coordinatorRunId: Number(env.GITHUB_RUN_ID), workerRunId: matches[0].id,
     workerRunUrl: `https://github.com/${REPOSITORY}/actions/runs/${matches[0].id}`,
@@ -126,7 +130,8 @@ function readJson(path, maximum) {
 async function main() {
   const request = readJson(fileURLToPath(new URL('./unattended-request.json', import.meta.url)), 8192);
   const event = readJson(process.env.GITHUB_EVENT_PATH, 262_144);
-  await runUnattended(request, { event, temporaryRoot: process.env.RUNNER_TEMP, log: value => console.log(JSON.stringify(value)) });
+  const summary = await runUnattended(request, { event, temporaryRoot: process.env.RUNNER_TEMP, log: value => console.log(JSON.stringify(value)) });
+  if (summary.receipt.state === 'failed') process.exitCode = 1;
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch(error => {

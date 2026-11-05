@@ -8,7 +8,7 @@ export const hex256 = value => typeof value === 'string' && /^[0-9a-f]{64}$/.tes
 export const sha256 = value => createHash('sha256').update(value).digest('hex');
 export const jobSha256 = job => sha256(JSON.stringify(normalizeJob(job)));
 export const WORKER_FILES = Object.freeze(['policy.mjs', 'job.mjs', 'receipt.mjs', 'execution-protocol.mjs',
-  'store.mjs', 'worker.mjs', 'oracle-worker.mjs', 'github-job.mjs', 'process.mjs']);
+  'store.mjs', 'worker.mjs', 'oracle-worker.mjs', 'github-job.mjs', 'process.mjs', 'repository-checks.mjs']);
 export function workerSha256() {
   return sha256(WORKER_FILES.map(path => {
     const text = readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8').replaceAll('\r\n', '\n');

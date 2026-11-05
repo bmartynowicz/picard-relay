@@ -9,10 +9,11 @@ import { createExecutionRegistry } from '../src/execution-profile.mjs';
 import { openMcp } from '../src/mcp-client.mjs';
 import { CLOCK } from './helpers.mjs';
 import { ciJob } from './execution-helpers.mjs';
+import { REPOSITORY_CHECKS } from '../src/repository-checks.mjs';
 const sha = 'c'.repeat(40);
 function fixture() {
   const request = { schemaVersion: 1, enabled: true, approvedAt: CLOCK, validUntil: CLOCK + 60_000,
-    workerRef: 'compute-worker-v1', workerCommit: sha, workerSha256: workerSha256(), job: ciJob('unattended-one') };
+    workerRef: 'compute-worker-v2', workerCommit: sha, workerSha256: workerSha256(), job: ciJob('unattended-one') };
   const env = { GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: REPOSITORY, GITHUB_ACTOR: 'bmartynowicz',
     GITHUB_EVENT_NAME: 'pull_request', GITHUB_RUN_ATTEMPT: '1', GITHUB_RUN_ID: '101',
     GITHUB_HEAD_REF: 'compute-request/unattended-one', PICARD_COMPUTE_GITHUB_TOKEN: 'ephemeral-fixture-not-a-secret' };
@@ -26,7 +27,8 @@ function harness(t, changes = {}) {
   const f = fixture(), directory = mkdtempSync(join(tmpdir(), 'picard-native-test-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const calls = [], opened = [], logs = []; let waits = 0;
-  const receipt = makeReceipt(f.request.job, workerSha256(), 'completed', { sourceSha: sha, normalExitCode: 0, jitlessExitCode: 0 });
+  const receipt = makeReceipt(f.request.job, workerSha256(), 'completed', { sourceSha: sha, scope: 'full-repository-v1',
+    checks: REPOSITORY_CHECKS.map(c => ({ id: c.id, exitCode: 0 })) });
   const completed = { id: f.request.job.id, state: 'completed', result: receipt };
   const open = async options => {
     opened.push(options);
@@ -51,7 +53,7 @@ function harness(t, changes = {}) {
     assert.equal(options.method, 'GET'); assert.equal(options.redirect, 'error');
     const data = url.includes('compute-broker-tests.yml') ? f.history : { workflow_runs: [{ id: 202,
       display_title: `picard-compute/${f.request.job.id}/${jobSha256(f.request.job)}`, head_sha: sha,
-      event: 'workflow_dispatch', path: '.github/workflows/compute-worker.yml', run_attempt: 1, conclusion: 'success' }] };
+      event: 'workflow_dispatch', path: '.github/workflows/compute-worker.yml', run_attempt: 1, conclusion: changes.conclusion ?? 'success' }] };
     return new Response(JSON.stringify(data));
   };
   return { ...f, directory, calls, opened, logs, completed, waits: () => waits,
@@ -96,8 +98,18 @@ test('uncertain outcomes perform only bounded collection and never another dispa
   const h = harness(t, { call: name => name === 'compute_collect' ? { state: 'uncertain' } : null });
   await assert.rejects(runUnattended(h.request, h.options), /no_retry/);
   assert.equal(h.calls.filter(n => n === 'compute_run').length, 1);
-  assert.equal(h.calls.filter(n => n === 'compute_collect').length, 18); assert.equal(h.waits(), 18);
+  assert.equal(h.calls.filter(n => n === 'compute_collect').length, 120); assert.equal(h.waits(), 120);
   assert.equal(h.opened.length, 1); assert.equal(h.logs.length, 1);
+});
+test('known failed suites retain a validated result and restart recovery without another invocation', async t => {
+  const h = harness(t, { conclusion: 'failure', call: (name, completed) => {
+    if (!['compute_collect', 'compute_get'].includes(name)) return null;
+    const result = structuredClone(completed.result.result); result.checks[0].exitCode = 1;
+    return { ...completed, state: 'failed', result: makeReceipt(fixture().request.job, workerSha256(), 'failed', result, 'project_checks_failed') };
+  } });
+  const summary = await runUnattended(h.request, h.options);
+  assert.equal(summary.receipt.state, 'failed'); assert.equal(summary.savedRecoveryAfterRestart, true);
+  assert.equal(h.calls.filter(n => n === 'compute_run').length, 1);
 });
 test('invalid receipts, restart mismatch and missing authority fail without re-dispatch', async t => {
   const h = harness(t, { call: (name, completed) => name === 'compute_collect' ? { ...completed,
