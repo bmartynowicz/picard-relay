@@ -32,4 +32,4 @@ Host configuration, credentials, grants, ledger, firewall/proxy/SELinux configur
 
 ## Owner-request candidate
 
-`owner-request.mjs` plus `picard-owner-update.path`/`.service` provide a separately enrolled fixed request for the existing updater. They add no generic command or network listener. Read the [owner-feature host checklist](../../docs/OWNER-FEATURES.md) before installation; runtime source alone cannot activate this bridge.
+`owner-request.mjs` plus `picard-owner-update.path`/`.service` provide a separately enrolled fixed request for the existing updater. They add no generic command or network listener. Read the [host checklist](../../docs/OWNER-UPDATES.md) before installation. Runtime source alone cannot activate this bridge.

@@ -136,7 +136,7 @@ function nextActionState(){
  if(!t)return null;
  return {kind:!t.setup?'setup':t.saved&&!t.reviewed?'review':'new',label:!t.setup?'Finish setup':t.saved&&!t.reviewed?'Review result':t.reviewed?'New request':'Create request'};
 }
-function updateNextActions(){const action=nextActionState();for(const view of ['jobs','groq','system']){const button=$('next-'+view);button.hidden=!action;button.disabled=workBusy||!action;if(action)button.textContent=action.label;}}
+function updateNextActions(){const action=nextActionState();for(const view of ['jobs','groq','system']){const button=$('next-'+view);button.hidden=!action;button.disabled=workBusy||!action;if(action)button.textContent=action.label;}const hud=$('hud-next');hud.hidden=!action;hud.disabled=workBusy||!action;if(action)hud.textContent=action.label;}
 function trainingAction(){
  if(workBusy)return;const action=nextActionState();if(!action)return;
  if(action.kind==='current'){workNavigate(workRef);showView('requests');return;}

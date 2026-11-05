@@ -6,60 +6,9 @@ release; the owner-update bridge needs separate host enrollment.
 
 ## Check for updates
 
-System has one **Check for updates** button. On an enrolled host it requests the
-existing signed updater, then reports checking, up to date, installed, paused,
-failed or unknown. Updates may briefly reconnect the console. A lost response is
-followed by read-only status checks, never an automatic second POST.
-
-The new API is authenticated `GET /updates` and same-origin `POST /updates` with
-exactly `{}` (64-byte body limit). It accepts no command, URL, unit or policy.
-Its state is separate from the existing one-minute updater activity observation.
-The existing visible 15-second status refresh reads update-request status while
-System is open; no new browser polling timer was added.
-
-The runtime remains unprivileged. It may create one empty `request` directory in
-the separately prepared `/var/lib/picard-update-requests` directory. A fixed
-systemd path unit starts the root helper, which can only start
-`picard-updater.service`. That existing unit still fetches the fixed feed,
-verifies its pinned Sigstore identity, exact modules and monotonic sequence,
-drains safely, and preserves durable state. The helper has no IP networking or
-shell command interpretation. It adds no persistent Node process.
-
-HOLD, STOP, disabled policy and a pending update journal stop the request. Five
-minutes of durable cooldown follow an attempt. Interrupted checks stay unknown
-for operator review; the button cannot clear stop evidence or request a replay.
-`up_to_date` means that this successful check did not change the installed source;
-it is not a guarantee against an upstream cache or a later publication.
-
-### Host enrollment checklist
-
-This is preparation, not a portable installer or permission to activate it:
-
-1. Review/install `experimental/updater/owner-request.mjs` and the two
-   `picard-owner-update` units as root-owned host support. They are outside the
-   signed 20-module bundle. Keep the existing updater/policy/verifier unchanged.
-2. Create the fixed queue directory, root-owned, with the existing runtime's
-   primary group and exact mode `0770`. Create no general sudo/systemctl rule.
-   The runtime requires that exact UID/GID/mode and canonical directory.
-3. Initialize root-owned mode-0644
-   `/var/lib/picard-updater-status/request.json` in the existing root-owned
-   mode-0755 status directory:
-   `{"v":1,"state":"idle","requestedAt":null,"finishedAt":null,"retryAt":null}`.
-   Never overwrite a checking/unknown/held record to retry it.
-4. Validate the fixed units, service filesystem restrictions and actual SELinux
-   labels/permissions. Permit only the required queue creation, status reads,
-   fixed unit start and helper status write. Keep SELinux enforcing.
-5. Add only GET/POST `/updates` to the existing exact proxy routes; see the
-   disabled `deploy/Caddyfile.workspace.example`. Set
-   `BRIDGE_OWNER_UPDATES_ENABLED=true` only after the bridge is ready, then
-   enable its path unit. The source default is disabled.
-6. Exercise a no-new-release request on the actual host. Verify the unchanged
-   release, saved jobs/markers/configuration and no provider call. Test each
-   negative case in disposable Linux fixtures, not by corrupting production.
-
-No host enrollment, new access rule or production activation is claimed by this
-source change. A disconnected bridge has a disabled button with a short operator
-hint. Resetting an interrupted request is a manual evidence/recovery operation.
+The System button and its separate host enrollment are documented in the
+[owner update guide](OWNER-UPDATES.md). They are prepared independently of the
+HUD so a host can receive the update button without changing its appearance.
 
 ## Earned work
 
@@ -89,38 +38,57 @@ or broader API access. Higher ranks add a brass crown, etched wings and a center
 inlay to the same spinning insignia. Locked templates/context/code/handoff
 exports are hidden; history, original answers and recovery remain available.
 
-## A more visible space window
+## Windshield HUD
 
-The optional five-click starfield has brighter pixels, stars positioned in the
-visible window gutters, and a faint inset frame around the existing opaque
-workspace. Navigation retains its original background. Two existing CSS star
-layers gently shift/glimmer when the existing 15-second fresh-status heartbeat
-changes phase; there is no perpetual star animation. The logo retains its one CSS
-rotor. No canvas, WebGL,
-bitmap download, blur, pointer tracker, render loop, dependency or new animation
-timer was added. Pause Motion, reduced motion and hidden-tab behavior still
-apply. Stars remain off by default and persist only in the current page.
+Activate the insignia five times to switch between the console and an optional
+space windshield. The navigation keeps its existing material and colors. Two
+small inline SVG star planes scale slowly over 90 seconds, giving a sense of
+forward travel. The scene is clipped outside the navigation. Stars remain off by
+default and persist only in the current page.
 
-Initial local Chrome diagnostics showed roughly 3.8–4.2% main-thread time for
-continuous star animations, compared with about 0.2–0.3% with stars off. Stepping
-the animation and compositing hints did not materially improve that observation,
-so the candidate uses brief CSS transitions on the existing refresh heartbeat.
-The final heartbeat sample used 0.464 seconds of main-thread time over 67.2 seconds (about 0.69%), with about 2.4 MB JavaScript heap; exact readings are retained with the source qualification. These are
-unequal local observations including tool activity and status refresh, not a
-controlled benchmark or a GPU, battery, low-end-device or Oracle CPU measurement.
-Visual effects run in the user's browser; qualify actual client hardware before
-claiming negligible overhead.
+The compact view shows relay readiness, projected **active** and **completed**
+job counts, progress and the next useful action. These are real observed relay
+values, not simulated flight instruments. Failed, stale or materially future
+observations show unknown counts. Clicking the counts opens Jobs; clicking
+readiness opens System. The next action continues an unfinished request or the
+current onboarding step.
+
+Navigation opens a floating opaque panel: 560px for Groq/System, 660px for
+Overview and 760px for Jobs/Requests, bounded by the viewport. Narrow layouts
+use one column and a scrollable panel. **Minimize panel** or Escape restores the
+windshield without clearing the draft, selected result or job context. Focus
+returns to an instrument. Counts use a static text glow; they add no animation.
+
+There is no canvas, WebGL, bitmap download, blur, pointer tracker, JavaScript
+render loop, dependency or new polling timer. Two CSS star animations run only
+while the optional scene is active. Pause Motion and hidden tabs pause them;
+reduced motion displays a static scene. The insignia retains one CSS rotor.
+
+A local Chrome sample of the vector scene used 7.896 seconds of main-thread
+time over 821.6 seconds (about 0.96%), including status refresh and browser-tool
+activity, with about 2.7 MB JavaScript heap. Earlier box-shadow experiments used
+roughly 3.8–4.2%; those renderers were replaced. These observations are not a
+controlled benchmark or a measurement of GPU, battery, low-end hardware or Oracle
+CPU. Effects render in the user's browser. All five panels were checked at real
+320px and 390px viewports; minimizing retained an unfinished synthetic draft.
 
 ## How Picard helped
 
-One generic specification was sent to the existing Groq Free enrollment using
-`openai/gpt-oss-20b`, one call and a 4,096-token ceiling, no tools/retries/paid
-fallback. The saved proposal counted owners instead of requests, suggested a
-new auth stack and made unsupported performance claims. A changes-requested
-review preserved those findings. The corrected implementation uses the existing
-auth/state boundaries and is independently tested; generated text was never
-executed. Source tests and any later full-repository Picard worker receipt are
-separate from installation and owner acceptance.
+Two generic specifications were sent through the live relay's existing Groq
+Free enrollment using `openai/gpt-oss-20b`, each limited to one call and 4,096
+output tokens, with no tools, retries or paid fallback. The first proposal
+counted owners instead of requests, suggested a new auth stack and made
+unsupported performance claims. A changes-requested review preserved those
+findings; those suggestions were not adopted.
+
+The [second saved proposal](https://picard-relay.141-148-50-78.sslip.io/#requests/8b1fe2e29a52f3a44529fd0a5a39614dbf0e446d22ee67ec3913f3f1f2917068)
+generated the HUD panel-state helper now used by the browser. Review added a
+strict string guard and replaced suggested third-party test assumptions with
+built-in regression tests of the actual embedded function. Tests cover exact
+booleans, five view widths, unknown/inherited names, minimizing/Escape, private
+clearing and truthful projected counts. Original proposals and reviews remain
+saved. Generated text was reviewed before integration, never auto-executed.
+Source checks remain separate from installation and owner acceptance.
 
 The [physical badge research](BADGE-RESEARCH.md) is a separate no-purchase
 prototype/design, not an installed device-sync feature.
