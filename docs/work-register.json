@@ -361,7 +361,7 @@
       "kind": "feature",
       "title": "Separate zero-dollar compute broker",
       "status": "source_candidate",
-      "behavior": "PR #7 foundation merged. Fixed Oracle worker and GitHub public-project CI execution/collection adapters implemented, disabled by default, with finite exact-job profiles, durable context/intent, validated receipts/log tails/inline artifacts and no retries or provisioning. No live executor enrolled. Oracle current-month delayed cost estimate showed $0.00; trial credits remain excluded. Restricted Oracle enrollment follow-up verified one real MCP word-count job and saved artifact with an independently retrieved worker result; GitHub live dispatch remains pending in this checkpoint. Native HTTP and cgroup root fixes are qualified with 76 normal/jitless Linux tests.",
+      "behavior": "PR #7 foundation merged. Fixed Oracle worker and GitHub public-project CI execution/collection adapters implemented, disabled by default, with finite exact-job profiles, durable context/intent, validated receipts/log tails/inline artifacts and no retries or provisioning. No live executor enrolled. Oracle current-month delayed cost estimate showed $0.00; trial credits remain excluded. Restricted Oracle enrollment follow-up verified one real MCP word-count job and saved artifact with an independently retrieved worker result; GitHub live dispatch remains pending in this checkpoint. Native HTTP and cgroup root fixes are qualified with 76 normal/jitless Linux tests. A native owner-only CI dispatcher is now a source candidate: ephemeral GITHUB_TOKEN, actual MCP execution/collection, one finite request, no browser or personal token. Unattended live qualification remains pending.",
       "sourceFiles": [
         "experimental/compute-broker/src/policy.mjs",
         "experimental/compute-broker/src/store.mjs",
@@ -375,7 +375,9 @@
         "experimental/compute-broker/src/worker.mjs",
         "experimental/compute-broker/src/receipt.mjs",
         ".github/workflows/compute-worker.yml",
-        "experimental/compute-broker/src/oracle-worker.mjs"
+        "experimental/compute-broker/src/oracle-worker.mjs",
+        "experimental/compute-broker/unattended.mjs",
+        "experimental/compute-broker/src/mcp-client.mjs"
       ],
       "tests": [
         "experimental/compute-broker/test/policy.test.mjs",
@@ -390,7 +392,8 @@
         "experimental/compute-broker/test/oracle-executor.test.mjs",
         "experimental/compute-broker/test/execution-profile.test.mjs",
         "experimental/compute-broker/test/process.test.mjs",
-        "experimental/compute-broker/test/oracle-worker.test.mjs"
+        "experimental/compute-broker/test/oracle-worker.test.mjs",
+        "experimental/compute-broker/test/unattended.test.mjs"
       ],
       "remaining": "Review/merge adapter source, configure dedicated Oracle identity/isolation and protected GitHub workflow/dispatch token, retain current cost controls, and verify real MCP jobs on both providers. No activation or complete two-provider claim."
     }

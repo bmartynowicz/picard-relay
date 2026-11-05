@@ -1,4 +1,5 @@
 name: Offline compute broker checks
+run-name: ${{ startsWith(github.head_ref, 'compute-request/') && format('picard-dispatch/{0}', github.head_ref) || format('Picard checks / {0}', github.head_ref) }}
 on:
   pull_request:
     paths:
@@ -26,3 +27,33 @@ jobs:
           npm --prefix experimental/compute-broker run test:jitless
           npm --prefix experimental/compute-broker run demo
           npm run docs:check
+  unattended-dispatch:
+    needs: offline
+    if: >-
+      github.repository == 'bmartynowicz/picard-relay' &&
+      github.event.repository.private == false &&
+      github.actor == 'bmartynowicz' &&
+      github.event.pull_request.user.login == 'bmartynowicz' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.head_ref, 'compute-request/') &&
+      github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    concurrency:
+      group: picard-dispatch-${{ github.head_ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.22.1'
+      - name: Dispatch the exact approved CI job through Picard MCP once
+        env:
+          PICARD_COMPUTE_GITHUB_TOKEN: ${{ github.token }}
+        run: node experimental/compute-broker/unattended.mjs
