@@ -1,6 +1,6 @@
 # Compute broker preview
 
-**Status: Oracle and GitHub execution adapters implemented; live enrollment and two-provider execution remain unverified. November 4, 2026.** This separate Node 24 process lets an AI client discover eligible resources, reserve an exact approved job, invoke it once and recover its saved result. Execution is disabled by default. It does not change Picard's production AI-request relay, credentials or database, and is outside the signed updater artifact.
+**Status: opt-in adapters with dated Oracle and unattended GitHub qualification; source defaults remain disabled.** This separate Node 24 process lets an AI client discover eligible resources, reserve an exact approved job, invoke it once and recover its saved result. Individual qualification requests are consumed. It does not change Picard's production AI-request relay, credentials or database, and is outside the signed updater artifact. Coding agents start with [the prepare/collect guide](CODING-WORKFLOW.md).
 
 Oracle accepts two small fixed operations on an existing Always Free E2.1.Micro VM: word count and SHA-256. GitHub accepts this public project's fixed tests for an exact source commit. It is not a general cloud shell, generated-code executor or GPU network. Two fixture resources are not two live providers.
 
@@ -97,6 +97,6 @@ Brian selected GitHub public-project CI as the second backend. The original stat
 
 The Oracle Console showed the existing VM's Always Free label, domain quota of two with one used, one 50 GB boot volume and no additional attached block disks. After intermittent blank pages, Cost Analysis loaded **$0.00 for November 1–4, 2026**, with an approximately 24-hour delay; the account still displayed Free Trial. Promotional credits are excluded. No upgrade, quota change or resource was created. Complete preventive account controls remain unverified. See [PROVIDERS.md](PROVIDERS.md).
 
-The adapters/templates have not installed a worker, created keys/users, configured a dispatch token, enabled a live profile or executed a broker job on either provider. Next: reviewed enrollment and one qualified job/result on each backend. The private board is the operational backlog; [contract.json](contract.json) supplies the machine-readable boundary.
+The adapters remain disabled by default. Dated follow-up qualification completed one restricted Oracle job and an unattended GitHub job; those allowances are consumed, not reusable enrollment. PR #10 merged the opt-in GitHub lane. See [verification evidence](VERIFICATION.md), [unattended dispatch](UNATTENDED.md) and [the coding-agent prepare/collect workflow](CODING-WORKFLOW.md). The private board is the operational backlog; [contract.json](contract.json) supplies the machine-readable boundary.
 
 Stop every broker sharing a database before explicitly calling library `recover()` during offline maintenance. It turns interrupted `invoking` rows uncertain and never resends. Startup does not overwrite another process's in-flight work. Preserve original profile context, keys and worker source to recover old results; changed context blocks collection. Never share SQLite WAL over network filesystems.

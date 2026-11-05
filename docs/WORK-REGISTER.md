@@ -46,7 +46,7 @@ A read-only live comparison on November 3, 2026 showed two completed jobs in the
 | PR-FTR-003 | Broader routine request enrollment | Live-verified on v1.0.26: ordinary drafts and exact approval on the explicitly activated enrolled host. Owner review remains separate. |
 | PR-FTR-004 | Controlled execution | Offline fixtures only. No live generated code, shell or tools are executed. |
 | PR-FTR-005 | Portable task-board integration | Planned. The original consuming Board app is not included in this repository. |
-| PR-FTR-008 | Separate zero-dollar compute broker | Source candidate: foundation merged in PR #7; Oracle fixed-worker and GitHub project-CI adapters implemented, disabled by default. Dedicated worker/access enrollment, preventive cost controls and two-provider live execution remain unfinished. See [preview](../experimental/compute-broker/README.md). |
+| PR-FTR-008 | Separate zero-dollar compute broker | PRs #7-10 merged; one restricted Oracle job and one unattended GitHub MCP/API job live-qualified, allowances consumed. Source defaults remain disabled. Coding-agent prepare/collect helper is a source candidate; broader durable orchestration, account-wide controls and owner acceptance remain open. See [coding workflow](../experimental/compute-broker/CODING-WORKFLOW.md) and [dated evidence](../experimental/compute-broker/VERIFICATION.md). |
 
 Unqualified power-loss/disk-full behavior, physical phone/screen-reader coverage and fresh-host portability are [verification limits](LIMITATIONS.md), not evidence of a specific observed failure. This snapshot does not assert owner acceptance or enumerate unrelated private Board work.
 

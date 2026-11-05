@@ -172,6 +172,10 @@
     {
       "path": "experimental/compute-broker/src/mcp-client.mjs",
       "role": "bounded private stdio client; saved-result recovery without credentials"
+    },
+    {
+      "path": "experimental/compute-broker/coding-check.mjs",
+      "role": "agent-facing exact-commit request preparation and read-only verified result collection; compute-broker normal/jitless scope"
     }
   ],
   "release": {
@@ -205,7 +209,8 @@
     "experimental/compute-broker/PROVENANCE.md",
     "experimental/compute-broker/VERIFICATION.md",
     "experimental/compute-broker/EXECUTION.md",
-    "experimental/compute-broker/UNATTENDED.md"
+    "experimental/compute-broker/UNATTENDED.md",
+    "experimental/compute-broker/CODING-WORKFLOW.md"
   ],
   "workRegister": "docs/work-register.json",
   "illustrations": [

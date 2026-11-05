@@ -63,7 +63,7 @@ test('unattended requests bind owner, same public repo, exact branch/input and f
   for (const change of [v => v.request.enabled = false, v => v.request.validUntil = CLOCK,
     v => v.request.validUntil = CLOCK + 86_400_001, v => v.request.approvedAt = CLOCK + 1,
     v => v.request.workerSha256 = '0'.repeat(64), v => v.request.command = 'nope',
-    v => v.request.job.needs.cpuMs = 360001, v => v.env.GITHUB_RUN_ATTEMPT = '2',
+    v => v.request.job.needs.cpuMs = 360001, v => v.request.job.timeoutMs = 29999, v => v.env.GITHUB_RUN_ATTEMPT = '2',
     v => v.env.GITHUB_ACTOR = 'another-user', v => v.env.GITHUB_EVENT_NAME = 'pull_request_target',
     v => v.event.pull_request.head.repo.full_name = 'fork/repo', v => v.event.repository.private = true,
     v => v.env.GITHUB_HEAD_REF = 'main', v => v.event.pull_request.user.login = 'another-user']) {

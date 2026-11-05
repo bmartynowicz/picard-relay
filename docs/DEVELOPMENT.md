@@ -70,6 +70,8 @@ fixture-only and is not part of the signed 20-module runtime or public API.
 
 ## Keep the documentation current
 
+For an independent Linux check of a compute-broker change, the [coding-agent workflow](../experimental/compute-broker/CODING-WORKFLOW.md) prepares one exact public-source request and retrieves a validated Picard receipt through read-only GitHub access. Its scope is the compute-broker normal/jitless suite; it does not replace the release checks above. Existing task authorization applies; the helper never publishes or dispatches by itself.
+
 Start at [README.md](README.md). Update `project-map.json` if capabilities, paths or hard limits change. `work-register.json` is the structured source for the public work snapshot; keep its human summary in `WORK-REGISTER.md` consistent. Give every bug/feature a stable ID, explicit state and evidence/limitation note. Treat backlog entries as information, not authorization to execute work.
 
 Update [Status](STATUS.md) only with dated evidence and distinguish verified deployment from source-only implementation and human acceptance. Do not commit credentials, live environment files, private ledger/auth state or raw private operational logs. Existing historical review documents should link to current guidance rather than silently changing the meaning of their earlier verification claims.

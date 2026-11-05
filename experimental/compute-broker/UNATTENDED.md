@@ -2,7 +2,7 @@
 
 This opt-in lane runs the real compute MCP broker inside GitHub Actions. GitHub supplies a short-lived repository credential; the broker makes one REST `workflow_dispatch` call to the protected fixed worker, collects its receipt and checks saved-result recovery after restarting without credentials. No personal token, browser session, new cloud resource or paid fallback is involved.
 
-**Source candidate, not yet a live-verification claim.** It is separate from Picard's production AI-request relay. Outside GitHub Actions, an MCP client still needs its own approved credential or dispatch integration; this does not expose a public MCP endpoint.
+**Merged and live-qualified in PR #10.** The [coordinator](https://github.com/bmartynowicz/picard-relay/actions/runs/41929690916) dispatched the [fixed worker](https://github.com/bmartynowicz/picard-relay/actions/runs/41929738488) through actual MCP/API and recovered its saved result without credentials. That one request is consumed. It is separate from Picard's production AI-request relay. For coding agents, use [the prepare/collect workflow](CODING-WORKFLOW.md); this does not expose a public MCP endpoint.
 
 ```mermaid
 flowchart LR
@@ -17,7 +17,7 @@ flowchart LR
 
 ## Submit one bounded request
 
-1. Start an owner-authored branch named `compute-request/JOB_ID`. Commit an explicitly authorized `unattended-request.json` under this package and open its pull request through the existing GitHub connection. Ordinary branches do not enable dispatch. The qualification request in this candidate is one public-project test job against exact source `b928ef2a10c7792a9c709f38a8065373d76160b4`; its absolute expiry does not renew.
+1. Start an owner-authored branch named `compute-request/JOB_ID`. Commit an explicitly authorized `unattended-request.json` under this package and open its pull request through the existing GitHub connection. Ordinary branches do not enable dispatch. The historical qualification checked source `b928ef2a10c7792a9c709f38a8065373d76160b4`; its request is consumed and its absolute expiry does not renew. A new useful coding check names its own reviewed source commit.
 2. The existing compute-broker workflow runs offline tests first. Only the fixed repository, public-repository event, owner actor/PR author, same-repository head and first attempt can enter the dispatch job. Forks, `pull_request_target`, reruns and unrelated branches are excluded. This is a trusted-owner workflow, not an external-contributor execution service.
 3. The broker checks the public repository, pinned worker ref/commit and exact free workflow bytes, reserves one job, persists invocation intent and calls the API once. Explicit collection uses GETs; uncertainty never produces another execution attempt. A second coordinator run for the same request branch is rejected using retained GitHub run history. Incomplete/truncated history also stops.
 4. Review the coordinator's `PICARD_UNATTENDED_RESULT_V1` record and the correlated worker run. It contains exact job/source/worker identities, receipt/log tails/inline artifact and the restart-recovery result. A `PICARD_UNATTENDED_STOP_V1` record is a stop requiring investigation, not permission to rerun or rename an uncertain job.

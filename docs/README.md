@@ -13,6 +13,7 @@ Picard Relay accepts a narrowly approved AI request, records it durably, sends i
 | Integrate a client or inspect the protocol | [API reference](API.md) |
 | Configure, release, operate or troubleshoot a host | [Operations](OPERATIONS.md) |
 | Change code and run the appropriate checks | [Development](DEVELOPMENT.md) |
+| Ask Picard to check an exact public code commit and retrieve its result | [Coding-agent workflow](../experimental/compute-broker/CODING-WORKFLOW.md) |
 | Understand constraints and unsupported behavior | [Limitations](LIMITATIONS.md) |
 | Find known bugs and requested features | [Work register](WORK-REGISTER.md), [structured register](work-register.json) |
 | Check what has actually been verified | [Status](STATUS.md) |
