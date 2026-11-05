@@ -11,7 +11,7 @@ const LEGACY_WORKER = Object.freeze({ workerRef: 'compute-worker-v1',
   workerCommit: 'b928ef2a10c7792a9c709f38a8065373d76160b4',
   workerSha256: 'ae31a4c71dbf5a79a751832199e6dd8b77af4a82bb02426890486b1619d00439' });
 const WORKER = Object.freeze({ workerRef: 'compute-worker-v2',
-  workerCommit: '0000000000000000000000000000000000000000',
+  workerCommit: 'c3d05f0c8d48e244481459a5cf1b7e222c50e14f',
   workerSha256: '92bf82d89359c0942c961e39e1ebafaa50076da41e46ec7d152ac4092d639df2' });
 const sha = v => typeof v === 'string' && /^[0-9a-f]{40}$/.test(v);
 const id = v => Number.isSafeInteger(v) && v > 0;

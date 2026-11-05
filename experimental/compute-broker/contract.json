@@ -217,7 +217,7 @@
     }
   },
   "codingWorkflow": {
-    "status": "full_repository_source_candidate_pending_worker_v2_enrollment_and_live_qualification",
+    "status": "full_repository_source_candidate_worker_v2_pinned_pending_live_qualification",
     "entrypoint": "experimental/compute-broker/coding-check.mjs",
     "guide": "experimental/compute-broker/CODING-WORKFLOW.md",
     "prepare": "prints one exact public-source request; no network or file mutation",
@@ -225,6 +225,8 @@
     "collect": "read-only GitHub CLI or connected tools; verifies run identities and receipt",
     "scope": "full-repository-v1",
     "workerRef": "compute-worker-v2",
+    "workerCommit": "c3d05f0c8d48e244481459a5cf1b7e222c50e14f",
+    "workerSha256": "92bf82d89359c0942c961e39e1ebafaa50076da41e46ec7d152ac4092d639df2",
     "legacyWorkerRef": "compute-worker-v1; broker-only saved receipts remain readable",
     "groups": ["root", "updater", "runtime", "socket", "broker", "broker-jitless", "docs"],
     "maximumSuitePlanMs": 450000,
