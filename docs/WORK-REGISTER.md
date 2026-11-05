@@ -1,6 +1,16 @@
 # Known bugs and feature requests
 
-Snapshot: **November 4, 2026 UTC**. The owner's private task board is the operational record. This is a sanitized product summary, not an exhaustive issue tracker or authorization to start every item. Machine-readable records and state definitions are in [work-register.json](work-register.json).
+Snapshot: **November 5, 2026 UTC**. The owner's private task board is the operational record. This is a sanitized product summary, not an exhaustive issue tracker or authorization to start every item. Machine-readable records and state definitions are in [work-register.json](work-register.json).
+
+## Cockpit follow-up
+
+| ID | Item | State / limitation |
+| --- | --- | --- |
+| PR-FTR-009 | Cockpit navigation, expanding decks, earned ranks and brighter round stars | Installed and live-verified on v1.0.33. See the [visual tour](COCKPIT-TOUR.md) and [dated evidence](STATUS.md). Owner acceptance remains separate. |
+| PR-BUG-006 | Cockpit discovery and persistence | Planned. Five insignia activations currently toggle both cockpit and stars; the mode resets on reload. Make the cockpit independently selectable without coupling it to the hidden star toggle. |
+
+The current recording is a product demo of existing data, not proof of a new
+inference, rank-up, update installation or hardware-performance improvement.
 
 ## Fixed live-audit findings
 

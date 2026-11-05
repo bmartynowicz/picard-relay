@@ -8,6 +8,9 @@ Picard Relay accepts a narrowly approved AI request, records it durably, sends i
 
 **New to Picard?** [Quickstart](QUICKSTART.md) · [V1 workspace](V1.md) · [Console guide](CONSOLE-WORKSPACE.md)
 
+**See it in motion:** [Cockpit tour and 15-second walkthrough](COCKPIT-TOUR.md)
+— controls, expanding panels, ranks and reusable demo assets.
+
 **Building or operating?** [Architecture](ARCHITECTURE.md) · [API](API.md) · [Operations](OPERATIONS.md) · [Development](DEVELOPMENT.md) · [Coding-agent workflow](../experimental/compute-broker/CODING-WORKFLOW.md)
 
 **Updating your relay?** [System update button and host connection](OWNER-UPDATES.md)
@@ -18,7 +21,7 @@ Picard Relay accepts a narrowly approved AI request, records it durably, sends i
 
 **Experimental:** [Compute broker](../experimental/compute-broker/README.md) · [Provider research](../experimental/compute-broker/PROVIDERS.md) · [Execution enrollment](../experimental/compute-broker/EXECUTION.md)
 
-**AI tools:** [llms.txt](../llms.txt) · [AGENTS.md](../AGENTS.md) · [Project map](project-map.json) · [Workspace contract](workspace-contract.json) · [Structured work register](work-register.json)
+**AI tools:** [llms.txt](../llms.txt) · [AGENTS.md](../AGENTS.md) · [Project map](project-map.json) · [Workspace contract](workspace-contract.json) · [Interface tour and asset record](interface-tour.json) · [Structured work register](work-register.json)
 
 ## Which information wins?
 
