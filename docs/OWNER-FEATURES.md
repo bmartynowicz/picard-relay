@@ -1,8 +1,10 @@
 # Owner updates, earned ranks and the space window
 
-Source candidate, November 5, 2026. These changes are not installed merely by
-opening the preview or publishing a PR. Existing hosts still need a signed
-release; the owner-update bridge needs separate host enrollment.
+Updated November 5, 2026. The cockpit and ranks are in the signed-runtime source;
+the recorded enrolled host was verified on v1.0.33. Use the [visual tour](COCKPIT-TOUR.md)
+for controls and the walkthrough, and [Status](STATUS.md) for dated installation
+evidence. Other hosts still need a signed release; the owner-update bridge needs
+separate host enrollment.
 
 ## Check for updates
 

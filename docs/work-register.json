@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-04",
+  "updatedAt": "2026-11-05",
   "scope": "Sanitized Picard product work known from the live audit and existing project backlog. Not a complete export of the private owner board.",
   "operationalRecord": "Owner private task board",
   "statusGuide": {
@@ -400,6 +400,54 @@
         "experimental/compute-broker/test/repository-checks.test.mjs"
       ],
       "remaining": "Review/merge PR #13 and verify the merged helper while retaining consumed evidence. Broader durable orchestration, account-wide preventive cost controls and owner acceptance remain open. Individual proofs do not authorize new jobs or complete the full cloud-network task."
+    },
+    {
+      "id": "PR-BUG-006",
+      "kind": "bug",
+      "severity": "P2",
+      "title": "Cockpit discovery and persistence",
+      "status": "planned",
+      "behavior": "Five insignia activations currently enable cockpit and stars together. The mode resets on page reload; ordinary Refresh reads status only.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/oracle-service.mjs"
+      ],
+      "remaining": "Make cockpit independently selectable without coupling it to the hidden stars toggle; no implementation claimed."
+    },
+    {
+      "id": "PR-FTR-009",
+      "kind": "feature",
+      "title": "Cockpit navigation, reading decks, earned ranks and brighter round stars",
+      "status": "verified_on_deployment",
+      "behavior": "Horizontal control rail, projected readings, opaque expanding decks, 128 round SVG stars and earned-work insignia. Linked tour includes a real v1.0.33 recording.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/oracle-service.mjs"
+      ],
+      "tests": [
+        "experimental/runtime-control/test/console-ui.test.mjs",
+        "experimental/runtime-control/test/console.test.mjs"
+      ],
+      "verification": {
+        "verifiedAt": "2026-11-05T17:43:39.767Z",
+        "release": "1.0.33",
+        "sequence": 33001,
+        "sourceCommit": "043a11cf49b2c70de6a5558bb1979ed2f18e5bde",
+        "releaseHash": "b9d5044804385cc0902d432e650d911ec749c900cebc514eb2087f06f5bf7a5d",
+        "pullRequest": "https://github.com/bmartynowicz/picard-relay/pull/35",
+        "workflow": "https://github.com/bmartynowicz/picard-relay/actions/runs/42075634462",
+        "liveChecks": [
+          "Physical identity and all 20 signed modules",
+          "128 round stars and two moving planes",
+          "Opaque navigation and reading deck",
+          "Pause/resume and static reduced motion",
+          "320px and 390px without horizontal overflow",
+          "Existing Jobs and saved result recovery"
+        ],
+        "providerCallsDuringDeploymentValidation": 0,
+        "preservedJobs": 32,
+        "preservedInvocationMarkers": 33,
+        "ownerAcceptance": false
+      },
+      "remaining": "Owner acceptance remains separate; cockpit mode selection/reset is tracked by PR-BUG-006."
     }
   ]
 }

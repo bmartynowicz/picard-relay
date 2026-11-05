@@ -20,6 +20,9 @@
 - [Structured work register](docs/work-register.json): known bugs and feature requests with dated states.
 
 ## Use and maintain
+- [Cockpit tour](docs/COCKPIT-TOUR.md): current horizontal navigation, optional space windshield, expanding/retracting decks, utilities and ranks; includes a real v1.0.33 interface recording.
+- [Structured interface tour](docs/interface-tour.json): timestamped text equivalent, controls, media hashes, observed versus source-documented behavior and limits. The clip does not demonstrate a new request or rank-up.
+- [Owner features](docs/OWNER-FEATURES.md): earned-work thresholds, rank credit rules and lightweight HUD implementation.
 - [Console guide](docs/CONSOLE-WORKSPACE.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [API reference](docs/API.md)

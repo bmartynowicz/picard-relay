@@ -2,7 +2,11 @@
 
 The authenticated console has five views when finite admission is enabled. A host without that feature has four views and no Requests submission controls.
 
-The **Documentation ↗** link in the shared header opens the guide index in a new tab. It is available from every view and the sign-in screen, and leads to the quickstart, illustrations, limits, known work and AI-readable references. The current console stays open.
+The [cockpit tour](COCKPIT-TOUR.md) includes a 15-second recording and a quick
+control guide. Navigation is centered horizontally. Open the **…** menu beside
+Refresh for **Documentation ↗**, motion controls and Sign out. Documentation opens
+the guide index in a new tab, keeping the console open; it is also available on
+the sign-in screen.
 
 | View | What to use it for |
 | --- | --- |
@@ -44,9 +48,27 @@ Existing owned results/reviews count immediately. Reviewing an old answer can co
 
 Progress comes from the existing durable ledger and output-bound reviews, with no new schema or tracking store. A single indexed review lookup augments the existing workspace configuration response. The console reads it once on sign-in and coalesces concurrent loads; subsequent refreshes reuse the existing Requests polling. Unverifiable/stale progress earns no new rank or unlock. Previously verified achievements remain for the authenticated page session without extra polling; live readiness and exact-call approval still require fresh observations. Authentication loss clears rank details and logo decorations.
 
-Progress leads Overview, above live readiness. Jobs, Groq and System offer the next useful action: setup, an unfinished draft/request, result review or new work. Continuing a draft preserves it. Navigation keeps a stable shape, lights the active number and uses a crisp press response. The raised sidebar and recessed dividers use static shading. Sign-in has a brief fade; pause/reduced motion disable transitions. The Refresh button includes a compact live/paused/stale/offline indicator; hover/accessibility text includes the full cadence or failure explanation. Scope and privacy details are in the small information disclosure. There are no new libraries, external assets or timers. This is a source candidate; installation and owner acceptance remain separate.
+Progress leads Overview, above live readiness. Jobs, Groq and System offer the
+next useful action: setup, an unfinished draft/request, result review or new
+work. Continuing a draft preserves it. The raised horizontal control rail keeps
+a stable shape, lights the active number and uses static shading and recessed
+dividers. Sign-in has a brief fade; pause/reduced motion disable transitions.
+The Refresh button includes a compact live/paused/stale/offline indicator;
+hover/accessibility text includes the full cadence or failure explanation.
+Scope and privacy details are in the small information disclosure. There are
+no new libraries, external assets or timers. The recorded enrolled host was
+verified on v1.0.33; other installations and owner acceptance remain separate.
 
-The charcoal workspace panel always has the same floating layout. Activate the insignia five times to toggle only the pixel stars behind it; navigation stays opaque. Consecutive clicks/Enter/Space activations must be no more than five seconds apart; another five switch it off. Two sparse CSS layers drift/glimmer slowly behind the panel, with no canvas, render loop, external image or network request. Pause motion, reduced motion and hidden tabs stop the effects. The preference lasts for the current page and resets on reload.
+Activate the insignia five times to switch between the standard console and
+the optional space cockpit. Consecutive clicks/Enter/Space activations must be
+no more than five seconds apart; another five switch it off. Two SVG planes
+move 128 round stars slowly behind the HUD. Navigation opens an opaque lower
+reading deck while readiness and projected activity remain visible above it.
+Click exposed space, choose Minimize panel or press Escape to retract the deck
+without clearing the draft or selected result. Clicks inside the deck preserve
+it. Pause motion and hidden tabs pause animation; reduced motion leaves a static
+scene. Cockpit/stars reset on reload. See [Owner features](OWNER-FEATURES.md) for
+earned ranks beyond Lieutenant and implementation details.
 
 ## Navigation and history
 
@@ -74,6 +96,9 @@ The workspace can recover valid results for the configured owner across tasks, i
 
 The original generated body and result SHA-256 remain unchanged. Review history is append-only with revision checks. Picard reviews are local assessments, not task-board acceptance or messages to another system. Exported Markdown, individual fenced code blocks and JSON handoffs are inert files. Measured usage and billed cost are explicitly unknown.
 
-## Next owner-feature candidate
+## Updates, earned work and the cockpit
 
-The [owner-feature guide](OWNER-FEATURES.md) describes the new update-check button, owner-scoped accepted-work ranks, hidden locked controls and brighter optional space window. The updater bridge is separately enrolled host support and is disabled by default. This source candidate is not a claim of production activation.
+The [owner-feature guide](OWNER-FEATURES.md) describes the update-check button,
+owner-scoped accepted-work ranks, hidden locked controls and optional space
+window. The updater bridge needs separate host enrollment. The [visual tour](COCKPIT-TOUR.md)
+shows the recorded v1.0.33 interface; [Status](STATUS.md) records its live checks.
