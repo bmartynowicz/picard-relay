@@ -36,7 +36,7 @@ function harness({cataloguePatch={},savedBody='SYNTHETIC_SAVED_RESULT <img src=x
 }
 test('disabled owner UI is byte-identical; enabled view compiles without execution controls outside Requests',()=>{
  assert.equal(admissionConsoleHtml(CONSOLE_HTML),CONSOLE_HTML);new vm.Script(script);assert.ok(html.includes('id="nav-requests"'));assert.ok(html.includes('id="admission-approve"'));assert.equal(/localStorage|sessionStorage|document\.cookie|innerHTML|eval\(/.test(script),false);
- assert.equal(html.match(/Picard Relay ASCII Starfleet insignia/g).length,1);
+ assert.equal([...html.matchAll(/aria-label="Picard Relay brass rank insignia"/g)].length,1);
 });
 
 test('empty catalogue has a truthful empty state and no approval action',async()=>{
