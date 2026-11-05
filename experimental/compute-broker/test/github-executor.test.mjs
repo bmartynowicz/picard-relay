@@ -4,6 +4,7 @@ import { createGitHubExecutor, freeWorkflowSha256, EXECUTION_REPOSITORY, EXECUTI
 import { readFileSync } from 'node:fs';
 import { makeReceipt, jobSha256, PreflightDenied } from '../src/execution-protocol.mjs';
 import { RESULT_MARKER, runProjectChecks } from '../src/github-job.mjs';
+import { REPOSITORY_CHECKS } from '../src/repository-checks.mjs';
 import { CLOCK } from './helpers.mjs';
 import { ciJob, HASH, SOURCE, provider } from './execution-helpers.mjs';
 const TOKEN = 'test-token-never-a-secret';
@@ -89,6 +90,13 @@ test('collection rejects different runner, duplicate markers and contradictory o
     assert.ok(s.calls.every(c => c.options.method === 'GET'));
   }
 });
+test('full-repository logs can exceed the old 128 KiB window but remain bounded to 4 MiB', async () => {
+  const good = setup();
+  const large = setup({ output: 'safe output\n'.repeat(20000) + good.output() });
+  assert.equal((await large.adapter.lookup(large.job)).state, 'completed');
+  const excessive = setup({ output: 'x'.repeat(4194305) });
+  await assert.rejects(excessive.adapter.lookup(excessive.job), /too_large/);
+});
 test('log redirects never receive GitHub credentials and arbitrary destinations are rejected', async () => {
   const base = setup(); const redirected = setup({ handle: (url) => url.endsWith('/logs')
     ? new Response(null, { status: 302, headers: { location: 'https://example.blob.core.windows.net/temporary' } })
@@ -100,16 +108,20 @@ test('log redirects never receive GitHub credentials and arbitrary destinations 
     await assert.rejects(s.adapter.lookup(s.job), /location_rejected/); assert.equal(s.calls.length, 3);
   }
 });
-test('fixed CI checks pin source, strip credentials, capture child output and run both suites only on success', async () => {
+test('fixed repository worker pins source and returns every check group with known failure results', async () => {
   const calls = []; const job = ciJob();
   const run = async (command, args, options) => { calls.push({ command, args, options });
-    return { code: 0, stdout: calls.length === 1 ? `${SOURCE}\n` : `safe log ${RESULT_MARKER}child text`, stderr: '' }; };
-  const receipt = await runProjectChecks(job, { directory: '/fixed/source', sourceHash: HASH(), run });
-  assert.equal(receipt.state, 'completed'); assert.equal(calls.length, 3);
-  assert.deepEqual(Object.keys(calls[1].options.env).sort(), ['CI', 'LANG', 'PATH', 'TMPDIR']);
-  assert.equal(calls[1].args.includes('--test-concurrency=1'), true); assert.equal(calls[2].args.includes('--jitless'), true);
+    return { code: 0, stdout: args[0] === 'rev-parse' ? `${SOURCE}\n` : `safe log ${RESULT_MARKER}child text`, stderr: '' }; };
+  let suiteCalls = 0;
+  const suites = async directory => { assert.equal(directory, '/fixed/source'); suiteCalls++;
+    return { checks: REPOSITORY_CHECKS.map(c => ({ id: c.id, exitCode: 0 })), logs: [] }; };
+  const receipt = await runProjectChecks(job, { directory: '/fixed/source', sourceHash: HASH(), run, suites });
+  assert.equal(receipt.state, 'completed'); assert.equal(calls.length, 1); assert.equal(suiteCalls, 1);
+  assert.deepEqual(Object.keys(calls[0].options.env).sort(), ['CI', 'LANG', 'PATH', 'TMPDIR']);
+  assert.equal(receipt.result.checks.length, 7);
   assert.equal(receipt.result.sourceSha, SOURCE);
   await assert.rejects(runProjectChecks(job, { directory: '/fixed/source', sourceHash: HASH(), run: async () => ({ code: 0, stdout: 'wrong' }) }), /revision_mismatch/);
-  let n = 0; const failed = await runProjectChecks(job, { directory: '/fixed/source', sourceHash: HASH(), run: async () => ({ code: ++n === 1 ? 0 : 1, stdout: n === 1 ? SOURCE : 'failed' }) });
-  assert.equal(failed.state, 'failed'); assert.equal(n, 2); assert.equal(failed.result.jitlessExitCode, null);
+  const failed = await runProjectChecks(job, { directory: '/fixed/source', sourceHash: HASH(), run,
+    suites: async () => ({ checks: REPOSITORY_CHECKS.map((c, i) => ({ id: c.id, exitCode: i === 2 ? 1 : 0 })), logs: [] }) });
+  assert.equal(failed.state, 'failed'); assert.equal(failed.result.checks[2].exitCode, 1);
 });

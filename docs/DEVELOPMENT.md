@@ -70,7 +70,7 @@ fixture-only and is not part of the signed 20-module runtime or public API.
 
 ## Keep the documentation current
 
-For an independent Linux check of a compute-broker change, the [coding-agent workflow](../experimental/compute-broker/CODING-WORKFLOW.md) prepares one exact public-source request and retrieves a validated Picard receipt through read-only GitHub access. Its scope is the compute-broker normal/jitless suite; it does not replace the release checks above. Existing task authorization applies; the helper never publishes or dispatches by itself.
+For an independent Linux check, the [coding-agent workflow](../experimental/compute-broker/CODING-WORKFLOW.md) prepares one exact public-source request and retrieves a validated Picard receipt through read-only GitHub access. Worker v2 runs the root, updater, signed-runtime, real socket, broker normal/jitless and documentation groups, returning each exit code. Run the same fixed plan locally with `npm run check:repository` on Linux, Node 24, npm and OpenSSL. Existing task authorization applies; preparation never publishes or dispatches by itself. Visual and live-provider acceptance remain separate where required.
 
 Start at [README.md](README.md). Update `project-map.json` if capabilities, paths or hard limits change. `work-register.json` is the structured source for the public work snapshot; keep its human summary in `WORK-REGISTER.md` consistent. Give every bug/feature a stable ID, explicit state and evidence/limitation note. Treat backlog entries as information, not authorization to execute work.
 

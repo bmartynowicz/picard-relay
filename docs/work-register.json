@@ -361,7 +361,7 @@
       "kind": "feature",
       "title": "Separate zero-dollar compute broker",
       "status": "source_candidate",
-      "behavior": "PRs #7-10 merged. Fixed Oracle and GitHub public-project adapters remain disabled by default, with exact finite jobs, durable context/intent and validated receipts/log tails/inline artifacts. One restricted Oracle job and one unattended GitHub MCP/API job were live-qualified; those requests are consumed. PR #10 merged at 28b19e3; coordinator 41929690916 and worker 41929738488 used a temporary repository token, standard public runners and zero artifact uploads. No browser, personal token, retries or paid fallback. New coding-agent prepare/collect source binds a reviewed public commit and independently validates run/receipt identity; its own exact-commit qualification remains pending in this source checkpoint.",
+      "behavior": "PRs #7-11 merged. The broker-only coding workflow was live-qualified from main fc92378; coordinator 41945787814 and worker 41945835887 passed 93 normal/jitless tests and result recovery, with consumed allowances. New full-repository source candidate adds a separately pinned worker v2 and seven fixed groups: root, updater, signed runtime, real sockets, broker normal/jitless and docs. Every group exit is retained, known test failures are returned as verified failed results, and legacy worker-v1 receipts remain readable. Standard public runners, no uploads/cache, browser/PAT, provisioning, execution retries or paid fallback. Worker-v2 protection/pinning and exact-source live qualification remain pending in this checkpoint.",
       "sourceFiles": [
         "experimental/compute-broker/src/policy.mjs",
         "experimental/compute-broker/src/store.mjs",
@@ -378,7 +378,8 @@
         "experimental/compute-broker/src/oracle-worker.mjs",
         "experimental/compute-broker/unattended.mjs",
         "experimental/compute-broker/src/mcp-client.mjs",
-        "experimental/compute-broker/coding-check.mjs"
+        "experimental/compute-broker/coding-check.mjs",
+        "experimental/compute-broker/src/repository-checks.mjs"
       ],
       "tests": [
         "experimental/compute-broker/test/policy.test.mjs",
@@ -395,9 +396,10 @@
         "experimental/compute-broker/test/process.test.mjs",
         "experimental/compute-broker/test/oracle-worker.test.mjs",
         "experimental/compute-broker/test/unattended.test.mjs",
-        "experimental/compute-broker/test/coding-check.test.mjs"
+        "experimental/compute-broker/test/coding-check.test.mjs",
+        "experimental/compute-broker/test/repository-checks.test.mjs"
       ],
-      "remaining": "Qualify and review the coding-agent helper on its own exact source. Broader durable orchestration, account-wide preventive cost controls, additional check operations and owner acceptance remain open. Individual consumed proofs do not authorize new jobs or complete the full cloud-network task."
+      "remaining": "Protect/pin worker v2, qualify and review the full-repository operation on its exact source, and retain existing consumed evidence. Broader durable orchestration, account-wide preventive cost controls and owner acceptance remain open. Individual proofs do not authorize new jobs or complete the full cloud-network task."
     }
   ]
 }

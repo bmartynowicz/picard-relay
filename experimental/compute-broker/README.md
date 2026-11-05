@@ -2,7 +2,7 @@
 
 **Status: opt-in adapters with dated Oracle and unattended GitHub qualification; source defaults remain disabled.** This separate Node 24 process lets an AI client discover eligible resources, reserve an exact approved job, invoke it once and recover its saved result. Individual qualification requests are consumed. It does not change Picard's production AI-request relay, credentials or database, and is outside the signed updater artifact. Coding agents start with [the prepare/collect guide](CODING-WORKFLOW.md).
 
-Oracle accepts two small fixed operations on an existing Always Free E2.1.Micro VM: word count and SHA-256. GitHub accepts this public project's fixed tests for an exact source commit. It is not a general cloud shell, generated-code executor or GPU network. Two fixture resources are not two live providers.
+Oracle accepts two small fixed operations on an existing Always Free E2.1.Micro VM: word count and SHA-256. GitHub accepts this public project's fixed checks for an exact source commit. Worker v2 covers root tests, updater, signed runtime, real sockets, broker normal/jitless and documentation, returning each group exit code; the source candidate requires its own protected pin and live qualification. Legacy worker-v1 broker-only results remain readable. It is not a general cloud shell, generated-code executor or GPU network. Two fixture resources are not two live providers.
 
 ## Try without a cloud account
 

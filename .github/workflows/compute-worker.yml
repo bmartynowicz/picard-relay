@@ -24,7 +24,7 @@ jobs:
   fixed-project-checks:
     if: github.repository == 'bmartynowicz/picard-relay'
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:

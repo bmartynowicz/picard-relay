@@ -5,18 +5,23 @@ import { boundedProcess } from './src/process.mjs';
 import { workerSha256, jobSha256 } from './src/execution-protocol.mjs';
 import { validateReceipt } from './src/receipt.mjs';
 import { REPOSITORY, DISPATCH_WORKFLOW, validateRequestEnvelope } from './unattended.mjs';
+import { repositoryResultState, REPOSITORY_SCOPE } from './src/repository-checks.mjs';
 
-const WORKER = Object.freeze({ workerRef: 'compute-worker-v1',
+const LEGACY_WORKER = Object.freeze({ workerRef: 'compute-worker-v1',
   workerCommit: 'b928ef2a10c7792a9c709f38a8065373d76160b4',
   workerSha256: 'ae31a4c71dbf5a79a751832199e6dd8b77af4a82bb02426890486b1619d00439' });
+const WORKER = Object.freeze({ workerRef: 'compute-worker-v2',
+  workerCommit: '0000000000000000000000000000000000000000',
+  workerSha256: '92bf82d89359c0942c961e39e1ebafaa50076da41e46ec7d152ac4092d639df2' });
 const sha = v => typeof v === 'string' && /^[0-9a-f]{40}$/.test(v);
 const id = v => Number.isSafeInteger(v) && v > 0;
 const url = runId => `https://github.com/${REPOSITORY}/actions/runs/${runId}`;
 
 function validateCodingRequest(value) {
   // Historical collection validates the original envelope at issuance; it grants no execution authority.
-  const request = validateRequestEnvelope(value, value?.approvedAt);
-  if (Object.keys(WORKER).some(k => request[k] !== WORKER[k]) || workerSha256() !== WORKER.workerSha256)
+  const pin = value?.workerRef === LEGACY_WORKER.workerRef ? LEGACY_WORKER : WORKER;
+  const request = validateRequestEnvelope(value, value?.approvedAt, pin.workerSha256);
+  if (Object.keys(pin).some(k => request[k] !== pin[k]))
     throw Error('coding_worker_pin_mismatch');
   return request;
 }
@@ -40,11 +45,11 @@ function validateRun(run, { runId, headSha, branch, event, workflow, actor }) {
     || run.repository?.full_name !== REPOSITORY || run.repository.private !== false)
     throw Error('coding_run_identity_mismatch');
 }
-function checkedJobs(value, runId, names) {
+function checkedJobs(value, runId, names, conclusions = {}) {
   if (value?.total_count !== names.length || !Array.isArray(value.jobs) || value.jobs.length !== names.length
     || names.some(name => value.jobs.filter(j => j.name === name).length !== 1)
     || value.jobs.some(j => !id(j.id) || j.run_id !== runId || j.run_attempt !== 1 || j.status !== 'completed'
-      || j.conclusion !== 'success' || !Array.isArray(j.labels) || !j.labels.includes('ubuntu-latest')
+      || j.conclusion !== (conclusions[j.name] ?? 'success') || !Array.isArray(j.labels) || !j.labels.includes('ubuntu-latest')
       || j.labels.includes('self-hosted'))) throw Error('coding_jobs_not_verified');
   return value.jobs;
 }
@@ -69,9 +74,12 @@ export function readResult(logs, request, coordinatorRunId) {
     || result.transport !== 'unattended-mcp-github-rest-api' || result.credential !== 'ephemeral-GITHUB_TOKEN'
     || result.browserUsed !== false || result.savedRecoveryAfterRestart !== true
     || !validateReceipt(result.receipt, { jobId: request.job.id, jobSha256: jobSha256(request.job), workerSha256: request.workerSha256 })
-    || result.receipt.state !== 'completed' || result.receipt.result.sourceSha !== request.job.input.text
-    || result.receipt.result.normalExitCode !== 0 || result.receipt.result.jitlessExitCode !== 0
+    || !['completed', 'failed'].includes(result.receipt.state) || result.receipt.result?.sourceSha !== request.job.input.text
     || result.receipt.artifacts.length !== 1) throw Error('coding_result_not_verified');
+  if (request.workerRef === LEGACY_WORKER.workerRef) {
+    if (result.receipt.state !== 'completed' || result.receipt.result.normalExitCode !== 0 || result.receipt.result.jitlessExitCode !== 0)
+      throw Error('coding_result_not_verified');
+  } else if (repositoryResultState(result.receipt.result) !== result.receipt.state) throw Error('coding_result_not_verified');
   return result;
 }
 export async function collectCheck(value, coordinatorHeadSha, coordinatorRunId, { get = githubGet } = {}) {
@@ -81,27 +89,34 @@ export async function collectCheck(value, coordinatorHeadSha, coordinatorRunId, 
   validateRun(coordinator, { runId: coordinatorRunId, headSha: coordinatorHeadSha,
     branch: `compute-request/${request.job.id}`, event: 'pull_request', workflow: DISPATCH_WORKFLOW, actor: 'bmartynowicz' });
   if (coordinator.status !== 'completed') return { state: 'pending', coordinatorRunUrl: url(coordinatorRunId), automaticRetries: 0 };
-  if (coordinator.conclusion !== 'success') throw Error('coding_coordinator_did_not_pass');
-  const jobs = checkedJobs(await get(`/actions/runs/${coordinatorRunId}/jobs?per_page=10`), coordinatorRunId, ['offline', 'unattended-dispatch']);
+  if (!['success', 'failure'].includes(coordinator.conclusion)) throw Error('coding_coordinator_did_not_pass');
+  const jobs = checkedJobs(await get(`/actions/runs/${coordinatorRunId}/jobs?per_page=10`), coordinatorRunId,
+    ['offline', 'unattended-dispatch'], { 'unattended-dispatch': coordinator.conclusion });
   const result = readResult(await get(`/actions/jobs/${jobs.find(j => j.name === 'unattended-dispatch').id}/logs`, true), request, coordinatorRunId);
+  const conclusion = result.receipt.state === 'completed' ? 'success' : 'failure';
+  if (coordinator.conclusion !== conclusion) throw Error('coding_result_not_verified');
   const worker = await get(`/actions/runs/${result.workerRunId}`);
   validateRun(worker, { runId: result.workerRunId, headSha: request.workerCommit, branch: request.workerRef,
     event: 'workflow_dispatch', workflow: '.github/workflows/compute-worker.yml', actor: 'github-actions[bot]' });
-  if (worker.status !== 'completed' || worker.conclusion !== 'success'
+  if (worker.status !== 'completed' || worker.conclusion !== conclusion
     || worker.display_title !== `picard-compute/${request.job.id}/${jobSha256(request.job)}`) throw Error('coding_worker_did_not_pass');
-  checkedJobs(await get(`/actions/runs/${result.workerRunId}/jobs?per_page=10`), result.workerRunId, ['fixed-project-checks']);
+  checkedJobs(await get(`/actions/runs/${result.workerRunId}/jobs?per_page=10`), result.workerRunId,
+    ['fixed-project-checks'], { 'fixed-project-checks': conclusion });
   for (const runId of [coordinatorRunId, result.workerRunId]) {
     const artifacts = await get(`/actions/runs/${runId}/artifacts?per_page=10`);
     if (artifacts?.total_count !== 0 || !Array.isArray(artifacts.artifacts) || artifacts.artifacts.length !== 0)
       throw Error('coding_unexpected_uploaded_artifacts');
   }
-  return { state: 'passed', jobId: request.job.id, sourceSha: request.job.input.text,
-    scope: 'compute-broker test suite, normal and jitless; no whole-repository or production claim',
-    normalExitCode: 0, jitlessExitCode: 0, coordinatorHeadSha, coordinatorRunUrl: url(coordinatorRunId), workerRunUrl: result.workerRunUrl,
+  return { state: result.receipt.state === 'completed' ? 'passed' : 'failed', jobId: request.job.id, sourceSha: request.job.input.text,
+    scope: request.workerRef === LEGACY_WORKER.workerRef ? 'compute-broker normal/jitless (legacy worker v1)' : REPOSITORY_SCOPE,
+    checks: result.receipt.result.checks ?? null, coordinatorHeadSha, coordinatorRunUrl: url(coordinatorRunId), workerRunUrl: result.workerRunUrl,
     receipt: result.receipt, savedRecoveryAfterRestart: true, uploadedArtifacts: 0, automaticRetries: 0 };
 }
 async function main(args) {
-  if (args[0] === 'prepare' && args.length === 3) return prepareCheck(args[1], args[2]);
+  if (args[0] === 'prepare' && args.length === 3) {
+    if (/^0+$/.test(WORKER.workerCommit) || WORKER.workerSha256 !== workerSha256()) throw Error('coding_worker_not_enrolled');
+    return prepareCheck(args[1], args[2]);
+  }
   if (args[0] === 'collect' && args.length === 4 && /^[1-9][0-9]*$/.test(args[3])) {
     const stat = lstatSync(args[1]);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 8192) throw Error('coding_request_file_invalid');
@@ -110,7 +125,9 @@ async function main(args) {
   throw Error('coding_usage_prepare_SOURCE_SHA_JOB_ID_or_collect_REQUEST_FILE_HEAD_SHA_RUN_ID');
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main(process.argv.slice(2)).then(value => console.log(JSON.stringify(value, null, 2))).catch(error => {
+  main(process.argv.slice(2)).then(value => {
+    console.log(JSON.stringify(value, null, 2)); if (value.state === 'failed') process.exitCode = 1;
+  }).catch(error => {
     console.error(JSON.stringify({ state: 'unverified', reason: /^coding_[a-zA-Z_]+$/.test(error.message) ? error.message : 'coding_operation_failed', automaticRetries: 0 }));
     process.exitCode = 1;
   });

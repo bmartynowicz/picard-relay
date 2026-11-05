@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { prepareCheck, readResult, collectCheck, githubGet } from '../coding-check.mjs';
 import { makeReceipt, jobSha256 } from '../src/execution-protocol.mjs';
 import { CLOCK } from './helpers.mjs';
+import { REPOSITORY_CHECKS } from '../src/repository-checks.mjs';
 
 const sourceSha = 'a'.repeat(40), headSha = 'c'.repeat(40);
 function fixture() {
@@ -12,7 +13,7 @@ function fixture() {
     coordinatorRunId: 101, workerRunId: 202, workerRunUrl: 'https://github.com/bmartynowicz/picard-relay/actions/runs/202',
     transport: 'unattended-mcp-github-rest-api', credential: 'ephemeral-GITHUB_TOKEN', browserUsed: false,
     savedRecoveryAfterRestart: true, receipt: makeReceipt(request.job, request.workerSha256, 'completed',
-      { sourceSha, normalExitCode: 0, jitlessExitCode: 0 }) };
+      { sourceSha, scope: 'full-repository-v1', checks: REPOSITORY_CHECKS.map(c => ({ id: c.id, exitCode: 0 })) }) };
   const logs = () => [intent, summary].map(r => `2026-11-04T00:00:00.0000000Z ${JSON.stringify(r)}`).join('\n');
   const coordinator = { id: 101, head_sha: headSha, head_branch: 'compute-request/coding-check-one', event: 'pull_request',
     path: '.github/workflows/compute-broker-tests.yml', run_attempt: 1, actor: { login: 'bmartynowicz' },
@@ -68,11 +69,28 @@ test('collection verifies both real run identities, standard runners and zero up
   assert.equal(result.state, 'passed'); assert.equal(result.sourceSha, sourceSha); assert.equal(f.calls.length, 7);
   assert.equal(result.uploadedArtifacts, 0); assert.equal(result.automaticRetries, 0);
 });
-test('pending collection returns after one read; coordinator failure stops with no worker lookup', async () => {
+test('pending collection returns after one read; coordinator cancellation stops with no worker lookup', async () => {
   const f = fixture(); f.coordinator.status = 'in_progress';
   assert.equal((await collectCheck(f.request, headSha, 101, { get: f.get })).state, 'pending'); assert.equal(f.calls.length, 1);
-  f.coordinator.status = 'completed'; f.coordinator.conclusion = 'failure';
+  f.coordinator.status = 'completed'; f.coordinator.conclusion = 'cancelled';
   await assert.rejects(collectCheck(f.request, headSha, 101, { get: f.get }), /did_not_pass/); assert.equal(f.calls.length, 2);
+});
+test('known repository test failures are retrieved with each group result and never mislabeled passed', async () => {
+  const f = fixture(), result = structuredClone(f.summary.receipt.result); result.checks[2].exitCode = 1;
+  f.summary.receipt = makeReceipt(f.request.job, f.request.workerSha256, 'failed', result, 'project_checks_failed');
+  f.coordinator.conclusion = 'failure'; f.worker.conclusion = 'failure';
+  f.data['/actions/runs/101/jobs?per_page=10'].jobs[1].conclusion = 'failure';
+  f.data['/actions/runs/202/jobs?per_page=10'].jobs[0].conclusion = 'failure';
+  const collected = await collectCheck(f.request, headSha, 101, { get: f.get });
+  assert.equal(collected.state, 'failed'); assert.equal(collected.checks[2].id, 'runtime');
+  assert.equal(collected.checks[2].exitCode, 1); assert.equal(f.calls.length, 7);
+});
+test('the legacy worker v1 result remains readable after installing repository worker v2', () => {
+  const f = fixture(); Object.assign(f.request, { workerRef: 'compute-worker-v1',
+    workerCommit: 'b928ef2a10c7792a9c709f38a8065373d76160b4',
+    workerSha256: 'ae31a4c71dbf5a79a751832199e6dd8b77af4a82bb02426890486b1619d00439' });
+  f.summary.receipt = makeReceipt(f.request.job, f.request.workerSha256, 'completed', { sourceSha, normalExitCode: 0, jitlessExitCode: 0 });
+  assert.equal(readResult(f.logs(), f.request, 101).receipt.state, 'completed');
 });
 test('collection denies reruns, different commits, private repos, unexpected runners/jobs and uploads', async () => {
   for (const mutate of [f => f.coordinator.run_attempt = 2, f => f.coordinator.head_sha = sourceSha,

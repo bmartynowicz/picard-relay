@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { normalizeJob } from './job.mjs';
 import { boundedProcess } from './process.mjs';
 import { workerSha256, jobSha256, makeReceipt, hex256 } from './execution-protocol.mjs';
+import { runRepositorySuites, repositoryResultState, REPOSITORY_SCOPE } from './repository-checks.mjs';
 
 export const RESULT_MARKER = 'PICARD_COMPUTE_RESULT_V1:';
 function logTail(text) {
@@ -10,21 +11,17 @@ function logTail(text) {
   for (const char of [...text.trim().slice(-256)]) { if (Buffer.byteLength(output + char) > 256) break; output += char; }
   return output;
 }
-export async function runProjectChecks(value, { directory, sourceHash, run = boundedProcess, signal } = {}) {
+export async function runProjectChecks(value, { directory, sourceHash, run = boundedProcess, suites = runRepositorySuites,
+  log = () => {}, signal } = {}) {
   const job = normalizeJob(value);
   if (job.operation !== 'project-checks' || job.workload !== 'project-ci' || !hex256(sourceHash)) throw Error('invalid_project_ci_job');
   const env = { PATH: process.env.PATH, CI: 'true', LANG: 'C.UTF-8', TMPDIR: process.env.TMPDIR || '/tmp' };
   const revision = await run('/usr/bin/git', ['rev-parse', '--verify', 'HEAD'], { cwd: directory, env, timeoutMs: 5000, maximumBytes: 1024, signal });
   if (revision.code !== 0 || revision.stdout.trim() !== job.input.text) throw Error('source_revision_mismatch');
-  const options = { cwd: directory, env, timeoutMs: 60_000, maximumBytes: 65_536, signal };
-  const normal = await run(process.execPath, ['--test', '--test-concurrency=1', 'experimental/compute-broker/test/*.test.mjs'], options);
-  const jitless = normal.code === 0 ? await run(process.execPath,
-    ['--jitless', '--test', '--test-concurrency=1', 'experimental/compute-broker/test/*.test.mjs'], options) : null;
-  if (!Number.isSafeInteger(normal.code) || (jitless && !Number.isSafeInteger(jitless.code))) throw Error('project_ci_outcome_unknown');
-  const passed = normal.code === 0 && jitless?.code === 0;
-  return makeReceipt(job, sourceHash, passed ? 'completed' : 'failed', {
-    sourceSha: job.input.text, normalExitCode: normal.code, jitlessExitCode: jitless?.code ?? null,
-  }, passed ? '' : 'project_checks_failed', [logTail(normal.stdout), ...(jitless ? [logTail(jitless.stdout)] : [])]);
+  const { checks, logs } = await suites(directory, { log });
+  const result = { sourceSha: job.input.text, scope: REPOSITORY_SCOPE, checks };
+  const state = repositoryResultState(result);
+  return makeReceipt(job, sourceHash, state, result, state === 'completed' ? '' : 'project_checks_failed', logs.map(logTail));
 }
 async function main() {
   const encoded = process.env.PICARD_JOB_JSON_B64;
@@ -34,7 +31,7 @@ async function main() {
   const sourceHash = workerSha256();
   if (process.env.PICARD_EXPECTED_JOB_ID !== job.id || process.env.PICARD_EXPECTED_JOB_SHA !== jobSha256(job)
     || process.env.PICARD_EXPECTED_WORKER_SHA !== sourceHash) throw Error('project_ci_identity_mismatch');
-  const receipt = await runProjectChecks(job, { sourceHash, directory: resolve(process.env.GITHUB_WORKSPACE, 'source') });
+  const receipt = await runProjectChecks(job, { sourceHash, directory: resolve(process.env.GITHUB_WORKSPACE, 'source'), log: console.log });
   console.log(`${RESULT_MARKER}${Buffer.from(JSON.stringify(receipt)).toString('base64')}`);
   if (receipt.state !== 'completed') process.exitCode = 1;
 }

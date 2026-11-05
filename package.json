@@ -8,6 +8,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "check:repository": "node experimental/compute-broker/src/repository-checks.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "demo": "node examples/hello-local.mjs",
     "start": "node src/oracle-service.mjs",

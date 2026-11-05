@@ -38,7 +38,7 @@ jobs:
       startsWith(github.head_ref, 'compute-request/') &&
       github.run_attempt == 1
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 12
     concurrency:
       group: picard-dispatch-${{ github.head_ref }}
       cancel-in-progress: false

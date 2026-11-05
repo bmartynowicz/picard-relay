@@ -64,7 +64,7 @@ export function createGitHubExecutor(profile, { token = () => process.env[profil
       response = await fetchImpl(location.href, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(5000) });
     }
     if (response.status !== 200) { await response.body?.cancel(); throw Error('github_logs_unavailable'); }
-    return body(response);
+    return body(response, 4_194_304); // Seven bounded test-log groups plus GitHub timestamps/setup output.
   }
   return { kind: 'github-public-ci', context, observe,
     async execute(job, { signal, mayDispatch = () => false } = {}) {
