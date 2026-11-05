@@ -220,6 +220,16 @@
   "workRegister": "docs/work-register.json",
   "illustrations": [
     {
+      "path": "docs/images/choose-a-start.svg",
+      "textEquivalent": "README.md",
+      "purpose": "Compare the offline demo, synthetic interface, enrolled host and integration paths"
+    },
+    {
+      "path": "docs/images/first-request.svg",
+      "textEquivalent": "docs/QUICKSTART.md",
+      "purpose": "Follow the V1 workspace from request draft through approval and saved answer"
+    },
+    {
       "path": "docs/images/request-flow.svg",
       "textEquivalent": "docs/ARCHITECTURE.md",
       "purpose": "Exact approved request, durable ledger, one provider call and saved result"

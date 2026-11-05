@@ -2,25 +2,21 @@
 
 Picard Relay accepts a narrowly approved AI request, records it durably, sends it to the configured provider once, and makes the saved answer available for later retrieval. It also provides an authenticated console for inspecting the relay. Generated answers are proposals for a person to review; Picard does not execute them.
 
-## Start here
+## Find your path
 
-| Goal | Read |
-| --- | --- |
-| Create requests, download results and review answers | [V1 workflow](V1.md), [AI/API contract](workspace-contract.json) |
-| Understand Picard and try it without an account | [Quickstart](QUICKSTART.md) |
-| Use the live console and recover an answer | [Console guide](CONSOLE-WORKSPACE.md) |
-| Understand components, authority and job states | [Architecture](ARCHITECTURE.md) |
-| Integrate a client or inspect the protocol | [API reference](API.md) |
-| Configure, release, operate or troubleshoot a host | [Operations](OPERATIONS.md) |
-| Change code and run the appropriate checks | [Development](DEVELOPMENT.md) |
-| Ask Picard to check an exact public code commit and retrieve its result | [Coding-agent workflow](../experimental/compute-broker/CODING-WORKFLOW.md) |
-| Connect the System update-check button | [Owner update checks](OWNER-UPDATES.md) |
-| Understand constraints and unsupported behavior | [Limitations](LIMITATIONS.md) |
-| Find known bugs and requested features | [Work register](WORK-REGISTER.md), [structured register](work-register.json) |
-| Check what has actually been verified | [Status](STATUS.md) |
-| Explore the separate compute broker and disabled execution adapters | [Compute broker preview](../experimental/compute-broker/README.md), [provider research](../experimental/compute-broker/PROVIDERS.md), [execution enrollment](../experimental/compute-broker/EXECUTION.md) |
+![Four ways to start: terminal demo, synthetic interface, enrolled relay, or integration guides](images/choose-a-start.svg)
 
-For AI tools, begin with [../llms.txt](../llms.txt), [../AGENTS.md](../AGENTS.md) and [project-map.json](project-map.json). The JSON files use stable IDs, explicit states and repository-relative paths. They contain no credentials or ready-to-run approval grants.
+**New to Picard?** [Quickstart](QUICKSTART.md) · [V1 workspace](V1.md) · [Console guide](CONSOLE-WORKSPACE.md)
+
+**Building or operating?** [Architecture](ARCHITECTURE.md) · [API](API.md) · [Operations](OPERATIONS.md) · [Development](DEVELOPMENT.md) · [Coding-agent workflow](../experimental/compute-broker/CODING-WORKFLOW.md)
+
+**Updating your relay?** [System update button and host connection](OWNER-UPDATES.md)
+
+**Before relying on it:** [Limitations](LIMITATIONS.md) · [Known work](WORK-REGISTER.md) · [Verified status](STATUS.md)
+
+**Experimental:** [Compute broker](../experimental/compute-broker/README.md) · [Provider research](../experimental/compute-broker/PROVIDERS.md) · [Execution enrollment](../experimental/compute-broker/EXECUTION.md)
+
+**AI tools:** [llms.txt](../llms.txt) · [AGENTS.md](../AGENTS.md) · [Project map](project-map.json) · [Workspace contract](workspace-contract.json) · [Structured work register](work-register.json)
 
 ## Which information wins?
 
