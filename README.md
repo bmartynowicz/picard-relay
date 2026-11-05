@@ -10,7 +10,7 @@ Keep the essentials in view. Open the detail when you need it.
 
 [![Picard Relay cockpit: moving stars, spinning brass insignia, projected activity and an expanded Jobs deck](docs/images/cockpit-jobs.png)](docs/COCKPIT-TOUR.md)
 
-**[Take the cockpit tour](docs/COCKPIT-TOUR.md)** · [Watch the 15-second video](docs/images/picard-cockpit-walkthrough.mp4) · [Animated GIF](docs/images/picard-cockpit-walkthrough.gif)
+**[Take the cockpit tour](docs/COCKPIT-TOUR.md)** · [Watch the 15-second GIF](docs/images/picard-cockpit-walkthrough.gif) · [Video file (MP4)](docs/images/picard-cockpit-walkthrough.mp4)
 
 Recorded on the enrolled v1.0.33 relay. Activate the top-left insignia five times
 to enter the optional cockpit. Select a view to open its reading deck; click

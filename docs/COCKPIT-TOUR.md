@@ -8,8 +8,8 @@ activity and your next action in front of a slowly moving starfield.
 
 [![Picard cockpit with a spinning brass insignia, moving stars and projected activity counts](images/cockpit-overview.png)](images/picard-cockpit-walkthrough.gif)
 
-**[Watch the 15-second walkthrough](images/picard-cockpit-walkthrough.mp4)** ·
-[Animated GIF](images/picard-cockpit-walkthrough.gif) ·
+**[Watch the 15-second walkthrough](images/picard-cockpit-walkthrough.gif)** ·
+[Video file (MP4)](images/picard-cockpit-walkthrough.mp4) ·
 [AI-readable tour](interface-tour.json)
 
 The silent recording shows the enrolled v1.0.33 console on November 5, 2026.
@@ -85,7 +85,8 @@ scene functional. Keep that opening and the return to open space when sharing
 the clip. It is silent, so pair it with the caption or the text tour above.
 
 Use the MP4 for a lightweight, controllable video; use the GIF where inline
-animation is supported, or either still image where motion is unwelcome. The
+animation is supported, or either still image where motion is unwelcome. On
+GitHub, open the MP4 and choose **View raw** to download it. The
 original 26.3 MB recording is preserved with the owner. The documentation copies
 are about **0.64 MB MP4** and **2.05 MB GIF**, with the same sequence at lower
 resolution; the GIF is also reduced to 10 frames per second. The
