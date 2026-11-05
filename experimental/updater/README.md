@@ -29,3 +29,7 @@ The authenticated console rejects unsafe, oversized, malformed, stale or materia
 Run `npm --prefix experimental/updater test` with Node 24 and OpenSSL on Linux. Tests use mocked provider behavior and local TLS/transaction fixtures; no live model is called. Dated installed-source evidence belongs in [Status](../../docs/STATUS.md). Arbitrary crash/power-loss/disk-full behavior and general host bootstrapping are not established by synthetic transaction tests.
 
 Host configuration, credentials, grants, ledger, firewall/proxy/SELinux configuration, Node binary and schema migration are outside the source update scope.
+
+## Owner-request candidate
+
+`owner-request.mjs` plus `picard-owner-update.path`/`.service` provide a separately enrolled fixed request for the existing updater. They add no generic command or network listener. Read the [host checklist](../../docs/OWNER-UPDATES.md) before installation. Runtime source alone cannot activate this bridge.

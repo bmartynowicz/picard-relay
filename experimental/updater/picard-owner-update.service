@@ -1,0 +1,19 @@
+[Unit]
+Description=Request the existing fixed signed Picard updater
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/lib/picard-updater/node --jitless /usr/local/lib/picard-updater/owner-request.mjs
+TimeoutStartSec=210
+MemoryMax=64M
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/picard-update-requests /var/lib/picard-updater-status
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true

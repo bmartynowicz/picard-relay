@@ -200,6 +200,7 @@
   "guides": [
     "docs/QUICKSTART.md",
     "docs/CONSOLE-WORKSPACE.md",
+    "docs/OWNER-UPDATES.md",
     "docs/ARCHITECTURE.md",
     "docs/API.md",
     "docs/OPERATIONS.md",
