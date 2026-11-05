@@ -361,7 +361,7 @@
       "kind": "feature",
       "title": "Separate zero-dollar compute broker",
       "status": "source_candidate",
-      "behavior": "PRs #7-11 merged. The broker-only coding workflow was live-qualified from main fc92378; coordinator 41945787814 and worker 41945835887 passed 93 normal/jitless tests and result recovery, with consumed allowances. New full-repository source candidate adds a separately pinned worker v2 and seven fixed groups: root, updater, signed runtime, real sockets, broker normal/jitless and docs. Every group exit is retained, known test failures are returned as verified failed results, and legacy worker-v1 receipts remain readable. Standard public runners, no uploads/cache, browser/PAT, provisioning, execution retries or paid fallback. Worker-v2 protection/pinning and exact-source live qualification remain pending in this checkpoint.",
+      "behavior": "PRs #7-11 merged. Full-repository source candidate in PR #13 is live-qualified at 294c2b326bdd4fa7f75a58a1331b9911a274ccba: coordinator 41950670534 and worker 41950732401 passed root, updater, signed runtime, actual sockets, broker normal/jitless and docs; saved recovery and read-only collection verified. Protected worker v2 is pinned at c3d05f0; original v1 and legacy receipts remain intact. Every group exit is retained and known test failures are returned as verified failed results. Standard public runners, zero uploaded artifacts, no cache uploads/browser/PAT for dispatch/provisioning/execution retries/paid fallback. This request is consumed; implementation awaits review/merge separately from production or full cloud-network acceptance.",
       "sourceFiles": [
         "experimental/compute-broker/src/policy.mjs",
         "experimental/compute-broker/src/store.mjs",
@@ -399,7 +399,7 @@
         "experimental/compute-broker/test/coding-check.test.mjs",
         "experimental/compute-broker/test/repository-checks.test.mjs"
       ],
-      "remaining": "Protect/pin worker v2, qualify and review the full-repository operation on its exact source, and retain existing consumed evidence. Broader durable orchestration, account-wide preventive cost controls and owner acceptance remain open. Individual proofs do not authorize new jobs or complete the full cloud-network task."
+      "remaining": "Review/merge PR #13 and verify the merged helper while retaining consumed evidence. Broader durable orchestration, account-wide preventive cost controls and owner acceptance remain open. Individual proofs do not authorize new jobs or complete the full cloud-network task."
     }
   ]
 }
