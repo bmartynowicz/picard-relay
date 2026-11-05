@@ -61,7 +61,13 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
     }
     let enrolled=false;try{policy();enrolled=true;}catch{}
     const availability=currentAvailability();
-    return reply(200,{v:1,enabled:true,observedAt:new Date(now()).toISOString(),ready:enrolled&&ready(),blockingCode:enrolled?availability?.code??'configuration_unavailable':'configuration_unavailable',provider:'Groq',model:'openai/gpt-oss-20b',limits:{maxCalls:1,maxOutputTokens:4096,maxRequestCharacters:4000,maxContextCharacters:4000,maxTitleCharacters:200,maxCombinedInputBytes:12000,requestLifetimeMs:900000,approvalLifetimeMs:60000,activeJobs:8,attemptsPerMinute:10,tools:false,retries:0,paidFallback:false},usage:{jobs:store.relay.scopedStats({ownerId:binding.ownerId}),measuredTokens:null,billedUsd:null,liveBillingVerified:false},setup:{ownerAuthentication:true,durableStorage:true,providerEnrollment:enrolled,backupStatus:'operator_managed'}});
+    const jobs=store.relay.scopedStats({ownerId:binding.ownerId});
+    let training=null;try{
+     const ref=store.workspaceReviewedRef(),saved=ref?await ownedResult(ref):null;
+     training={v:1,hasSavedResult:jobs.some(row=>row.state==='completed'&&row.count>0),hasReviewedResult:!!(saved?.resultAvailable&&saved.review.revision>0)};
+     if(training.hasReviewedResult&&!training.hasSavedResult)training=null;
+    }catch{/* An unverifiable milestone never blocks status or result recovery. */}
+    return reply(200,{v:1,enabled:true,observedAt:new Date(now()).toISOString(),ready:enrolled&&ready(),blockingCode:enrolled?availability?.code??'configuration_unavailable':'configuration_unavailable',provider:'Groq',model:'openai/gpt-oss-20b',limits:{maxCalls:1,maxOutputTokens:4096,maxRequestCharacters:4000,maxContextCharacters:4000,maxTitleCharacters:200,maxCombinedInputBytes:12000,requestLifetimeMs:900000,approvalLifetimeMs:60000,activeJobs:8,attemptsPerMinute:10,tools:false,retries:0,paidFallback:false},training,usage:{jobs,measuredTokens:null,billedUsd:null,liveBillingVerified:false},setup:{ownerAuthentication:true,durableStorage:true,providerEnrollment:enrolled,backupStatus:'operator_managed'}});
    }
    store.recordAttempt(scope);
    if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(req.headers['content-type']??''))stop('request_invalid');

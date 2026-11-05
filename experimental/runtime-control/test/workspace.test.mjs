@@ -3,6 +3,19 @@ import assert from 'node:assert/strict';
 import {workspaceFixture,fixtureToken} from '../../../test/fixtures/workspace-fixture.mjs';
 import {DatabaseSync} from 'node:sqlite';
 const fixture=async(t,options)=>{const f=await workspaceFixture(options);t.after(()=>f.close());return f;};
+test('training derives from owned durable work and reviews, survives restart and never invokes',async t=>{
+ const f=await fixture(t);assert.deepEqual((await f.request('/workspace/config')).body.training,{v:1,hasSavedResult:false,hasReviewedResult:false});
+ const d=await f.prepare(),proof=await f.approve(d);await f.submit(d,proof);assert.equal((await f.request('/workspace/config')).body.training.hasSavedResult,false);await f.dispatcher.runOnce();
+ assert.deepEqual((await f.request('/workspace/config')).body.training,{v:1,hasSavedResult:true,hasReviewedResult:false});const result=(await f.request('/workspace/requests/'+d.payload.eventId)).body;
+ await f.request('/workspace/reviews/'+result.ref,{body:{expectedRevision:0,decision:'changes_requested',note:'Learning includes requesting corrections.',resultSha256:result.result.sha256}});f.restart();
+ assert.deepEqual((await f.request('/workspace/config')).body.training,{v:1,hasSavedResult:true,hasReviewedResult:true});assert.equal(f.calls,1);
+ const db=new DatabaseSync(f.dbPath);db.prepare('UPDATE relay_jobs SET owner=? WHERE event_id=?').run('another-owner',result.ref);db.close();const config=await f.request('/workspace/config');assert.equal(config.status,200);assert.equal(config.body.training,null);assert.equal(f.calls,1);
+});
+test('corrupted reviewed output cannot earn a rank or make configuration unavailable',async t=>{
+ const f=await fixture(t),d=await f.prepare(),proof=await f.approve(d);await f.submit(d,proof);await f.dispatcher.runOnce();const result=(await f.request('/workspace/requests/'+d.payload.eventId)).body;
+ await f.request('/workspace/reviews/'+result.ref,{body:{expectedRevision:0,decision:'accepted',note:'Original reviewed.',resultSha256:result.result.sha256}});
+ const db=new DatabaseSync(f.dbPath),saved=JSON.parse(f.store.get(result.ref).result_json);db.prepare('UPDATE relay_jobs SET result_json=? WHERE event_id=?').run(JSON.stringify({...saved,body:'Tampered result'}),result.ref);db.close();const config=await f.request('/workspace/config');assert.equal(config.status,200);assert.equal(config.body.training,null);assert.equal(f.calls,1);
+});
 test('ordinary request: inert draft, exact approval, one call, restart and recover unchanged output',async t=>{
  const f=await fixture(t),d=await f.prepare();assert.equal(f.calls,0);assert.equal(f.store.get(d.payload.eventId),null);
  assert.equal((await f.request('/workspace/requests/'+d.payload.eventId)).body.state,'draft');

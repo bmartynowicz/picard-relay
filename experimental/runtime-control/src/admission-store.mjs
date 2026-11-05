@@ -245,6 +245,17 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
   if(history.some((r,i)=>r.revision!==i+1))stop('review_invalid');
   return {revision:history.length,latest:history.at(-1)??null,history};
  }
+ // One indexed lookup; the handler validates the original owner/result/review.
+ // Progress is derived from durable work, without a second tracking ledger.
+ function workspaceReviewedRef(){
+  if(workspaceEnabled!==true)stop('production_admission_disabled');
+  const prefix=PREFIX+'workspace:'+workspaceScope()+':review:';
+  const row=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? ORDER BY nonce LIMIT 1').get(prefix+'*');
+  if(!row)return null;
+  const ref=row.nonce.slice(prefix.length,prefix.length+64);
+  if(row.expires!==ASSOCIATION_EXPIRY||!hex(ref)||row.nonce[prefix.length+64]!==':')stop('review_invalid');
+  return ref;
+ }
  function saveWorkspaceReview({ref,expectedRevision,decision,note,resultSha256}){
   return transaction(()=>{
    if(!integer(expectedRevision)||!['accepted','changes_requested'].includes(decision)||typeof note!=='string'||note.length>2000||!hex(resultSha256))stop('request_invalid');
@@ -350,7 +361,7 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
    if(changed.changes!==1)return null;const claimed=get(row.event_id);return {...claimed,request_id:claimed.event_id};
   });
  }
- return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,commitWorkspace,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,saveWorkspaceReview,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,reconcileEligible,claimEligible,
+ return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,commitWorkspace,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,saveWorkspaceReview,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,reconcileEligible,claimEligible,
   close(){db.close();if(!relayStore)relay.close();},
  });
 }
