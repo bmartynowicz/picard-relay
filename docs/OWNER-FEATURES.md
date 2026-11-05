@@ -41,9 +41,12 @@ exports are hidden; history, original answers and recovery remain available.
 ## Windshield HUD
 
 Activate the insignia five times to switch between the console and an optional
-space windshield. The navigation keeps its existing material and colors. Two
+space windshield. A centered horizontal control rail keeps the navigation opaque
+and preserves the spinning upper-left insignia. Two
 small inline SVG star planes scale slowly over 90 seconds, giving a sense of
-forward travel. The scene is clipped outside the navigation. Stars remain off by
+forward travel. Tiny round stroke caps replace expanding square pixels; the two
+planes still contain only four static paths. The opaque navigation covers the
+scene. Stars remain off by
 default and persist only in the current page.
 
 The compact view shows relay readiness, projected **active** and **completed**
@@ -53,11 +56,14 @@ observations show unknown counts. Clicking the counts opens Jobs; clicking
 readiness opens System. The next action continues an unfinished request or the
 current onboarding step.
 
-Navigation opens a floating opaque panel: 560px for Groq/System, 660px for
-Overview and 760px for Jobs/Requests, bounded by the viewport. Narrow layouts
-use one column and a scrollable panel. **Minimize panel** or Escape restores the
+Navigation expands a centered lower reading deck: up to 560px for Groq/System,
+800px for Overview and 960px for Jobs/Requests, bounded by the viewport. The
+readouts remain anchored above it. Narrow layouts use one column and a scrollable
+deck. **Minimize panel**, Escape or clicking open starfield restores the
 windshield without clearing the draft, selected result or job context. Focus
 returns to an instrument. Counts use a static text glow; they add no animation.
+Clicks on controls or inside the deck do not retract it. Navigation is horizontal
+at every size, using a second header row on smaller screens.
 
 There is no canvas, WebGL, bitmap download, blur, pointer tracker, JavaScript
 render loop, dependency or new polling timer. Two CSS star animations run only
@@ -89,6 +95,15 @@ booleans, five view widths, unknown/inherited names, minimizing/Escape, private
 clearing and truthful projected counts. Original proposals and reviews remain
 saved. Generated text was reviewed before integration, never auto-executed.
 Source checks remain separate from installation and owner acceptance.
+
+A [third saved proposal](https://picard-relay.141-148-50-78.sslip.io/#requests/6352a2dfda1a1c86557bec3f9c1ede78ec9fc48763374a18e752164935d4cd9d)
+helped generate the static round-dot paths for the cockpit refinement. Review
+changed each point to an independent move command (the proposal connected them),
+rejected sparse arrays and corrected the suggested assertions. The corrected
+generator ran during development; the browser receives static path data. CSS
+compositor scaling can still change apparent dot size; the thin round strokes
+keep the rendered geometry round. This was one existing Free-enrollment call,
+without tools, retries, paid fallback or source/private data in the brief.
 
 The [physical badge research](BADGE-RESEARCH.md) is a separate no-purchase
 prototype/design, not an installed device-sync feature.
