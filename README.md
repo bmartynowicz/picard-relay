@@ -54,6 +54,10 @@ Picard Relay is a lightweight Node.js + SQLite relay for bounded AI requests. It
 
 The v1 source adds ordinary request creation, exact-input approval, named job history, saved answer/code downloads, provenance handoff and persistent owner reviews. It reuses the durable one-call relay and existing Groq enrollment. Read the [v1 guide](docs/V1.md) and [machine-readable workspace contract](docs/workspace-contract.json).
 
+![Picard Relay interface walkthrough: overview, request creation, provider status, job history and saved-result review](docs/images/picard-relay-interface-demo.gif)
+
+*A 27-second silent interface walkthrough. The saved code proposal shown is a synthetic example; generated code remains inert until you choose to use it.*
+
 Try the complete workflow locally with Node 24:
 
 ```sh
