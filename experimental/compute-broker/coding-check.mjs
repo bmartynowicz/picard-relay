@@ -1,0 +1,117 @@
+import { lstatSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { boundedProcess } from './src/process.mjs';
+import { workerSha256, jobSha256 } from './src/execution-protocol.mjs';
+import { validateReceipt } from './src/receipt.mjs';
+import { REPOSITORY, DISPATCH_WORKFLOW, validateRequestEnvelope } from './unattended.mjs';
+
+const WORKER = Object.freeze({ workerRef: 'compute-worker-v1',
+  workerCommit: 'b928ef2a10c7792a9c709f38a8065373d76160b4',
+  workerSha256: 'ae31a4c71dbf5a79a751832199e6dd8b77af4a82bb02426890486b1619d00439' });
+const sha = v => typeof v === 'string' && /^[0-9a-f]{40}$/.test(v);
+const id = v => Number.isSafeInteger(v) && v > 0;
+const url = runId => `https://github.com/${REPOSITORY}/actions/runs/${runId}`;
+
+function validateCodingRequest(value) {
+  // Historical collection validates the original envelope at issuance; it grants no execution authority.
+  const request = validateRequestEnvelope(value, value?.approvedAt);
+  if (Object.keys(WORKER).some(k => request[k] !== WORKER[k]) || workerSha256() !== WORKER.workerSha256)
+    throw Error('coding_worker_pin_mismatch');
+  return request;
+}
+export function prepareCheck(sourceSha, jobId, now = Date.now()) {
+  if (!id(now) || !Number.isSafeInteger(now + 7_200_000)) throw Error('coding_clock_invalid');
+  return validateCodingRequest({ schemaVersion: 1, enabled: true, approvedAt: now, validUntil: now + 7_200_000,
+    ...WORKER, job: { id: jobId, operation: 'project-checks', workload: 'project-ci', arch: 'x64',
+      needs: { cpuMs: 360_000, ramMb: 4096, diskMb: 0, gpus: 0 }, input: { text: sourceSha }, timeoutMs: 30_000 } });
+}
+export async function githubGet(path, raw = false) {
+  if (!/^\/actions\/(runs|jobs)\/[1-9][0-9]*(?:\/(?:jobs|artifacts)\?per_page=10|\/logs)?$/.test(path))
+    throw Error('coding_read_path_denied');
+  const result = await boundedProcess('gh', ['api', '--method', 'GET', `repos/${REPOSITORY}${path}`],
+    { timeoutMs: 15_000, maximumBytes: 262_144 });
+  if (result.code !== 0) throw Error('coding_github_read_failed');
+  return raw ? result.stdout : JSON.parse(result.stdout);
+}
+function validateRun(run, { runId, headSha, branch, event, workflow, actor }) {
+  if (run?.id !== runId || run.head_sha !== headSha || run.head_branch !== branch || run.event !== event
+    || run.path !== workflow || run.run_attempt !== 1 || run.actor?.login !== actor
+    || run.repository?.full_name !== REPOSITORY || run.repository.private !== false)
+    throw Error('coding_run_identity_mismatch');
+}
+function checkedJobs(value, runId, names) {
+  if (value?.total_count !== names.length || !Array.isArray(value.jobs) || value.jobs.length !== names.length
+    || names.some(name => value.jobs.filter(j => j.name === name).length !== 1)
+    || value.jobs.some(j => !id(j.id) || j.run_id !== runId || j.run_attempt !== 1 || j.status !== 'completed'
+      || j.conclusion !== 'success' || !Array.isArray(j.labels) || !j.labels.includes('ubuntu-latest')
+      || j.labels.includes('self-hosted'))) throw Error('coding_jobs_not_verified');
+  return value.jobs;
+}
+export function readResult(logs, request, coordinatorRunId) {
+  validateCodingRequest(request);
+  if (typeof logs !== 'string' || Buffer.byteLength(logs) > 262_144) throw Error('coding_logs_invalid');
+  const records = [];
+  for (const line of logs.split(/\r?\n/)) {
+    const text = line.replace(/^\d{4}-\d\d-\d\dT[0-9:.]+Z /, '');
+    if (!text.startsWith('{')) continue;
+    let record; try { record = JSON.parse(text); } catch { throw Error('coding_log_json_invalid'); }
+    if (['PICARD_UNATTENDED_INTENT_V1', 'PICARD_UNATTENDED_RESULT_V1', 'PICARD_UNATTENDED_STOP_V1'].includes(record.marker)) records.push(record);
+  }
+  const intents = records.filter(r => r.marker === 'PICARD_UNATTENDED_INTENT_V1');
+  const results = records.filter(r => r.marker === 'PICARD_UNATTENDED_RESULT_V1');
+  const intent = intents[0], result = results[0];
+  if (!id(coordinatorRunId) || records.length !== 2 || intents.length !== 1 || results.length !== 1
+    || records[0] !== intent || intent.jobId !== request.job.id || intent.inputHash !== jobSha256(request.job)
+    || intent.workflowRunId !== coordinatorRunId || intent.maximumDispatches !== 1
+    || result.schemaVersion !== 1 || result.jobId !== request.job.id || result.coordinatorRunId !== coordinatorRunId
+    || !id(result.workerRunId) || result.workerRunUrl !== url(result.workerRunId)
+    || result.transport !== 'unattended-mcp-github-rest-api' || result.credential !== 'ephemeral-GITHUB_TOKEN'
+    || result.browserUsed !== false || result.savedRecoveryAfterRestart !== true
+    || !validateReceipt(result.receipt, { jobId: request.job.id, jobSha256: jobSha256(request.job), workerSha256: request.workerSha256 })
+    || result.receipt.state !== 'completed' || result.receipt.result.sourceSha !== request.job.input.text
+    || result.receipt.result.normalExitCode !== 0 || result.receipt.result.jitlessExitCode !== 0
+    || result.receipt.artifacts.length !== 1) throw Error('coding_result_not_verified');
+  return result;
+}
+export async function collectCheck(value, coordinatorHeadSha, coordinatorRunId, { get = githubGet } = {}) {
+  const request = validateCodingRequest(value);
+  if (!sha(coordinatorHeadSha) || !id(coordinatorRunId)) throw Error('coding_collection_identity_required');
+  const coordinator = await get(`/actions/runs/${coordinatorRunId}`);
+  validateRun(coordinator, { runId: coordinatorRunId, headSha: coordinatorHeadSha,
+    branch: `compute-request/${request.job.id}`, event: 'pull_request', workflow: DISPATCH_WORKFLOW, actor: 'bmartynowicz' });
+  if (coordinator.status !== 'completed') return { state: 'pending', coordinatorRunUrl: url(coordinatorRunId), automaticRetries: 0 };
+  if (coordinator.conclusion !== 'success') throw Error('coding_coordinator_did_not_pass');
+  const jobs = checkedJobs(await get(`/actions/runs/${coordinatorRunId}/jobs?per_page=10`), coordinatorRunId, ['offline', 'unattended-dispatch']);
+  const result = readResult(await get(`/actions/jobs/${jobs.find(j => j.name === 'unattended-dispatch').id}/logs`, true), request, coordinatorRunId);
+  const worker = await get(`/actions/runs/${result.workerRunId}`);
+  validateRun(worker, { runId: result.workerRunId, headSha: request.workerCommit, branch: request.workerRef,
+    event: 'workflow_dispatch', workflow: '.github/workflows/compute-worker.yml', actor: 'github-actions[bot]' });
+  if (worker.status !== 'completed' || worker.conclusion !== 'success'
+    || worker.display_title !== `picard-compute/${request.job.id}/${jobSha256(request.job)}`) throw Error('coding_worker_did_not_pass');
+  checkedJobs(await get(`/actions/runs/${result.workerRunId}/jobs?per_page=10`), result.workerRunId, ['fixed-project-checks']);
+  for (const runId of [coordinatorRunId, result.workerRunId]) {
+    const artifacts = await get(`/actions/runs/${runId}/artifacts?per_page=10`);
+    if (artifacts?.total_count !== 0 || !Array.isArray(artifacts.artifacts) || artifacts.artifacts.length !== 0)
+      throw Error('coding_unexpected_uploaded_artifacts');
+  }
+  return { state: 'passed', jobId: request.job.id, sourceSha: request.job.input.text,
+    scope: 'compute-broker test suite, normal and jitless; no whole-repository or production claim',
+    normalExitCode: 0, jitlessExitCode: 0, coordinatorHeadSha, coordinatorRunUrl: url(coordinatorRunId), workerRunUrl: result.workerRunUrl,
+    receipt: result.receipt, savedRecoveryAfterRestart: true, uploadedArtifacts: 0, automaticRetries: 0 };
+}
+async function main(args) {
+  if (args[0] === 'prepare' && args.length === 3) return prepareCheck(args[1], args[2]);
+  if (args[0] === 'collect' && args.length === 4 && /^[1-9][0-9]*$/.test(args[3])) {
+    const stat = lstatSync(args[1]);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 8192) throw Error('coding_request_file_invalid');
+    return collectCheck(JSON.parse(readFileSync(args[1], 'utf8').replace(/^\uFEFF/, '')), args[2], Number(args[3]));
+  }
+  throw Error('coding_usage_prepare_SOURCE_SHA_JOB_ID_or_collect_REQUEST_FILE_HEAD_SHA_RUN_ID');
+}
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main(process.argv.slice(2)).then(value => console.log(JSON.stringify(value, null, 2))).catch(error => {
+    console.error(JSON.stringify({ state: 'unverified', reason: /^coding_[a-zA-Z_]+$/.test(error.message) ? error.message : 'coding_operation_failed', automaticRetries: 0 }));
+    process.exitCode = 1;
+  });
+}

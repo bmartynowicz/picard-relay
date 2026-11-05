@@ -14,23 +14,28 @@ const exact = (v, keys) => v && typeof v === 'object' && !Array.isArray(v)
 const integer = v => Number.isSafeInteger(v) && v > 0;
 const commit = v => typeof v === 'string' && /^[0-9a-f]{40}$/.test(v);
 const credential = v => typeof v === 'string' && /^[A-Za-z0-9_.-]{20,4096}$/.test(v);
-export function validateRequest(value, env, event, now = Date.now()) {
+export function validateRequestEnvelope(value, now = Date.now()) {
   if (!exact(value, ['schemaVersion', 'enabled', 'approvedAt', 'validUntil', 'workerRef', 'workerCommit', 'workerSha256', 'job'])
     || value.schemaVersion !== 1 || value.enabled !== true || !integer(value.approvedAt) || value.approvedAt > now
     || !integer(value.validUntil) || value.validUntil <= now || value.validUntil > value.approvedAt + 86_400_000
     || now - value.approvedAt > 86_400_000 || !/^compute-worker-v[1-9][0-9]*$/.test(value.workerRef)
     || !commit(value.workerCommit) || !hex256(value.workerSha256) || value.workerSha256 !== workerSha256()) throw Error('unattended_request_denied');
-  const job = normalizeJob(value.job), pr = event?.pull_request;
+  const job = normalizeJob(value.job);
   if (job.operation !== 'project-checks' || job.workload !== 'project-ci' || job.arch !== 'x64'
     || job.needs.cpuMs !== 360_000 || job.needs.ramMb !== 4096 || job.needs.diskMb !== 0 || job.needs.gpus !== 0
-    || env.GITHUB_ACTIONS !== 'true' || env.GITHUB_REPOSITORY !== REPOSITORY || env.GITHUB_ACTOR !== 'bmartynowicz'
+    || job.timeoutMs !== 30_000) throw Error('unattended_request_denied');
+  return { ...value, job };
+}
+export function validateRequest(value, env, event, now = Date.now()) {
+  const request = validateRequestEnvelope(value, now), job = request.job, pr = event?.pull_request;
+  if (env.GITHUB_ACTIONS !== 'true' || env.GITHUB_REPOSITORY !== REPOSITORY || env.GITHUB_ACTOR !== 'bmartynowicz'
     || env.GITHUB_EVENT_NAME !== 'pull_request' || env.GITHUB_RUN_ATTEMPT !== '1'
     || !/^[1-9][0-9]*$/.test(env.GITHUB_RUN_ID ?? '') || !integer(Number(env.GITHUB_RUN_ID))
     || pr?.user?.login !== 'bmartynowicz' || pr?.head?.repo?.full_name !== REPOSITORY
     || !commit(pr?.head?.sha) || pr?.head?.ref !== `compute-request/${job.id}`
     || env.GITHUB_HEAD_REF !== pr.head.ref || event?.repository?.full_name !== REPOSITORY || event.repository.private !== false)
     throw Error('unattended_context_denied');
-  return { ...value, job };
+  return request;
 }
 export function checkHistory(data, request, env, event) {
   if (!integer(data?.total_count) || data.total_count > 20 || !Array.isArray(data.workflow_runs)

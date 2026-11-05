@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
   "updatedAt": "2026-11-04",
-  "status": "execution_adapter_source_candidate_disabled_by_default",
+  "status": "opt_in_adapters_with_dated_live_qualification_defaults_disabled",
+  "enrollmentFieldsDescribe": "Source defaults, not reusable authority from consumed qualification jobs",
   "liveCloudExecutionEnabled": false,
   "liveComputeProvidersEnrolled": 0,
   "twoProviderEndToEndVerified": false,
@@ -71,7 +72,7 @@
     "live monetary guarantee",
     "multi-host SQLite"
   ],
-  "nextMilestone": "Review and merge adapters; enroll and verify dedicated Oracle isolation and GitHub public-project dispatch access; execute one exact approved job on each provider with durable receipts/logs/inline artifacts.",
+  "nextMilestone": "Qualify the coding-agent prepare/collect workflow on its own exact public source; retain zero-dollar conditions and complete broader durable orchestration/account-control acceptance separately.",
   "selectedSecondBackend": "github-public-project-ci",
   "githubCiObserver": {
     "repository": "bmartynowicz/picard-relay",
@@ -181,7 +182,10 @@
     }
   },
   "unattendedGitHub": {
-    "status": "source_candidate_pending_live_verification",
+    "status": "merged_pr10_live_qualified_one_request_consumed",
+    "mergeCommit": "28b19e3afa115f62f76b70949f9b3bacb319c299",
+    "coordinatorRunId": 41929690916,
+    "workerRunId": 41929738488,
     "entrypoint": "experimental/compute-broker/unattended.mjs",
     "guide": "experimental/compute-broker/UNATTENDED.md",
     "host": "GitHub standard public CI runner",
@@ -208,7 +212,23 @@
       "normalPassed": 85,
       "jitlessPassed": 85,
       "skipped": 0,
-      "liveVerified": false
+      "liveVerified": true
     }
+  },
+  "codingWorkflow": {
+    "status": "source_candidate_pending_exact_commit_qualification",
+    "entrypoint": "experimental/compute-broker/coding-check.mjs",
+    "guide": "experimental/compute-broker/CODING-WORKFLOW.md",
+    "prepare": "prints one exact public-source request; no network or file mutation",
+    "submit": "owner-authorized same-repository request PR through existing GitHub connection",
+    "collect": "read-only GitHub CLI or connected tools; verifies run identities and receipt",
+    "scope": "compute-broker tests normally and jitless",
+    "approvalMs": 7200000,
+    "maximumCollectionGetRequests": 7,
+    "automaticPolling": false,
+    "automaticRetries": 0,
+    "wholeRepositoryCheck": false,
+    "aiCodeReview": false,
+    "mergesOrDeploys": false
   }
 }
