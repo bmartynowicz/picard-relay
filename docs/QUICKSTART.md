@@ -1,12 +1,6 @@
 # What Picard does and how to use it
 
-Picard is a small, self-hosted delivery layer for bounded AI requests. It solves the handoff between an approved task, an external model call and a durable saved answer. Its important property is that losing a connection or restarting the service does not silently authorize another model call.
-
-It is useful when you need a small operational console, strict request boundaries and recoverable results on modest hardware. The v1 source provides bounded text requests and recoverable results. It does not provide an autonomous coding agent, a complete task board or a general model marketplace.
-
-![An approved request passes through a durable ledger and one bounded model call to a saved result](images/request-flow.svg)
-
-The ledger records request identity before the model call. Reconnecting reads the correlated saved answer; an uncertain outcome stops rather than authorizing a replay.
+Picard saves an approved AI request, sends it once and preserves the answer. It does not execute generated code or automatically replay uncertain calls. [How it works](ARCHITECTURE.md) · [Limitations](LIMITATIONS.md)
 
 ## Try the offline demo
 
@@ -39,9 +33,7 @@ Open the printed loopback address on the same computer; press Ctrl+C in the term
 
 ![Four steps: write a brief, review and approve, follow the job, then reopen and review the saved answer](images/first-request.svg)
 
-When enabled, sign in to the supplied HTTPS console. In **Requests**, enter a title and input, select **Review request**, check the details, then **Approve one call**. A draft alone makes no model call. In **Jobs**, **Open request** recovers progress and saved results.
-
-Copy or download the answer, code or handoff; record a separate review when ready. See the illustrated [V1 guide](V1.md). Hosts without the workspace enabled use the legacy picker below.
+Sign in to the supplied HTTPS console. Follow the illustrated controls above, then copy, download or review the saved answer. For details see the [V1 guide](V1.md). Hosts without the workspace enabled use the legacy picker below.
 
 ## Use an enrolled host with the legacy finite picker
 
