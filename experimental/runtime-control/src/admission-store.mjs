@@ -256,6 +256,18 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
   if(row.expires!==ASSOCIATION_EXPIRY||!hex(ref)||row.nonce[prefix.length+64]!==':')stop('review_invalid');
   return ref;
  }
+ // Durable reviews, not a browser history page. Cache invalidates on both this
+ // connection's writes and writes from another SQLite connection.
+ function workspaceProgressVersion(){
+  return String(db.prepare('SELECT total_changes() AS n').get().n)+':'+String(db.prepare('PRAGMA data_version').get().data_version);
+ }
+ function workspaceReviewedRefs(){
+  if(workspaceEnabled!==true)stop('production_admission_disabled');
+  const prefix=PREFIX+'workspace:'+workspaceScope()+':review:';
+  const rows=db.prepare('SELECT DISTINCT substr(nonce,?,64) AS ref FROM relay_nonces WHERE nonce GLOB ? ORDER BY ref LIMIT 10001').all(prefix.length+1,prefix+'*');
+  if(rows.length>10000||rows.some(row=>!hex(row.ref)))stop('review_invalid');
+  return rows.map(row=>row.ref);
+ }
  function saveWorkspaceReview({ref,expectedRevision,decision,note,resultSha256}){
   return transaction(()=>{
    if(!integer(expectedRevision)||!['accepted','changes_requested'].includes(decision)||typeof note!=='string'||note.length>2000||!hex(resultSha256))stop('request_invalid');
@@ -361,7 +373,7 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
    if(changed.changes!==1)return null;const claimed=get(row.event_id);return {...claimed,request_id:claimed.event_id};
   });
  }
- return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,commitWorkspace,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,saveWorkspaceReview,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,reconcileEligible,claimEligible,
+ return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,commitWorkspace,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,workspaceReviewedRefs,workspaceProgressVersion,saveWorkspaceReview,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,reconcileEligible,claimEligible,
   close(){db.close();if(!relayStore)relay.close();},
  });
 }

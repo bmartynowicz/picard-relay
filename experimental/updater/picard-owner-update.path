@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for an owner Picard update check
+StartLimitIntervalSec=300
+StartLimitBurst=5
+[Path]
+PathExists=/var/lib/picard-update-requests/request
+Unit=picard-owner-update.service
+[Install]
+WantedBy=multi-user.target

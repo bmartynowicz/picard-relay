@@ -21,6 +21,20 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
  const knownStates=['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain'];
  const ready=()=>{const a=currentAvailability();return a?.acceptingRequests===true&&(a.pendingUncertainty===false||a.isolatedFailures===true)&&a.costContradiction===false;};
  const policy=()=>readBoundAdmissionPolicy(loadPolicy,binding);
+ let earnedCache=null;
+ async function earnedProgress(){
+  const version=store.workspaceProgressVersion();
+  if(earnedCache?.version===version)return earnedCache.value;
+  let acceptedWork=0;
+  for(const ref of store.workspaceReviewedRefs()){
+   const saved=await ownedResult(ref);
+   if(saved.state==='completed'&&saved.resultAvailable&&saved.result.kind==='information'&&saved.review.latest?.decision==='accepted')acceptedWork++;
+   if(acceptedWork===100)break;
+  }
+  // A concurrent review must not turn a mixed snapshot into earned credit.
+  if(version!==store.workspaceProgressVersion())throw Error('progress_changed');
+  const value={v:1,acceptedWork,atLeast:acceptedWork===100};earnedCache={version,value};return value;
+ }
  function draft(id){const d=store.getWorkspaceDraft(id);if(!d)stop('not_registered');return validateWorkspaceDraft(d,binding);}
  async function ownedResult(ref){
   const row=store.get(ref);if(!row||row.owner!==binding.ownerId)stop('not_registered');
@@ -62,12 +76,13 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
     let enrolled=false;try{policy();enrolled=true;}catch{}
     const availability=currentAvailability();
     const jobs=store.relay.scopedStats({ownerId:binding.ownerId});
-    let training=null;try{
+    let training=null,progress=null;try{
      const ref=store.workspaceReviewedRef(),saved=ref?await ownedResult(ref):null;
      training={v:1,hasSavedResult:jobs.some(row=>row.state==='completed'&&row.count>0),hasReviewedResult:!!(saved?.resultAvailable&&saved.review.revision>0)};
      if(training.hasReviewedResult&&!training.hasSavedResult)training=null;
     }catch{/* An unverifiable milestone never blocks status or result recovery. */}
-    return reply(200,{v:1,enabled:true,observedAt:new Date(now()).toISOString(),ready:enrolled&&ready(),blockingCode:enrolled?availability?.code??'configuration_unavailable':'configuration_unavailable',provider:'Groq',model:'openai/gpt-oss-20b',limits:{maxCalls:1,maxOutputTokens:4096,maxRequestCharacters:4000,maxContextCharacters:4000,maxTitleCharacters:200,maxCombinedInputBytes:12000,requestLifetimeMs:900000,approvalLifetimeMs:60000,activeJobs:8,attemptsPerMinute:10,tools:false,retries:0,paidFallback:false},training,usage:{jobs,measuredTokens:null,billedUsd:null,liveBillingVerified:false},setup:{ownerAuthentication:true,durableStorage:true,providerEnrollment:enrolled,backupStatus:'operator_managed'}});
+    try{progress=await earnedProgress();}catch{/* Unknown credit never blocks saved results. */}
+    return reply(200,{v:1,enabled:true,observedAt:new Date(now()).toISOString(),ready:enrolled&&ready(),blockingCode:enrolled?availability?.code??'configuration_unavailable':'configuration_unavailable',provider:'Groq',model:'openai/gpt-oss-20b',limits:{maxCalls:1,maxOutputTokens:4096,maxRequestCharacters:4000,maxContextCharacters:4000,maxTitleCharacters:200,maxCombinedInputBytes:12000,requestLifetimeMs:900000,approvalLifetimeMs:60000,activeJobs:8,attemptsPerMinute:10,tools:false,retries:0,paidFallback:false},training,progress,usage:{jobs,measuredTokens:null,billedUsd:null,liveBillingVerified:false},setup:{ownerAuthentication:true,durableStorage:true,providerEnrollment:enrolled,backupStatus:'operator_managed'}});
    }
    store.recordAttempt(scope);
    if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(req.headers['content-type']??''))stop('request_invalid');

@@ -1,13 +1,41 @@
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {createServer} from 'node:net';
-import {lstatSync,realpathSync,chmodSync,unlinkSync,readFileSync,readdirSync,openSync,fstatSync,closeSync,constants} from 'node:fs';
+import {lstatSync,realpathSync,chmodSync,unlinkSync,readFileSync,readdirSync,openSync,fstatSync,closeSync,mkdirSync,constants} from 'node:fs';
 import {dirname,basename,isAbsolute,resolve} from 'node:path';
 const STATES=new Set(['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain']);
 export const AVAILABILITY_CODES=Object.freeze(['ready','pending_uncertainty','catalogue_expired','catalogue_unavailable','configuration_unavailable','relay_busy_or_draining','allowance_unavailable','legacy_review_required','unknown']);
 const UPDATER_STATES=['enabled','disabled','held','checking','error','unknown'];
 const UPDATER_REASONS=['none','policy_disabled','hold_present','check_in_progress','fetch_failed','check_failed','timer_disabled','never_checked','metadata_unavailable'];
 const UPDATER_OUTCOMES=['never_checked','fetch_failed','check_failed','check_succeeded','unknown'];
+// The runtime can create one empty request directory. It cannot select a unit,
+// command, release URL or policy. A separately enrolled root path unit owns it.
+export function createUpdateRequestBridge({enabled=false,root='/var/lib/picard-update-requests',statusRoot='/var/lib/picard-updater-status',administratorUid=0,runtimeGid=process.getgid?.(),now=Date.now}={}){
+ const unavailable=()=>Object.assign(Error('update_not_connected'),{code:'update_not_connected'});
+ function directory(){const s=lstatSync(root);if(!s.isDirectory()||s.isSymbolicLink()||s.uid!==administratorUid||s.gid!==runtimeGid||(s.mode&0o777)!==0o770||realpathSync(root)!==root)throw unavailable();return s;}
+ function status(){
+  if(enabled!==true)return {v:1,enabled:false,state:'not_connected',requestedAt:null,finishedAt:null,retryAt:null};
+  let fd;try{
+   directory();const d=lstatSync(statusRoot);if(!d.isDirectory()||d.isSymbolicLink()||d.uid!==administratorUid||(d.mode&0o022)||realpathSync(statusRoot)!==statusRoot)throw unavailable();
+   fd=openSync(statusRoot+'/request.json',constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);const s=fstatSync(fd);if(!s.isFile()||s.nlink!==1||s.uid!==administratorUid||(s.mode&0o022)||s.size>2048)throw unavailable();
+   const raw=readFileSync(fd),v=JSON.parse(raw);if(raw.length>2048||v.v!==1||!['idle','checking','up_to_date','installed','held','failed','unknown'].includes(v.state))throw unavailable();
+   const time=x=>x===null||Number.isSafeInteger(x)&&x>=0&&x<=8640000000000000;
+   if(![v.requestedAt,v.finishedAt,v.retryAt].every(time)||v.state==='checking'&&v.requestedAt===null||v.requestedAt!==null&&v.requestedAt>now()+5000||v.finishedAt!==null&&(v.finishedAt>now()+5000||v.requestedAt===null||v.finishedAt<v.requestedAt)||v.retryAt!==null&&(v.requestedAt===null||v.retryAt<v.requestedAt||v.retryAt>v.requestedAt+300000))throw unavailable();
+   let state=v.state;if(state==='checking'&&now()-v.requestedAt>240000)state='unknown';
+   try{const queued=lstatSync(root+'/request');if(!queued.isDirectory()||queued.isSymbolicLink())throw unavailable();const age=now()-queued.mtimeMs;if(age< -5000)state='unknown';else if(state!=='checking')state=age<10000?'checking':'unknown';}catch(e){if(e.code!=='ENOENT')throw e;}
+   return {v:1,enabled:true,state,requestedAt:v.requestedAt,finishedAt:v.finishedAt,retryAt:v.retryAt};
+  }catch{return {v:1,enabled:false,state:'not_connected',requestedAt:null,finishedAt:null,retryAt:null};}finally{if(fd!==undefined)closeSync(fd);}
+ }
+ function request(){
+  const value=status();if(!value.enabled)throw unavailable();
+  if(['checking','unknown','held'].includes(value.state))throw Object.assign(Error('update_'+value.state),{code:'update_'+value.state});
+  if(value.retryAt!==null&&now()<value.retryAt)throw Object.assign(Error('update_cooldown'),{code:'update_cooldown'});
+  const before=directory();try{mkdirSync(root+'/request',{mode:0o700});}catch(e){if(e.code==='EEXIST')throw Object.assign(Error('update_checking'),{code:'update_checking'});throw unavailable();}
+  const after=directory();if(before.ino!==after.ino||before.dev!==after.dev)throw unavailable();
+  return {v:1,enabled:true,state:'checking',requestedAt:now(),finishedAt:null,retryAt:null};
+ }
+ return Object.freeze({status,request});
+}
 export function projectUpdaterActivity(value,now=Date.now()){
  const unknown=reasonCode=>({state:'unknown',reasonCode,observedAt:null,configured:null,timerEnabled:null,timerActive:null,lastAttemptAt:null,lastFinishedAt:null,lastOutcome:'unknown',lastReportedState:null});
  if(!value||value.v!==1||!UPDATER_STATES.includes(value.state)||!UPDATER_REASONS.includes(value.reasonCode)||!UPDATER_OUTCOMES.includes(value.lastOutcome)||['configured','timerEnabled','timerActive'].some(key=>value[key]!==null&&typeof value[key]!=='boolean'))return unknown('activity_invalid');

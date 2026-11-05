@@ -73,3 +73,7 @@ With explicit workspace activation, Requests uses a normal composer instead of t
 The workspace can recover valid results for the configured owner across tasks, independent of the current finite catalogue. Job names are shown in the owner workspace history. Draft and result text stays private; sign-out clears the form, rendered answer, review notes, pending reads and generated download URLs.
 
 The original generated body and result SHA-256 remain unchanged. Review history is append-only with revision checks. Picard reviews are local assessments, not task-board acceptance or messages to another system. Exported Markdown, individual fenced code blocks and JSON handoffs are inert files. Measured usage and billed cost are explicitly unknown.
+
+## Next owner-feature candidate
+
+The [owner-feature guide](OWNER-FEATURES.md) describes the new update-check button, owner-scoped accepted-work ranks, hidden locked controls and brighter optional space window. The updater bridge is separately enrolled host support and is disabled by default. This source candidate is not a claim of production activation.
