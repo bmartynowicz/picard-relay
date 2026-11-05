@@ -10,6 +10,8 @@ on:
       - 'experimental/updater/policy.example.json'
       - 'scripts/build-release.mjs'
       - 'scripts/package-signed-release.mjs'
+      - 'scripts/install-ci-cosign.mjs'
+      - 'scripts/install-ci-cosign.test.mjs'
       - '.github/workflows/sign-release.yml'
 permissions:
   contents: read
@@ -36,9 +38,11 @@ jobs:
           npm --prefix experimental/updater test
           npm --prefix experimental/runtime-control test
           npm --prefix experimental/runtime-control run test:socket
-      - uses: sigstore/cosign-installer@b9c35392b7c1401bcc77d30c9b07cf4b1c7a7b07
-        with:
-          cosign-release: 'v3.1.4'
+      - name: Install pinned Cosign from verified official assets
+        run: |
+          node --test scripts/install-ci-cosign.test.mjs
+          node --jitless --test scripts/install-ci-cosign.test.mjs
+          node scripts/install-ci-cosign.mjs
       - name: Build and sign source manifest with ephemeral identity
         run: |
           node scripts/build-release.mjs
