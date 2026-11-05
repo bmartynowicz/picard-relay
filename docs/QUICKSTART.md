@@ -37,6 +37,8 @@ Open the printed loopback address on the same computer; press Ctrl+C in the term
 
 ## Use the V1 owner workspace on an enrolled host
 
+![Four steps: write a brief, review and approve, follow the job, then reopen and review the saved answer](images/first-request.svg)
+
 When enabled, sign in to the supplied HTTPS console. In **Requests**, enter a title and input, select **Review request**, check the details, then **Approve one call**. A draft alone makes no model call. In **Jobs**, **Open request** recovers progress and saved results.
 
 Copy or download the answer, code or handoff; record a separate review when ready. See the illustrated [V1 guide](V1.md). Hosts without the workspace enabled use the legacy picker below.
