@@ -46,8 +46,10 @@ and preserves the spinning upper-left insignia.
 The refresh control sits at the right of the same rail; documentation, motion
 and sign-out controls are grouped in its adjacent menu. Two
 small inline SVG star planes scale slowly over 90 seconds, giving a sense of
-forward travel. Tiny round stroke caps replace expanding square pixels; the two
-planes still contain only four static paths. The opaque navigation covers the
+forward travel. Round stroke caps replace expanding square pixels; 128 points
+use two restrained sizes and higher contrast, and both planes start partway
+through their travel so the scene is visible immediately. The two planes still
+contain only four static paths. The opaque navigation covers the
 scene. Stars remain off by
 default and persist only in the current page.
 
