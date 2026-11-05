@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"3269d9a86d90400d0befa18b31ee8dc31c1e3884ce8f3c6a99b36271d933f80d");
+assert.equal(createHash('sha256').update(script).digest('hex'),"24a847c4f6af9cdc0cf3c5242a1f7e53ee92df5ee205009fca1e6019e8af6d6b");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|@import|url\(/i.test(html.replace(/url\(#picard-metal-(?:face|recess)\)/g,'')));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -13,11 +13,13 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
 function harness(handler,{jobsHandler,clock=Date}={}){
  const animations=[];const element=()=>({_text:'',get textContent(){return this._text+this.children.map(n=>n.textContent).join('')},set textContent(v){this._text=String(v);this.children=[]},children:[],value:'',className:'',hidden:true,disabled:false,dataset:{},listeners:{},attrs:{},classList:{items:new Set(),toggle(n,v){v?this.items.add(n):this.items.delete(n)}},setAttribute(n,v){this.attrs[n]=v},addEventListener(n,fn){this.listeners[n]=fn},append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this._text='';this.children=nodes},animate(frames,options){const a={frames,options,cancelled:false,cancel(){this.cancelled=true;this.oncancel?.()}};animations.push(a);return a}});
  const els=new Map([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,element()]));
+ const starAnimations=['space-plane-0','space-plane-1'].map(id=>{const a={playbackRate:1,currentTime:1234,changes:[],updatePlaybackRate(rate){this.playbackRate=rate;this.changes.push(rate);}};els.get(id).getAnimations=()=>[a];return a;});
+ for(const el of els.values()){el.style={values:new Map(),setProperty(name,value){this.values.set(name,value)}};el.getBoundingClientRect=()=>({left:0,top:0,width:1200,height:800});}
  const dl={},wl={},ml={},pref={matches:false,addEventListener:(n,fn)=>ml[n]=fn};
  const document={visibilityState:'visible',getElementById:id=>{assert.ok(els.has(id));return els.get(id)},createElement:()=>element(),addEventListener:(n,fn)=>dl[n]=fn};
  const window={matchMedia:()=>pref,addEventListener:(n,fn)=>wl[n]=fn};let count=0;const requests=[],timers=new Map();
  vm.runInNewContext(script,{document,window,TextEncoder,AbortController,Date:clock,queueMicrotask,setTimeout:fn=>{timers.set(++count,fn);return count},clearTimeout:id=>timers.delete(id),fetch:async(path,options)=>{assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.ok(['/auth/state','/auth/setup','/auth/login','/auth/logout','/status','/updates'].includes(path)||path==='/jobs'||path.startsWith('/jobs?cursor='));if(options.method==='POST')assert.equal(options.headers['Content-Type'],'application/json');requests.push({path,options});return path.startsWith('/jobs')?(jobsHandler?jobsHandler(path,options):ok({v:1,rows:[],nextCursor:null,observedAt:health.observedAt})):handler(path,options)}});
- return {get:id=>els.get(id),els,requests,timers,wl,dl,ml,pref,document,animations,async submit(id){await els.get(id).listeners.submit({preventDefault(){}})},async click(id){await els.get(id).listeners.click()}};
+ return {get:id=>els.get(id),els,requests,timers,wl,dl,ml,pref,document,animations,starAnimations,async submit(id){await els.get(id).listeners.submit({preventDefault(){}})},async click(id){await els.get(id).listeners.click()}};
 }
 let h=harness(async path=>path==='/auth/state'?ok({enrolled:false}):path==='/auth/setup'?ok({ok:true}):ok(health));await flush();assert.equal(h.get('setup-form').hidden,false);assert.equal(h.get('private').hidden,true);assert.deepEqual(h.requests.map(x=>x.path),['/auth/state']);
 h.get('new-password').value='x'.repeat(7);h.get('confirm-password').value='x'.repeat(7);h.get('setup-code').value='private-test-code';await h.submit('setup-form');assert.equal(h.requests.length,1);assert.match(h.get('auth-message').textContent,/8 and 128 UTF-8 bytes/);
@@ -224,7 +226,7 @@ const hudReads=hud.requests.length;await hud.click('hud-open-jobs');assert.equal
 const glassClick=target=>hud.get('console-surface').listeners.click({target});
 for(const id of ['nav-jobs','private','hud-open-jobs','refresh','logout']){glassClick(hud.get(id));assert.equal(hud.get('console-surface').dataset.hudExpanded,'true');}
 hud.get('console-tools').open=true;glassClick(hud.get('cockpit-glass'));assert.equal(hud.get('console-tools').open,false);assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');assert.equal(hud.get('view-jobs').hidden,false);assert.equal(hud.requests.length,hudReads);
-await hud.click('hud-open-jobs');glassClick(hud.get('console-surface'));assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');await hud.click('hud-open-jobs');
+await hud.click('hud-open-jobs');glassClick(hud.get('hud-instruments'));assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');await hud.click('hud-open-jobs');
 await hud.click('hud-close');assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');assert.equal(hud.requests.length,hudReads);await hud.click('hud-progress');assert.equal(hud.get('private').dataset.width,'660');hud.wl.keydown({key:'Escape'});assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');
 await hud.click('logout');assert.equal(hud.get('hud-instruments').hidden,true);assert.equal(hud.get('hud-health').textContent,'Not checked');assert.equal(hud.get('hud-active').textContent,'—');assert.equal(hud.get('hud-done').textContent,'—');
 console.log('PASS windshield HUD: generated/reviewed state helper, exact booleans/view whitelist, compact instruments, fitting panels, minimize/Escape without network and private clearing.');
@@ -235,3 +237,44 @@ console.log('PASS projected counts: exact live queue/running/completed values, s
 let hudTime=100000;class HudClock extends Date{constructor(...args){super(...(args.length?args:[hudTime]));}static now(){return hudTime;}}
 const agingHud=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,observedAt:new Date(100000).toISOString()}),{clock:HudClock});await flush();for(let i=0;i<5;i++)await agingHud.click('logo-wrap');assert.equal(agingHud.get('hud-done').textContent,'2');hudTime+=60000;for(const callback of [...agingHud.timers.values()])await callback();assert.equal(agingHud.get('hud-active').textContent,'—');assert.equal(agingHud.get('hud-done').textContent,'—');assert.equal(agingHud.get('hud-open-jobs').attrs['aria-label'],'Jobs: counts unavailable');
 console.log('PASS projected freshness: existing timers age out the windshield counts without a new successful observation.');
+
+// Actual embedded instrument, pace and look controls; no extra reads or loop.
+let powerCpu=100,powerBad=false,powerAt=1_000_000;
+class PowerClock extends Date{constructor(...args){super(...(args.length?args:[powerAt]));}static now(){return powerAt;}}
+const power=harness(async path=>path==='/auth/state'?ok({enrolled:true}):powerBad?bad(503,'unavailable'):ok({...health,observedAt:new Date(powerAt).toISOString(),resources:{v:1,scope:'vm',observedAtMs:powerAt,cpuPercent:powerCpu,memoryUsedBytes:32*1048576,memoryTotalBytes:64*1048576,relayMemoryBytes:24*1048576}}),{clock:PowerClock});
+await flush();for(let i=0;i<5;i++)await power.click('logo-wrap');
+assert.equal(power.get('power-value').textContent,'100%');assert.equal(power.get('system-memory').textContent,'50%');assert.equal(power.get('power-relay').textContent,'24 MB');
+for(const a of power.starAnimations){assert.equal(a.playbackRate,1.3);assert.equal(a.currentTime,1234);}
+const powerReads=power.requests.length;await power.click('power-toggle');assert.equal(power.get('power-details').hidden,false);assert.equal(power.get('power-toggle').attrs['aria-expanded'],'true');
+power.wl.keydown({key:'Escape'});assert.equal(power.get('power-details').hidden,true);assert.equal(power.requests.length,powerReads);
+const look=power.get('console-surface').listeners.pointermove,scene=power.get('space-scene');
+look({target:power.get('cockpit-glass'),pointerType:'mouse',clientX:1200,clientY:800});
+assert.equal(scene.style.values.get('--look-x'),'-14.00px');assert.equal(scene.style.values.get('--look-y'),'-10.00px');
+for(const id of ['navigation','hud-instruments','private'])assert.equal(power.get(id).style.values.size,0,'HUD remains stationary: '+id);
+powerAt+=34;look({target:power.get('private'),pointerType:'mouse',clientX:0,clientY:0});assert.equal(scene.style.values.get('--look-x'),'-14.00px');
+power.get('console-surface').listeners.pointerleave();assert.equal(scene.style.values.get('--look-x'),'0.00px');
+for(const key of ['__proto__','constructor','toString','Escape','other'])power.get('cockpit-glass').listeners.keydown({target:power.get('cockpit-glass'),key});
+assert.equal(scene.style.values.get('--look-x'),'0.00px');
+power.get('cockpit-glass').listeners.keydown({target:power.get('cockpit-glass'),key:'ArrowLeft',preventDefault(){}});assert.equal(scene.style.values.get('--look-x'),'4.00px');
+await power.click('motion');assert.equal(scene.style.values.get('--look-x'),'0.00px');powerAt+=34;look({target:power.get('cockpit-glass'),pointerType:'mouse',clientX:0,clientY:0});assert.equal(scene.style.values.get('--look-x'),'0.00px');await power.click('motion');
+powerCpu=0;await power.click('refresh');assert.equal(power.get('power-value').textContent,'0%');for(const a of power.starAnimations)assert.equal(a.playbackRate,1);
+powerBad=true;await power.click('refresh');assert.equal(power.get('power-value').textContent,'—');assert.equal(power.get('power-relay').textContent,'—');for(const a of power.starAnimations)assert.equal(a.playbackRate,1);
+await power.click('power-toggle');power.wl.pagehide();assert.equal(power.get('power-details').hidden,true);assert.equal(power.get('power-toggle').attrs['aria-label'],'VM CPU: unavailable');
+const points=[...html.matchAll(/M(\d+) (\d+)h0\.01/g)].map(m=>[+m[1],+m[2]]);assert.equal(points.length,128);assert.equal(new Set(points.map(p=>p.join(','))).size,128);
+assert.match(style,/animation:star-travel 113s/);assert.match(style,/animation-duration:179s/);assert.doesNotMatch(script,/requestAnimationFrame|setInterval|canvas|WebGL/);
+console.log('PASS flight instruments: real-zero/unknown resource readings, a 1–1.3x phase-preserving pace, local details, input-only bounded space look, fixed HUD, pause/auth clearing, and 128 irregular round points with staggered travel.');
+// HTML parsing normalizes CRLF; raw carriage returns would invalidate the CSP hash.
+assert.doesNotMatch(script,/\r/);
+const resourceSample={v:1,scope:'vm',observedAtMs:powerAt,cpuPercent:null,memoryUsedBytes:32,memoryTotalBytes:64,relayMemoryBytes:24};
+for(const [resources,cpu,mem]of [
+ [resourceSample,'—','50%'],
+ [{...resourceSample,cpuPercent:75,memoryUsedBytes:65},'75%','—'],
+ [{...resourceSample,cpuPercent:75,observedAtMs:powerAt-60000},'—','—'],
+ [{...resourceSample,cpuPercent:75,observedAtMs:powerAt+5001},'—','—'],
+ [Object.assign([],{...resourceSample,cpuPercent:75}),'—','—'],
+ [{...resourceSample,cpuPercent:'PRIVATE_CPU',hostname:'PRIVATE_HOST'},'—','50%']
+]){
+ const h=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,observedAt:new Date(powerAt).toISOString(),resources}),{clock:PowerClock});await flush();
+ assert.equal(h.get('power-value').textContent,cpu);assert.equal(h.get('power-memory').textContent,mem);assert.doesNotMatch([...h.els.values()].map(e=>e.textContent).join(' '),/PRIVATE/);
+}
+console.log('PASS resource projection: invalid/array/stale/future readings are unknown; memory remains independent of CPU; inline CSP content has canonical line endings.');

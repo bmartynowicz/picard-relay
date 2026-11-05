@@ -28,3 +28,5 @@ Picard Relay accepts a narrowly approved AI request, records it durably, sends i
 4. Older review/checkpoint documents preserve design history. Their original verification limits apply to their stated checkpoint, rather than all later releases.
 
 The top-level `src/` offline preview and `experimental/runtime-control/src/` signed-runtime source are separate trees. Read [Development](DEVELOPMENT.md) before changing a file: changing the top-level preview alone does not update the signed console.
+
+- [Flight instruments](FLIGHT-INSTRUMENTS.md): VM CPU, fixed HUD, restrained space travel and look-around.

@@ -37,3 +37,5 @@ Top-level src is the offline/preview tree. experimental/runtime-control/src is t
 
 - [Unattended GitHub dispatch](experimental/compute-broker/UNATTENDED.md): merged opt-in owner CI requests, ephemeral repository token, exact MCP dispatch and no automatic retries; dated live evidence is linked.
 - [Coding-agent workflow](experimental/compute-broker/CODING-WORKFLOW.md): worker v2 checks root, updater, signed runtime, real sockets, broker normal/jitless and docs for one exact public commit; read-only collection returns every group result, including known failures. Worker-v1 broker-only receipts remain readable.
+
+- [Flight instrument contract](docs/FLIGHT-INSTRUMENTS.md): whole-VM CPU, unknown readings, bounded load-responsive motion and fixed HUD.
