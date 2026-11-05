@@ -42,7 +42,9 @@ exports are hidden; history, original answers and recovery remain available.
 
 Activate the insignia five times to switch between the console and an optional
 space windshield. A centered horizontal control rail keeps the navigation opaque
-and preserves the spinning upper-left insignia. Two
+and preserves the spinning upper-left insignia.
+The refresh control sits at the right of the same rail; documentation, motion
+and sign-out controls are grouped in its adjacent menu. Two
 small inline SVG star planes scale slowly over 90 seconds, giving a sense of
 forward travel. Tiny round stroke caps replace expanding square pixels; the two
 planes still contain only four static paths. The opaque navigation covers the
@@ -70,7 +72,7 @@ render loop, dependency or new polling timer. Two CSS star animations run only
 while the optional scene is active. Pause Motion and hidden tabs pause them;
 reduced motion displays a static scene. The insignia retains one CSS rotor.
 
-A local Chrome sample of the vector scene used 7.896 seconds of main-thread
+An earlier layout's local Chrome sample of the vector scene used 7.896 seconds of main-thread
 time over 821.6 seconds (about 0.96%), including status refresh and browser-tool
 activity, with about 2.7 MB JavaScript heap. Earlier box-shadow experiments used
 roughly 3.8–4.2%; those renderers were replaced. These observations are not a
