@@ -69,8 +69,10 @@ returns to an instrument. Counts use a static text glow; they add no animation.
 Clicks on controls or inside the deck do not retract it. Navigation is horizontal
 at every size, using a second header row on smaller screens.
 
-There is no canvas, WebGL, bitmap download, blur, pointer tracker, JavaScript
-render loop, dependency or new polling timer. Two CSS star animations run only
+The [flight instrument refinement](FLIGHT-INSTRUMENTS.md) adds a VM CPU reading,
+an etched navigation rail and background-only look-around. There is no canvas,
+WebGL, bitmap download, blur, JavaScript render loop, dependency or new polling
+timer. Pointer movement is handled only over exposed space. Two CSS star animations run only
 while the optional scene is active. Pause Motion and hidden tabs pause them;
 reduced motion displays a static scene. The insignia retains one CSS rotor.
 

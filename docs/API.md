@@ -30,6 +30,10 @@ Common error classes are `400` invalid request, `401` authentication failure, `4
 
 The console polls read-only status/latest history every 15 seconds while visible and signed in, with a single in-flight refresh. Hidden/auth-lost pages stop polling. This does not submit, approve, retry or renew any work. Groq availability and relay counts are not provider billing/quota measurements.
 
+`GET /status` also includes an optional `resources` object in the signed runtime: `{v:1, scope:"vm", observedAtMs, cpuPercent, memoryUsedBytes, memoryTotalBytes, relayMemoryBytes}`. All readings are numbers or `null`; the timestamp is epoch milliseconds. CPU is the aggregate Linux VM utilization between two kernel samples, across all CPUs and workloads, with idle and I/O wait excluded. It is not the relay's CPU share or its remaining cloud/AI allowance. Memory used is `MemTotal - MemAvailable`; relay memory is this Node process's resident set in bytes. No process list, hostname, paths or raw kernel text is returned.
+
+The service samples on authenticated status reads, at most once per 15 seconds, with no new timer or service. CPU starts unknown and becomes unknown after an unreadable/reset counter, zero-tick delta or a sampling gap of 60 seconds or more. Unsupported/non-Linux readings are `null`. Clients treat observations aged 60 seconds or more, or over five seconds ahead, as unavailable. Valid memory readings remain usable independently of CPU. See [the instrument guide](FLIGHT-INSTRUMENTS.md) for the UI and motion limits.
+
 ## Signed consuming-client bridge
 
 `POST /bridge/v1` uses the HMAC protocol in `protocol.mjs` and the receiver's exact action schema. Start with `signRequest`, `verifyResponse` and the [manual client](MANUAL-CLIENT.md); never hand-roll signature strings or treat browser identity headers as HMAC credentials.
