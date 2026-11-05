@@ -4,7 +4,16 @@ A small Node.js + SQLite relay that takes an exact approved AI request, sends it
 
 **Start here:** [What it does and how to use it](docs/QUICKSTART.md) · [Documentation](docs/README.md) · [Limitations](docs/LIMITATIONS.md) · [Known bugs and features](docs/WORK-REGISTER.md) · [For AI tools](llms.txt)
 
+## Choose your starting point
+
+![Four ways to start: terminal demo, synthetic interface, enrolled relay, or integration guides](docs/images/choose-a-start.svg)
+
+[Terminal demo](docs/QUICKSTART.md#try-the-offline-demo) · [Interface preview](docs/V1.md) · [Enrolled host](docs/OPERATIONS.md) · [Developer and AI guides](llms.txt)
+
 ![How a Picard request travels](docs/images/request-flow.svg)
+
+<details>
+<summary>Picard Relay insignia</summary>
 
 ```text
                     ###
@@ -40,13 +49,13 @@ A small Node.js + SQLite relay that takes an exact approved AI request, sends it
                 MAKE IT SO.
 ```
 
+</details>
+
 *In tribute to Sir Patrick Stewart.*
 
 **Small ship. Durable messages. No surprise warp jumps.**
 
-A lightweight, self-hosted relay for routing tasks to AI providers and reliably returning results. Built for modest hardware and tight budgets. Make it so.
-
-Picard Relay is a lightweight Node.js + SQLite relay for bounded AI requests. It preserves request identity, claims work once, stores correlated responses, and refuses to automatically retry an invocation whose outcome is uncertain.
+Built for modest hardware, Picard preserves request identity, stores correlated responses and does not automatically retry an uncertain invocation.
 
 **Status: offline preview plus separately enrolled signed runtime.** The simplest working entry point is an offline demo. The signed-runtime source supports an exact-scoped Groq text adapter, private authenticated console and opt-in signed updates after separately reviewed host enrollment. It is not a portable board application or universal provider router. This repository stores code and signed source envelopes. **GitHub Actions tests, signs and publishes source releases only; it never deploys.**
 

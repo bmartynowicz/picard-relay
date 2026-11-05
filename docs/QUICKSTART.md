@@ -10,7 +10,7 @@ The ledger records request identity before the model call. Reconnecting reads th
 
 ## Try the offline demo
 
-Install Node.js 24, Git and OpenSSL. The CI runtime is Node 24.22.1. There are no npm package dependencies to install.
+Install Node.js 24 and Git. The CI runtime is Node 24.22.1. There are no npm package dependencies to install. OpenSSL is needed for the local TLS test when running the full test suite.
 
 ```sh
 git clone https://github.com/bmartynowicz/picard-relay.git
@@ -25,7 +25,23 @@ One synthetic request, one stored answer, duplicate replay suppressed.
 No network, API key, billing, deployment, or live AI invocation.
 ```
 
-The demo does not start the web console. `npm start` is disabled without explicit configuration. For the full test commands and source layout, see [Development](DEVELOPMENT.md). For a real installation, see [Operations](OPERATIONS.md); there is no one-command production installer.
+The demo does not start the web console. To try the synthetic request workspace instead, run:
+
+```sh
+npm run preview:v1
+```
+
+Open the printed loopback address on the same computer; press Ctrl+C in the terminal to stop the preview. This preview uses disposable fixture data and does not call an AI provider. It is not a production installation.
+
+`npm start` is disabled without explicit configuration. For the full test commands and source layout, see [Development](DEVELOPMENT.md). For a real installation, see [Operations](OPERATIONS.md); there is no one-command production installer.
+
+## Use the V1 owner workspace on an enrolled host
+
+![Four steps: write a brief, review and approve, follow the job, then reopen and review the saved answer](images/first-request.svg)
+
+When enabled, sign in to the supplied HTTPS console. In **Requests**, enter a title and input, select **Review request**, check the details, then **Approve one call**. A draft alone makes no model call. In **Jobs**, **Open request** recovers progress and saved results.
+
+Copy or download the answer, code or handoff; record a separate review when ready. See the illustrated [V1 guide](V1.md). Hosts without the workspace enabled use the legacy picker below.
 
 ## Use an enrolled host with the legacy finite picker
 
@@ -45,9 +61,3 @@ New arbitrary text cannot be typed into the legacy finite picker. The operator m
 - **Provider unavailable / no usable allowance** can coexist with healthy service and working saved-result recovery.
 
 Continue with the [console guide](CONSOLE-WORKSPACE.md), [limitations](LIMITATIONS.md) and [known work](WORK-REGISTER.md).
-
-## V1 owner workspace
-
-An operator can enable the v1 workspace on an enrolled host. In that mode, Requests opens a normal task form. Enter a title and input, select **Review request**, inspect the exact input and limits, then select **Approve one call**. A draft alone makes no model call. Jobs shows named requests; **Open request** recovers their progress and results, including older owner work outside the finite catalogue.
-
-Use **Copy answer**, **Download answer**, individual **Download code** controls or **Download handoff**. **Accept result** and **Request changes** save your review against that answer without editing it or sending another request. See the illustrated [v1 guide](V1.md). The earlier finite picker remains available on hosts where the workspace is disabled.
