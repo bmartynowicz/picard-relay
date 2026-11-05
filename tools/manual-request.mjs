@@ -6,8 +6,10 @@ export async function waitForResult({receipt,intent,client,waitMs,now=()=>perfor
  if(!Number.isSafeInteger(waitMs)||waitMs<0||waitMs>60000)throw new ManualClientError('usage');
  const until=now()+waitMs;
  while(['queued','claimed','invoking'].includes(receipt.state)&&now()<until){
-  await sleep(Math.min(1000,until-now()));
-  const remaining=until-now();if(remaining<=0)break;
+  // Node truncates fractional timer delays. Round up and reserve a complete
+  // millisecond before starting a read rather than polling on the final tick.
+  await sleep(Math.ceil(Math.min(1000,until-now())));
+  const remaining=until-now();if(remaining<1)break;
   const signal=AbortSignal.timeout(Math.max(1,Math.ceil(remaining)));
   try{receipt=await client.result(intent,{signal});}catch(error){if(signal.aborted)return {...receipt,polling:'deadline_reached'};throw error;}
  }

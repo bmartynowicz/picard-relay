@@ -2,6 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {waitForResult} from '../tools/manual-request.mjs';
 const queued={state:'queued',responseAuthenticated:true};
+for(const wake of ['truncate','early-tick'])test('fractional timer budget cannot start a last-tick result read: '+wake,async()=>{
+ let time=0,calls=0;const delays=[];
+ const result=await waitForResult({receipt:queued,intent:{},waitMs:1000,now:()=>time+=.1,sleep:async ms=>{delays.push(ms);time+=wake==='truncate'?Math.trunc(ms):ms-.5;},client:{result:async()=>{calls++;throw Error('must_not_poll');}}});
+ assert.equal(calls,0);assert.deepEqual(delays,[1000]);assert.equal(result,queued);
+});
 for(const overshoot of [0,1,5000])test('poll does not start at or beyond the wait deadline: '+overshoot,async()=>{
  let time=0,calls=0;const receipt=await waitForResult({receipt:queued,intent:{},client:{result:async()=>{calls++;throw Error('must_not_poll');}},waitMs:1000,now:()=>time,sleep:async ms=>time+=ms+overshoot});assert.equal(calls,0);assert.equal(receipt.state,'queued');
 });
