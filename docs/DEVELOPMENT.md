@@ -1,5 +1,16 @@
 # Development and maintenance
 
+The release-only `scripts/install-ci-cosign.mjs` installs fixed Cosign v3.1.4
+through the official GitHub asset API. It retains the v3.1.3 bootstrap digest and
+both keyless-identity and KMS checks from
+[the pinned installer](https://github.com/sigstore/cosign-installer/blob/b9c35392b7c1401bcc77d30c9b07cf4b1c7a7b07/action.yml),
+and adds exact published asset digests from the
+[official release](https://github.com/sigstore/cosign/releases/tag/v3.1.4).
+It fails before installation on any missing asset, digest mismatch or signature
+failure. Offline tests run normally and jitless in the signing job. This does
+not change release-signature identity, host policy, runtime modules or providers;
+the installer is never shipped to relay hosts.
+
 ## Source map
 
 | Path | Role |
