@@ -28,7 +28,7 @@
   },
   "appearance": {
     "palette": "charcoal and brass",
-    "insignia": {"cadet": "rotating ASCII", "ensign": "rotating outline vector", "lieutenant": "rotating faceted vector"},
+      "insignia": {"cadet": "rotating brass rim and recessed center", "ensign": "rotating polished brass", "lieutenant": "rotating bright faceted brass", "depth": "two inline SVG faces and five fixed CSS edge planes", "animatedElements": 1, "newTimers": 0, "externalAssets": false, "renderLoop": false},
     "navigation": "stable shape, lit active number, crisp press; static raised/recessed shading",
     "starfield": {"default": false, "toggle": "five insignia clicks or keyboard activations", "maxGapMs": 5000, "persistence": "current page only", "navigationAffected": false, "contentSurface": "opaque charcoal floating panel", "effect": "two sparse CSS pixel-star layers with slow drift/glimmer", "pause": ["Pause motion", "prefers-reduced-motion", "hidden tab"], "canvas": false, "renderLoop": false, "externalAssets": false, "networkRequests": 0}
   },

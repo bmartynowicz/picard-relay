@@ -32,7 +32,7 @@ Overview includes failed jobs; Running combines claimed and invoking jobs. Groq 
 
 ## Learn the workflow and earn ranks
 
-The interface candidate keeps the spinning insignia, rolling counters and charcoal/brass colors. Your progress shows the next useful action. The Cadet ASCII insignia becomes an outlined vector emblem at Ensign, then a brighter faceted emblem at Lieutenant.
+The console keeps the spinning insignia, rolling counters and charcoal/brass colors. Your progress shows the next useful action. The brass insignia has shallow 3D edges and a recessed center; Ensign adds polish and Lieutenant adds brighter facets. Two inline SVG faces and five fixed edge planes share one CSS rotation. No images, rendering loop, new timers or libraries are loaded. Pause motion, reduced motion and hidden tabs still stop the spin.
 
 | Rank | Earn it by | Interface tools |
 | --- | --- | --- |
