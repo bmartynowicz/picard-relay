@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"30760f04352a0e6fc815a781a1d0de00dd026294e338155a67f72524ff00ec88");
+assert.equal(createHash('sha256').update(script).digest('hex'),"3269d9a86d90400d0befa18b31ee8dc31c1e3884ce8f3c6a99b36271d933f80d");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|@import|url\(/i.test(html.replace(/url\(#picard-metal-(?:face|recess)\)/g,'')));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -101,7 +101,7 @@ await app.get('jobs-list').children[0].children[0].listeners.click();assert.equa
 for(const [filter,expected] of [['completed',1],['active',1],['attention',1],['all',3]]){app.get('jobs-filter').value=filter;app.get('jobs-filter').listeners.change();assert.equal(app.get('jobs-list').children.length,expected);assert.equal(app.get('job-details').hidden,true);assert.equal(app.get('detail-ref').textContent,'-');}
 assert.deepEqual(app.requests.slice(requestsBeforeNavigation).map(r=>({path:r.path,method:r.options.method})),[{path:"/updates",method:"GET"}]);assert.equal(app.get('activity-list').children.length,3);
 assert.equal(app.get('groq-availability').textContent,'Not available for new work');assert.match(app.get('groq-blocking').textContent,/unavailable|not supplied|not reported/i);
-assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.match(html,/<details class="technical"><summary>Request limits and safeguards<\/summary>/);assert.equal((html.match(/<details/g)||[]).length,2);assert.match(html,/<details class="console-info"><summary aria-label="About status and privacy">/);
+assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.match(html,/<details class="technical"><summary>Request limits and safeguards<\/summary>/);assert.equal((html.match(/<details/g)||[]).length,3);assert.match(html,/<details class="console-info"><summary aria-label="About status and privacy">/);
 
 for(const event of ['logout','401','403','pagehide']){
  let lost=false;const code=event==='403'?403:401;
@@ -185,6 +185,17 @@ for(let i=0;i<4;i++)await sky.click('logo-wrap');assert.notEqual(sky.get('consol
 for(let i=0;i<4;i++)await sky.click('logo-wrap');skyNow+=5001;await sky.click('logo-wrap');assert.equal(sky.get('console-surface').dataset.starfield,'true');for(let i=0;i<4;i++)await sky.click('logo-wrap');assert.equal(sky.get('console-surface').dataset.starfield,'false');assert.equal(sky.get('logo-wrap').attrs['aria-pressed'],'false');assert.equal(sky.requests.length,skyReads);assert.equal(sky.timers.size,skyTimers);
 await sky.click('motion');assert.equal(sky.get('console-surface').dataset.motion,'off');await sky.click('motion');sky.pref.matches=true;sky.ml.change();assert.equal(sky.get('console-surface').dataset.motion,'off');sky.pref.matches=false;sky.ml.change();sky.document.visibilityState='hidden';sky.dl.visibilitychange();assert.equal(sky.get('console-surface').dataset.motion,'off');
 console.log('PASS starfield: five deliberate activations toggle it, spaced clicks reset, no network/timers, and pause/reduced-motion/hidden-tab controls apply.');
+// Round independent stars, bounded to the same two animated layers. A line-to
+// command between points would turn the starfield into a connected constellation.
+const starPlanes=[...html.matchAll(/<svg class="space-plane[^>]*>([\s\S]*?)<\/svg>/g)];
+assert.equal(starPlanes.length,2);
+for(const [,plane] of starPlanes){
+ const paths=[...plane.matchAll(/<path ([^>]+)\/>/g)];assert.equal(paths.length,2);
+ for(const [,attrs] of paths){
+  assert.match(attrs,/fill="none"/);assert.match(attrs,/stroke-linecap="round"/);assert.match(attrs,/vector-effect="non-scaling-stroke"/);
+  const d=attrs.match(/ d="([^"]+)"/)[1];assert.match(d,/^(M[\d.]+ [\d.]+h0\.01)+$/);
+ }
+}
 
 const updateValue=state=>({v:1,enabled:true,state,requestedAt:null,finishedAt:null,retryAt:null});
 let updateOutcome='idle',updatePosts=0;
@@ -210,6 +221,10 @@ for(const flag of ['enabled','authenticated','expanded'])for(const value of [fal
 const hud=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health));await flush();
 for(let i=0;i<5;i++)await hud.click('logo-wrap');assert.equal(hud.get('hud-instruments').hidden,false);assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');
 const hudReads=hud.requests.length;await hud.click('hud-open-jobs');assert.equal(hud.get('console-surface').dataset.hudExpanded,'true');assert.equal(hud.get('private').dataset.width,'760');assert.equal(hud.get('view-jobs').hidden,false);
+const glassClick=target=>hud.get('console-surface').listeners.click({target});
+for(const id of ['nav-jobs','private','hud-open-jobs','refresh','logout']){glassClick(hud.get(id));assert.equal(hud.get('console-surface').dataset.hudExpanded,'true');}
+hud.get('console-tools').open=true;glassClick(hud.get('cockpit-glass'));assert.equal(hud.get('console-tools').open,false);assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');assert.equal(hud.get('view-jobs').hidden,false);assert.equal(hud.requests.length,hudReads);
+await hud.click('hud-open-jobs');glassClick(hud.get('console-surface'));assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');await hud.click('hud-open-jobs');
 await hud.click('hud-close');assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');assert.equal(hud.requests.length,hudReads);await hud.click('hud-progress');assert.equal(hud.get('private').dataset.width,'660');hud.wl.keydown({key:'Escape'});assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');
 await hud.click('logout');assert.equal(hud.get('hud-instruments').hidden,true);assert.equal(hud.get('hud-health').textContent,'Not checked');assert.equal(hud.get('hud-active').textContent,'—');assert.equal(hud.get('hud-done').textContent,'—');
 console.log('PASS windshield HUD: generated/reviewed state helper, exact booleans/view whitelist, compact instruments, fitting panels, minimize/Escape without network and private clearing.');
