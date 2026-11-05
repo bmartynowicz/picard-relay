@@ -102,12 +102,14 @@ function workNotice(text,warn=false){$('request-notice').textContent=text;$('req
 function rememberProgress(c){
  const age=Date.now()-Date.parse(c?.observedAt),t=c?.training,s=c?.setup;
  if(!c||!Number.isFinite(age)||age< -5000||age>=60000||t?.v!==1||typeof t.hasSavedResult!=='boolean'||typeof t.hasReviewedResult!=='boolean'||t.hasReviewedResult&&!t.hasSavedResult||!s||['ownerAuthentication','durableStorage','providerEnrollment'].some(k=>typeof s[k]!=='boolean'))return;
- workProgress={reviewed:workProgress?.reviewed===true||t.hasReviewedResult,saved:workProgress?.saved===true||t.hasSavedResult,setup:workProgress?.setup===true||s.ownerAuthentication&&s.durableStorage&&s.providerEnrollment||t.hasSavedResult};
+ const p=c.progress,acceptedWork=p?.v===1&&Number.isSafeInteger(p.acceptedWork)&&p.acceptedWork>=0&&p.acceptedWork<=100&&typeof p.atLeast==='boolean'&&p.atLeast===(p.acceptedWork===100)?p.acceptedWork:null;
+ workProgress={reviewed:workProgress?.reviewed===true||t.hasReviewedResult,saved:workProgress?.saved===true||t.hasSavedResult,setup:workProgress?.setup===true||s.ownerAuthentication&&s.durableStorage&&s.providerEnrollment||t.hasSavedResult,acceptedWork};
 }
 function trainingState(){
  if(!workProgress)return null;
  const current=workFresh&&workResult?.resultAvailable===true,reviewed=workProgress.reviewed||workGraduated||current&&workResult.review.revision>0,saved=workProgress.saved||reviewed||current,setup=workProgress.setup||saved;
- return {rank:reviewed?'Lieutenant':setup?'Ensign':'Cadet',setup,saved,reviewed,step:reviewed?3:saved?2:setup?1:0};
+ const n=workProgress.acceptedWork,rank=reviewed?(n>=100?'Admiral':n>=25?'Captain':n>=5?'Commander':'Lieutenant'):setup?'Ensign':'Cadet';
+ return {rank,acceptedWork:n,setup,saved,reviewed,step:reviewed?3:saved?2:setup?1:0};
 }
 function workAdvanced(){return trainingState()?.reviewed===true;}
 function clearTraining(){
@@ -120,6 +122,7 @@ function clearTraining(){
 function renderTraining(){
  const t=trainingState();if(!t){clearTraining();return;}
  const copy=t.reviewed?['Lieutenant earned','Advanced tools unlocked: code templates, context, task links and code/handoff exports.','Use advanced tools']:t.saved?['Ensign','Review a saved answer to earn Lieutenant and unlock advanced tools.','Review your first result']:t.setup?['Welcome aboard, Ensign','Setup complete. Complete and review your first request to unlock advanced tools.','Start your first request']:['Cadet','Finish setup to earn Ensign and unlock your first request.','Check setup'];
+ if(t.reviewed){const n=t.acceptedWork,next=n<5?['Commander',5]:n<25?['Captain',25]:['Admiral',100];copy[0]=t.rank+(t.rank==='Lieutenant'?' earned':'');copy[1]=n===null?'Work milestones unavailable.':n>=100?'100+ accepted results. Admiral earned.':n+' accepted '+(n===1?'result':'results')+' · '+(next[1]-n)+' to '+next[0]+'.';}
  $('training-rank').textContent=t.rank;$('training-rank').hidden=false;$('logo-wrap').dataset.rank=t.rank.toLowerCase();$('training-title').textContent=copy[0];$('training-next').textContent=copy[1];$('training-action').textContent=nextActionState()?.label??copy[2];$('training-action').disabled=workBusy;
  $('training-progress').hidden=false;$('training-progress').value=t.step;$('training-progress').setAttribute('aria-label',t.rank+' · '+t.step+' of 3 training steps complete');
  for(const [id,label,earned]of [['training-setup','Setup',t.setup],['training-result','First result',t.saved],['training-review','Review',t.reviewed]]){$(id).dataset.earned=String(earned);$(id).setAttribute('aria-label',label+' · '+(earned?'complete':'next'));}
@@ -133,7 +136,7 @@ function nextActionState(){
  if(!t)return null;
  return {kind:!t.setup?'setup':t.saved&&!t.reviewed?'review':'new',label:!t.setup?'Finish setup':t.saved&&!t.reviewed?'Review result':t.reviewed?'New request':'Create request'};
 }
-function updateNextActions(){const action=nextActionState();for(const view of ['jobs','groq','system']){const button=$('next-'+view);button.hidden=!action;button.disabled=workBusy||!action;if(action)button.textContent=action.label;}}
+function updateNextActions(){const action=nextActionState();for(const view of ['jobs','groq','system']){const button=$('next-'+view);button.hidden=!action;button.disabled=workBusy||!action;if(action)button.textContent=action.label;}const hud=$('hud-next');hud.hidden=!action;hud.disabled=workBusy||!action;if(action)hud.textContent=action.label;}
 function trainingAction(){
  if(workBusy)return;const action=nextActionState();if(!action)return;
  if(action.kind==='current'){workNavigate(workRef);showView('requests');return;}
@@ -168,6 +171,7 @@ function workButtons(){
  for(const id of [...workFields,'request-template','request-purpose','request-review-note'])$(id).disabled=workBusy;
  const t=trainingState(),advanced=t?.reviewed===true;$('request-prepare').disabled=workBusy||!t?.setup;$('training-action').disabled=workBusy||!t;
  for(const id of ['request-context','request-task','request-purpose','request-template-code','request-template-review'])$(id).disabled=workBusy||!advanced;
+ for(const id of ['request-template-code','request-template-review','request-context-details','request-handoff'])$(id).hidden=!advanced;
  $('request-handoff').disabled=workBusy||!workResult?.resultAvailable||!advanced;updateNextActions();
 }
 function workPair(root,label,value){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=String(value);root.append(dt,dd);}
@@ -259,7 +263,7 @@ function workInline(root,text){for(const part of text.split(/(\x60[^\x60\n]+\x60
 function renderWorkspaceText(text){
  const root=$('request-output');root.replaceChildren();const lines=text.split(/\r?\n/);let i=0,block=0;const cells=line=>line.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(c=>c.trim());
  while(i<lines.length){const line=lines[i++];if(!line.trim())continue;const fence=/^\s*\x60{3}([a-zA-Z0-9_-]*)/.exec(line);
-  if(fence){const chunk=[];while(i<lines.length&&!/^\s*\x60{3}/.test(lines[i]))chunk.push(lines[i++]);if(i<lines.length)i++;const body=chunk.join('\n'),wrap=document.createElement('div'),header=document.createElement('header'),label=document.createElement('span'),button=document.createElement('button'),pre=document.createElement('pre'),code=document.createElement('code'),index=++block;wrap.className='code-output';label.textContent=fence[1]||'Code proposal';button.type='button';button.textContent='Download code';button.setAttribute('aria-label','Download code block '+index);const ext=({javascript:'js',js:'js',typescript:'ts',ts:'ts',python:'py',py:'py',json:'json',css:'css',html:'html',sql:'sql',bash:'sh',sh:'sh'})[fence[1].toLowerCase()]||'txt';button.disabled=!workAdvanced();button.addEventListener('click',()=>{if(workAdvanced())workDownload('picard-'+workRef.slice(0,12)+'-'+index+'.'+ext,body);});header.append(label,button);code.textContent=body;pre.append(code);wrap.append(header,pre);root.append(wrap);continue;}
+  if(fence){const chunk=[];while(i<lines.length&&!/^\s*\x60{3}/.test(lines[i]))chunk.push(lines[i++]);if(i<lines.length)i++;const body=chunk.join('\n'),wrap=document.createElement('div'),header=document.createElement('header'),label=document.createElement('span'),button=document.createElement('button'),pre=document.createElement('pre'),code=document.createElement('code'),index=++block;wrap.className='code-output';label.textContent=fence[1]||'Code proposal';button.type='button';button.textContent='Download code';button.setAttribute('aria-label','Download code block '+index);const ext=({javascript:'js',js:'js',typescript:'ts',ts:'ts',python:'py',py:'py',json:'json',css:'css',html:'html',sql:'sql',bash:'sh',sh:'sh'})[fence[1].toLowerCase()]||'txt';button.hidden=!workAdvanced();button.disabled=!workAdvanced();button.addEventListener('click',()=>{if(workAdvanced())workDownload('picard-'+workRef.slice(0,12)+'-'+index+'.'+ext,body);});header.append(label,button);code.textContent=body;pre.append(code);wrap.append(header,pre);root.append(wrap);continue;}
   if(line.includes('|')&&i<lines.length&&cells(lines[i]).every(c=>/^:?-{3,}:?$/.test(c))){const wrap=document.createElement('div'),table=document.createElement('table');wrap.className='request-table';const row=(values,head)=>{const tr=document.createElement('tr');for(const value of values){const cell=document.createElement(head?'th':'td');if(head)cell.setAttribute('scope','col');workInline(cell,value);tr.append(cell);}table.append(tr);};row(cells(line),true);i++;while(i<lines.length&&lines[i].includes('|'))row(cells(lines[i++]),false);wrap.append(table);root.append(wrap);continue;}
   const heading=/^#{1,6}\s+(.+)$/.exec(line),bullet=/^\s*[-*]\s+(.+)$/.exec(line),n=document.createElement(heading?'h3':bullet?'p':'p');workInline(n,heading?heading[1]:bullet?'• '+bullet[1]:line);root.append(n);
  }

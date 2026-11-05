@@ -49,6 +49,14 @@ test('commissioning requires every verified setup check and clears on sign-out w
  assert.equal(h.calls.filter(c=>c.url==='/workspace/config').length,1);
  await h.click('logout');assert.equal(h.get('commissioning').dataset.earned,'false');assert.equal(h.get('commission-title').textContent,'Cadet');assert.equal(h.get('training-rank').textContent,'');assert.equal(h.get('training-progress').value,0);assert.equal(h.get('logo-wrap').dataset.rank,undefined);assert.equal(h.f.calls,0);
 });
+
+for(const [acceptedWork,rank] of [[0,'Lieutenant'],[4,'Lieutenant'],[5,'Commander'],[24,'Commander'],[25,'Captain'],[99,'Captain'],[100,'Admiral']])test('earned-work rank boundary '+acceptedWork,async t=>{
+ const h=await harness(t,{configTransform:c=>({...c,training:{v:1,hasSavedResult:true,hasReviewedResult:true},progress:{v:1,acceptedWork,atLeast:acceptedWork===100}})});
+ assert.equal(h.get('training-rank').textContent,rank);assert.equal(h.get('logo-wrap').dataset.rank,rank.toLowerCase());assert.equal(h.get('request-template-code').hidden,false);assert.equal(h.f.calls,0);
+});
+for(const progress of [null,{v:1,acceptedWork:101,atLeast:true},{v:1,acceptedWork:-1,atLeast:false},{v:1,acceptedWork:100,atLeast:false}])test('invalid earned work never promotes: '+JSON.stringify(progress),async t=>{
+ const h=await harness(t,{configTransform:c=>({...c,training:{v:1,hasSavedResult:true,hasReviewedResult:true},progress})});assert.equal(h.get('training-rank').textContent,'Lieutenant');assert.equal(h.get('training-next').textContent,'Work milestones unavailable.');assert.equal(h.f.calls,0);
+});
 for(const field of ['ownerAuthentication','durableStorage','providerEnrollment'])test('missing commissioning prerequisite: '+field,async t=>{
  const h=await harness(t,{configTransform:c=>({...c,setup:{...c.setup,[field]:false}})});assert.equal(h.get('commissioning').dataset.earned,'false');assert.equal(h.get('commission-title').textContent,'Cadet');assert.equal(h.get('request-prepare').disabled,true);assert.equal(h.f.calls,0);
 });

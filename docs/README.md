@@ -12,6 +12,8 @@ Picard Relay accepts a narrowly approved AI request, records it durably, sends i
 
 **Updating your relay?** [System update button and host connection](OWNER-UPDATES.md)
 
+**Earned ranks and the space HUD:** [Owner features](OWNER-FEATURES.md) · [Physical badge research](BADGE-RESEARCH.md)
+
 **Before relying on it:** [Limitations](LIMITATIONS.md) · [Known work](WORK-REGISTER.md) · [Verified status](STATUS.md)
 
 **Experimental:** [Compute broker](../experimental/compute-broker/README.md) · [Provider research](../experimental/compute-broker/PROVIDERS.md) · [Execution enrollment](../experimental/compute-broker/EXECUTION.md)

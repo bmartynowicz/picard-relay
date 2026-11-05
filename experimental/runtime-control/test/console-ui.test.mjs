@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"a8d39667dfaee353f6a2d0b5f4c62af42073d333f9ab01c8d25145ab3166f7e5");
+assert.equal(createHash('sha256').update(script).digest('hex'),"30760f04352a0e6fc815a781a1d0de00dd026294e338155a67f72524ff00ec88");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|@import|url\(/i.test(html.replace(/url\(#picard-metal-(?:face|recess)\)/g,'')));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -197,3 +197,26 @@ await updates.click('logout');assert.equal(updates.get('update-request-state').t
 let lostPosts=0;const lostUpdate=harness(async(path,options)=>path==='/auth/state'?ok({enrolled:true}):path==='/updates'?(options.method==='POST'?(lostPosts++,Promise.reject(Error('synthetic lost response'))):ok(updateValue('idle'))):ok(health));
 await flush();await lostUpdate.click('nav-system');await flush();await lostUpdate.click('update-check');assert.equal(lostPosts,1);assert.equal(lostUpdate.get('update-check').textContent,'Check saved status');await lostUpdate.click('update-check');assert.equal(lostPosts,1);assert.equal(lostUpdate.requests.at(-1).options.method,'GET');
 console.log('PASS owner updates: authenticated read and one POST, checking/outcome/hold, auth clearing and read-only recovery after lost response.');
+
+// Exercise the reviewed function actually embedded in the shipped browser code.
+const hudFunction=vm.runInNewContext('('+script.match(/(function hudPanelState[\s\S]*?)\nfunction renderHUD/)[1].trim()+')');
+const hudPlain=v=>JSON.parse(JSON.stringify(v));
+assert.deepEqual(hudPlain(hudFunction()),{trayVisible:false,panelVisible:false,view:'overview',maxWidth:660});
+for(const [view,width]of [['overview',660],['jobs',760],['requests',760],['groq',560],['system',560]]){
+ assert.deepEqual(hudPlain(hudFunction({enabled:true,authenticated:true,expanded:true,view})),{trayVisible:true,panelVisible:true,view,maxWidth:width});
+}
+for(const view of ['__proto__','constructor','toString','unknown',null,1,{toString:()=> 'requests'}])assert.equal(hudFunction({enabled:true,authenticated:true,expanded:true,view}).view,'overview');
+for(const flag of ['enabled','authenticated','expanded'])for(const value of [false,1,'true',null,undefined]){const result=hudFunction({enabled:true,authenticated:true,expanded:true,[flag]:value});assert.equal(result.panelVisible,false);if(flag!=='expanded')assert.equal(result.trayVisible,false);}
+const hud=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health));await flush();
+for(let i=0;i<5;i++)await hud.click('logo-wrap');assert.equal(hud.get('hud-instruments').hidden,false);assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');
+const hudReads=hud.requests.length;await hud.click('hud-open-jobs');assert.equal(hud.get('console-surface').dataset.hudExpanded,'true');assert.equal(hud.get('private').dataset.width,'760');assert.equal(hud.get('view-jobs').hidden,false);
+await hud.click('hud-close');assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');assert.equal(hud.requests.length,hudReads);await hud.click('hud-progress');assert.equal(hud.get('private').dataset.width,'660');hud.wl.keydown({key:'Escape'});assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');
+await hud.click('logout');assert.equal(hud.get('hud-instruments').hidden,true);assert.equal(hud.get('hud-health').textContent,'Not checked');assert.equal(hud.get('hud-active').textContent,'—');assert.equal(hud.get('hud-done').textContent,'—');
+console.log('PASS windshield HUD: generated/reviewed state helper, exact booleans/view whitelist, compact instruments, fitting panels, minimize/Escape without network and private clearing.');
+
+let hudFailed=false;const projected=harness(async path=>path==='/auth/state'?ok({enrolled:true}):hudFailed?bad(503,'unavailable'):ok({...health,observedAt:new Date().toISOString(),jobs:{...health.jobs,queued:2,invoking:1,completed:5}}));await flush();for(let i=0;i<5;i++)await projected.click('logo-wrap');assert.equal(projected.get('hud-active').textContent,'3');assert.equal(projected.get('hud-done').textContent,'5');hudFailed=true;await projected.click('refresh');assert.equal(projected.get('hud-active').textContent,'—');assert.equal(projected.get('hud-done').textContent,'—');assert.match(projected.get('hud-health').textContent,/unknown/i);
+console.log('PASS projected counts: exact live queue/running/completed values, stale/failed observation becomes unknown, no invented flight telemetry.');
+
+let hudTime=100000;class HudClock extends Date{constructor(...args){super(...(args.length?args:[hudTime]));}static now(){return hudTime;}}
+const agingHud=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,observedAt:new Date(100000).toISOString()}),{clock:HudClock});await flush();for(let i=0;i<5;i++)await agingHud.click('logo-wrap');assert.equal(agingHud.get('hud-done').textContent,'2');hudTime+=60000;for(const callback of [...agingHud.timers.values()])await callback();assert.equal(agingHud.get('hud-active').textContent,'—');assert.equal(agingHud.get('hud-done').textContent,'—');assert.equal(agingHud.get('hud-open-jobs').attrs['aria-label'],'Jobs: counts unavailable');
+console.log('PASS projected freshness: existing timers age out the windshield counts without a new successful observation.');
