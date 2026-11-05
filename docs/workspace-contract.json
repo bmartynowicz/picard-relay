@@ -23,7 +23,8 @@
     "scope": "configured owner across approved tasks",
     "persistence": "derived from existing relay_jobs and owner-scoped append-only review records; no new schema",
     "authority": "interface coaching only; does not change authenticated API permissions, invocation approval, quotas, execution authority or answer quality",
-    "networking": "one coalesced configuration read on sign-in; existing Requests refresh loop; no new timer"
+    "networking": "one coalesced configuration read on sign-in; existing Requests refresh loop; no new timer",
+    "sessionProgress": "retain verified earned milestones in private page memory until authentication clearing; stale or future observations cannot grant new achievements; live approval still needs fresh readiness"
   },
   "appearance": {
     "palette": "charcoal and brass",

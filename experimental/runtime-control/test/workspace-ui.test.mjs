@@ -75,6 +75,16 @@ test('existing reviewed work earns rank on Overview, coalesces bootstrap reads a
  assert.equal(h.get('training-rank').textContent,'Lieutenant');assert.equal(h.get('request-advanced').hidden,false);assert.equal(h.calls.filter(c=>c.url==='/workspace/config').length,1);assert.equal(h.f.calls,1);
  h.loseAuth();await h.click('request-refresh');assert.equal(h.get('training-rank').textContent,'');assert.equal(h.get('training-progress').hidden,true);assert.equal(h.get('logo-wrap').dataset.rank,undefined);
 });
+test('earned progress survives idle status-page time without new configuration polling, then clears on logout',async t=>{
+ const h=await harness(t,{initialHash:'#overview'});assert.equal(h.get('training-rank').textContent,'Ensign');const reads=h.calls.filter(c=>c.url==='/workspace/config').length,realDate=h.context.Date;
+ h.context.Date=class extends realDate{static now(){return realDate.now()+120000;}};await h.click('nav-groq');await h.click('refresh');assert.equal(h.get('training-rank').textContent,'Ensign');assert.equal(h.get('next-groq').hidden,false);assert.equal(h.get('next-groq').disabled,false);assert.equal(h.calls.filter(c=>c.url==='/workspace/config').length,reads);await h.click('logout');assert.equal(h.get('training-rank').textContent,'');assert.equal(h.get('next-groq').hidden,true);
+});
+test('first-result progress and its review destination survive opening a blank new request',async t=>{
+ const h=await harness(t);await h.brief();await h.click('request-approve');await h.f.dispatcher.runOnce();await h.click('request-check');const ref=h.context.workspaceTest.ref;await h.click('request-new');assert.equal(h.get('training-progress').value,2);await h.click('nav-groq');assert.equal(h.get('next-groq').textContent,'Review result');await h.click('next-groq');await flush();assert.equal(h.context.workspaceTest.ref,ref);assert.equal(h.f.calls,1);
+});
+test('a future progress observation preserves the earned rank without granting a new one',async t=>{
+ let future=false;const h=await harness(t,{configTransform:c=>future?{...c,observedAt:new Date(Date.now()+6001).toISOString(),training:{v:1,hasSavedResult:true,hasReviewedResult:true}}:c});assert.equal(h.get('training-rank').textContent,'Ensign');future=true;await h.click('request-refresh');assert.equal(h.get('training-rank').textContent,'Ensign');assert.equal(h.get('request-template-code').disabled,true);assert.equal(h.get('logo-wrap').dataset.rank,'ensign');assert.equal(h.f.calls,0);
+});
 for(const training of [null,{}, {v:1,hasSavedResult:false,hasReviewedResult:true},{v:1,hasSavedResult:1,hasReviewedResult:false}])test('unknown or inconsistent training earns no rank or interface unlocks: '+JSON.stringify(training),async t=>{
  const h=await harness(t,{configTransform:c=>({...c,training})});assert.equal(h.get('training-rank').hidden,true);assert.equal(h.get('training-progress').hidden,true);assert.equal(h.get('request-template-code').disabled,true);assert.equal(h.get('request-prepare').disabled,true);assert.equal(h.f.calls,0);
 });

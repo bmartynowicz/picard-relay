@@ -92,17 +92,21 @@ const WORKSPACE_MARKUP=String.raw`<section id="view-requests" aria-labelledby="h
 
 const WORKSPACE_SCRIPT=()=>String.raw`
 const workspaceCorrection=${JSON.stringify(REVIEWED_REGRESSION_RESULT)};
-let workConfigAttempted=false,workConfigFlight=null,workGraduated=false;
+let workConfigAttempted=false,workConfigFlight=null,workGraduated=false,workProgress=null;
 let workConfig=null,workDraft=null,workResult=null,workRef=null,workBusy=false,workGeneration=0,workTimer=null,workRead=null,workFresh=false,workDraftId=null,workSubmissionUnknown=false;
 const workControllers=new Set(),workDownloads=new Set();
 const workFields=['request-title','request-text','request-context','request-task'];
 function stopWorkspacePoll(){clearTimeout(workTimer);workTimer=null;}
 function workNotice(text,warn=false){$('request-notice').textContent=text;$('request-notice').dataset.tone=warn?'warn':'';}
 // Ranks teach the interface; they never grant provider or execution authority.
+function rememberProgress(c){
+ const age=Date.now()-Date.parse(c?.observedAt),t=c?.training,s=c?.setup;
+ if(!c||!Number.isFinite(age)||age< -5000||age>=60000||t?.v!==1||typeof t.hasSavedResult!=='boolean'||typeof t.hasReviewedResult!=='boolean'||t.hasReviewedResult&&!t.hasSavedResult||!s||['ownerAuthentication','durableStorage','providerEnrollment'].some(k=>typeof s[k]!=='boolean'))return;
+ workProgress={reviewed:workProgress?.reviewed===true||t.hasReviewedResult,saved:workProgress?.saved===true||t.hasSavedResult,setup:workProgress?.setup===true||s.ownerAuthentication&&s.durableStorage&&s.providerEnrollment||t.hasSavedResult};
+}
 function trainingState(){
- const c=workConfig,age=Date.now()-Date.parse(c?.observedAt),t=c?.training,s=c?.setup;
- if(!c||!Number.isFinite(age)||age< -5000||age>=60000||t?.v!==1||typeof t.hasSavedResult!=='boolean'||typeof t.hasReviewedResult!=='boolean'||t.hasReviewedResult&&!t.hasSavedResult||!s||['ownerAuthentication','durableStorage','providerEnrollment'].some(k=>typeof s[k]!=='boolean'))return null;
- const current=workFresh&&workResult?.resultAvailable===true,reviewed=t.hasReviewedResult||workGraduated||current&&workResult.review.revision>0,saved=t.hasSavedResult||reviewed||current,setup=s.ownerAuthentication&&s.durableStorage&&s.providerEnrollment||saved;
+ if(!workProgress)return null;
+ const current=workFresh&&workResult?.resultAvailable===true,reviewed=workProgress.reviewed||workGraduated||current&&workResult.review.revision>0,saved=workProgress.saved||reviewed||current,setup=workProgress.setup||saved;
  return {rank:reviewed?'Lieutenant':setup?'Ensign':'Cadet',setup,saved,reviewed,step:reviewed?3:saved?2:setup?1:0};
 }
 function workAdvanced(){return trainingState()?.reviewed===true;}
@@ -134,11 +138,11 @@ function trainingAction(){
  if(workBusy)return;const action=nextActionState();if(!action)return;
  if(action.kind==='current'){workNavigate(workRef);showView('requests');return;}
  if(action.kind==='continue'){preferredRoute={view:'requests',ref:null};showView('requests');$('request-title').focus?.();return;}
- if(action.kind==='review'){const row=jobRows.find(row=>row.state==='completed'&&row.resultAvailable);if(row){workNavigate(row.ref);showView('requests');}else{$('jobs-filter').value='completed';showView('jobs');paintJobs();}return;}
+ if(action.kind==='review'){const ref=workProgress?.reviewRef??jobRows.find(row=>row.state==='completed'&&row.resultAvailable)?.ref;if(ref){workNavigate(ref);showView('requests');}else{$('jobs-filter').value='completed';showView('jobs');paintJobs();}return;}
  showView('requests');if(action.kind==='setup'){$('request-setup-list').closest?.('details')?.setAttribute('open','');return;}newWorkspaceRequest();if(workAdvanced())$('request-context-details').open=true;
 }
 function clearWorkspace(){
- clearTraining();workConfigAttempted=false;workConfigFlight=null;workGraduated=false;
+ clearTraining();workConfigAttempted=false;workConfigFlight=null;workGraduated=false;workProgress=null;
  workGeneration++;stopWorkspacePoll();for(const c of workControllers)c.abort();workControllers.clear();workRead=null;for(const url of workDownloads)URL.revokeObjectURL(url);workDownloads.clear();workConfig=null;workDraft=null;workResult=null;workRef=null;workDraftId=null;workBusy=false;workFresh=false;workSubmissionUnknown=false;
  for(const id of [...workFields,'request-review-note'])$(id).value='';
  for(const id of ['request-exact-text','request-exact-context','request-original','request-sheet-title','request-next','request-state','request-observed','request-review-summary'])$(id).textContent='';
@@ -155,7 +159,7 @@ async function workRequest(path,body,controller=new AbortController()){
 function workCounts(){for(const [id,max]of [['request-title',200],['request-text',4000],['request-context',4000]])$(id+'-count').textContent=$(id).value.length.toLocaleString()+' / '+max.toLocaleString();}
 function workButtons(){
  const configCurrent=workConfig&&Date.now()-Date.parse(workConfig.observedAt)<60000&&Date.now()-Date.parse(workConfig.observedAt)>=-5000;
- if(workConfig&&!configCurrent){$('request-provider').textContent='Availability needs a fresh check. Select Refresh.';clearTraining();}
+ if(workConfig&&!configCurrent)$('request-provider').textContent='Availability needs a fresh check. Select Refresh.';
  for(const id of ['request-prepare','request-edit','request-new','request-refresh','request-check','request-accept','request-changes'])$(id).disabled=workBusy;
  $('request-approve').disabled=workBusy||!workFresh||!configCurrent||workConfig?.ready!==true||!workDraft||workSubmissionUnknown||workDraft.approval.expiresAt<=Date.now();
  for(const id of ['request-accept','request-changes'])$(id).disabled=workBusy||!workFresh||!workResult?.resultAvailable;
@@ -173,10 +177,10 @@ function workLoadConfig(){
 }
 async function fetchWorkConfig(){
  const generation=workGeneration;
- try{const c=await workRequest('/workspace/config');if(c?.v!==1||c.enabled!==true||typeof c.ready!=='boolean'||c.model!=='openai/gpt-oss-20b'||c.limits?.maxCalls!==1||c.limits.maxOutputTokens!==4096||!Number.isFinite(Date.parse(c.observedAt)))throw Error('config');workConfig=c;renderTraining();
+ try{const c=await workRequest('/workspace/config');if(c?.v!==1||c.enabled!==true||typeof c.ready!=='boolean'||c.model!=='openai/gpt-oss-20b'||c.limits?.maxCalls!==1||c.limits.maxOutputTokens!==4096||!Number.isFinite(Date.parse(c.observedAt)))throw Error('config');workConfig=c;rememberProgress(c);renderTraining();
   $('request-provider').textContent='Groq · '+c.model+' · '+(c.ready?'Ready':availabilityReasons[c.blockingCode]||'Unavailable for new work');
   const root=$('request-setup-list');root.replaceChildren();for(const [label,ok]of [['Owner sign-in',c.setup?.ownerAuthentication],['Durable job storage',c.setup?.durableStorage],['Provider enrollment',c.setup?.providerEnrollment]]){const li=document.createElement('li');li.textContent=label+': '+(ok===true?'ready':'needs attention');root.append(li);}const li=document.createElement('li');li.textContent='Backups: managed by your host operator';root.append(li);
- }catch(e){if(generation!==workGeneration)throw e;workConfig=null;clearTraining();$('request-provider').textContent='Current provider availability unknown.';throw e;}finally{if(generation===workGeneration)workButtons();}
+ }catch(e){if(generation!==workGeneration)throw e;workConfig=null;renderTraining();$('request-provider').textContent='Current provider availability unknown.';throw e;}finally{if(generation===workGeneration)workButtons();}
 }
 function workNavigate(ref,replace=false){workRef=ref;preferredRoute={view:'requests',ref};writeRoute(replace);}
 function newWorkspaceRequest(){
@@ -202,6 +206,7 @@ function projectWorkspace(value,ref){
 const workNextActions={queued:'Queued. You can leave this page and return to the same request.',claimed:'The relay has claimed this request. Following its recorded progress.',invoking:'The provider call is in progress. Checking status will not send another call.',completed:'Ready for your review.',uncertain:'The provider outcome is uncertain. This request is spent and will not be retried. Preserve this record for operator review.',failed:'This request failed and is spent. Inspect the recorded reason before deciding on any new work.',blocked:'This request is blocked. Check the recorded reason and provider availability.',cancelled:'This request was cancelled. No replacement request has been created.'};
 function renderWorkspaceResult(v){
  $('request-cost').hidden=true;
+ if(workProgress&&workFresh&&v.resultAvailable){workProgress.saved=true;workProgress.setup=true;workProgress.reviewed=workProgress.reviewed||v.review.revision>0;if(!workProgress.reviewed)workProgress.reviewRef=v.ref;}
  renderTraining();
  workShowSheet();workSteps(v.state==='completed'?'result':'run');$('request-state').textContent=v.state==='completed'?'Completed · '+(v.review.latest?.decision==='accepted'?'accepted':v.review.latest?.decision==='changes_requested'?'changes requested':'awaiting your review'):v.state==='uncertain'?'Needs operator review':v.state;
  $('request-sheet-title').textContent=v.request.title;$('request-next').textContent=workNextActions[v.state]+(v.state==='failed'||v.state==='blocked'?' '+(reasons[v.reasonCode]||'Recorded reason unavailable.'):'');$('request-observed').textContent='Observed '+formatTime(Date.parse(v.observedAt));$('request-exact-text').textContent=v.request.text;$('request-exact-context').textContent=v.request.context;$('request-exact-context-wrap').hidden=!v.request.context;$('request-approve').hidden=true;$('request-edit').hidden=true;
