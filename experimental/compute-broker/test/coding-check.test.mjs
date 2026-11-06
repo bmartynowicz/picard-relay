@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareCheck, readResult, collectCheck, githubGet } from '../coding-check.mjs';
+import { prepareCheck, readResult, collectCheck, recoverCheck, workerHistoryPath, githubGet } from '../coding-check.mjs';
 import { makeReceipt, jobSha256 } from '../src/execution-protocol.mjs';
 import { CLOCK } from './helpers.mjs';
 import { REPOSITORY_CHECKS } from '../src/repository-checks.mjs';
@@ -106,4 +106,56 @@ test('invalid collection inputs and non-allowlisted GitHub paths stop before any
   const f = fixture(); await assert.rejects(collectCheck(f.request, 'main', 101, { get: f.get })); assert.equal(f.calls.length, 0);
   for (const path of ['/actions/runs/1/rerun', '/actions/workflows/compute-worker.yml/dispatches', 'https://example.com', '/actions/runs/1?x=2'])
     await assert.rejects(githubGet(path), /read_path_denied/);
+});
+function recoveryFixture() {
+  const f = fixture(), stop = { marker: 'PICARD_UNATTENDED_STOP_V1', reason: 'mcp_operation_failed', automaticRetries: 0 };
+  Object.assign(f.coordinator, { conclusion: 'failure', created_at: new Date(CLOCK + 1000).toISOString(), updated_at: new Date(CLOCK + 10_000).toISOString() });
+  f.worker.created_at = new Date(CLOCK + 5000).toISOString();
+  f.data['/actions/runs/101/jobs?per_page=10'].jobs[1].conclusion = 'failure';
+  const path = workerHistoryPath(f.coordinator.created_at, f.coordinator.updated_at);
+  f.data[path] = { total_count: 1, workflow_runs: [f.worker] };
+  const get = async (path, raw) => {
+    f.calls.push(path);
+    if (path === '/actions/jobs/1102/logs') return [f.intent, stop].map(r => JSON.stringify(r)).join('\n');
+    if (path === '/actions/jobs/1202/logs') return `${'ordinary log\n'.repeat(20_000)}PICARD_COMPUTE_RESULT_V1:${Buffer.from(JSON.stringify(f.summary.receipt)).toString('base64')}`;
+    assert.ok(Object.hasOwn(f.data, path), 'unexpected recovery operation'); return f.data[path];
+  };
+  return { ...f, stop, get, history: f.data[path] };
+}
+test('historical recovery verifies stopped coordinator and exact worker without claiming ledger restart recovery', async () => {
+  const f = recoveryFixture(), before = JSON.stringify(f.request);
+  const result = await recoverCheck(f.request, headSha, 101, 202, { get: f.get });
+  assert.equal(result.state, 'passed'); assert.equal(result.recovery, 'read-only-worker-log');
+  assert.equal(result.savedRecoveryAfterRestart, false); assert.equal(result.automaticRetries, 0);
+  assert.equal(result.uploadedArtifacts, 0); assert.equal(f.calls.length, 9);
+  assert.equal(JSON.stringify(f.request), before);
+  assert.ok(f.calls.every(p => !/dispatches|rerun/.test(p)));
+});
+test('historical recovery retains failed test groups and never converts them to success', async () => {
+  const f = recoveryFixture(), result = structuredClone(f.summary.receipt.result); result.checks[2].exitCode = 1;
+  f.summary.receipt = makeReceipt(f.request.job, f.request.workerSha256, 'failed', result, 'project_checks_failed');
+  f.worker.conclusion = 'failure'; f.data['/actions/runs/202/jobs?per_page=10'].jobs[0].conclusion = 'failure';
+  const recovered = await recoverCheck(f.request, headSha, 101, 202, { get: f.get });
+  assert.equal(recovered.state, 'failed'); assert.equal(recovered.checks[2].exitCode, 1);
+});
+test('historical recovery refuses ambiguous history, altered evidence, reruns and unavailable original stops', async () => {
+  for (const mutate of [f => f.history.total_count = 21, f => f.history.workflow_runs.push(f.worker),
+    f => f.history.workflow_runs = [], f => f.history.workflow_runs = [{ ...f.worker, id: 203 }],
+    f => f.stop.reason = 'other', f => f.stop.automaticRetries = 1, f => f.stop.marker = 'PICARD_UNATTENDED_RESULT_V1',
+    f => f.intent.maximumDispatches = 2, f => f.coordinator.run_attempt = 2, f => f.coordinator.conclusion = 'success',
+    f => f.worker.run_attempt = 2, f => f.worker.head_sha = sourceSha, f => f.worker.repository.private = true,
+    f => f.worker.created_at = new Date(CLOCK + 11_000).toISOString(), f => f.coordinator.updated_at = 'invalid',
+    f => f.summary.receipt.artifacts[0].sha256 = '0'.repeat(64), f => f.summary.receipt.result.sourceSha = headSha,
+    f => f.data['/actions/runs/202/jobs?per_page=10'].jobs[0].labels = ['self-hosted', 'ubuntu-latest'],
+    f => f.data['/actions/runs/101/artifacts?per_page=10'].total_count = 1]) {
+    const f = recoveryFixture(); mutate(f);
+    await assert.rejects(recoverCheck(f.request, headSha, 101, 202, { get: f.get }));
+  }
+});
+test('recovery history paths are fixed GET queries with a finite time window', async () => {
+  for (const range of [['invalid', 'invalid'], [new Date(CLOCK).toISOString(), new Date(CLOCK - 1).toISOString()],
+    [new Date(CLOCK).toISOString(), new Date(CLOCK + 86_400_001).toISOString()]]) assert.throws(() => workerHistoryPath(...range));
+  for (const path of ['/actions/workflows/compute-worker.yml/runs?event=workflow_dispatch&per_page=100',
+    workerHistoryPath(new Date(CLOCK).toISOString(), new Date(CLOCK + 1).toISOString()) + '&page=2'])
+    await assert.rejects(githubGet(path));
 });

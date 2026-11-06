@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { selectResource } from './policy.mjs';
 import { sha256, jobSha256, makeReceipt, workerSha256, PreflightDenied } from './execution-protocol.mjs';
-import { RESULT_MARKER } from './github-job.mjs';
+import { WORKER_RUNS_PATH, WORKER_RUNS_MAXIMUM_BYTES, WORKER_LOG_MAXIMUM_BYTES, workerRuns, readWorkerReceipt } from './github-result.mjs';
 
 export const EXECUTION_REPOSITORY = 'bmartynowicz/picard-relay';
 export const EXECUTION_WORKFLOW = '.github/workflows/compute-worker.yml';
@@ -22,7 +22,7 @@ export function createGitHubExecutor(profile, { token = () => process.env[profil
     for await (const chunk of response.body) { count += chunk.length; if (count > maximum) throw Error('github_response_too_large'); chunks.push(chunk); }
     return Buffer.concat(chunks).toString('utf8');
   }
-  async function api(method, path, value, signal) {
+  async function api(method, path, value, signal, maximum = 131_072) {
     const credential = token();
     if (method === 'POST' && (typeof credential !== 'string' || !/^[A-Za-z0-9_.-]{20,4096}$/.test(credential))) throw Error('github_execution_credential_unavailable');
     const response = await fetchImpl(`${API}${path}`, { method, redirect: 'error',
@@ -34,7 +34,7 @@ export function createGitHubExecutor(profile, { token = () => process.env[profil
       await response.body?.cancel(); if (response.status !== 204) throw Error('github_dispatch_outcome_unknown'); return null;
     }
     if (response.status !== 200) { await response.body?.cancel(); throw Error('github_execution_unavailable'); }
-    return JSON.parse(await body(response));
+    return JSON.parse(await body(response, maximum));
   }
   async function observe({ signal } = {}) {
     if (typeof token() !== 'string' || !/^[A-Za-z0-9_.-]{20,4096}$/.test(token())
@@ -64,7 +64,7 @@ export function createGitHubExecutor(profile, { token = () => process.env[profil
       response = await fetchImpl(location.href, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(5000) });
     }
     if (response.status !== 200) { await response.body?.cancel(); throw Error('github_logs_unavailable'); }
-    return body(response, 4_194_304); // Seven bounded test-log groups plus GitHub timestamps/setup output.
+    return body(response, WORKER_LOG_MAXIMUM_BYTES);
   }
   return { kind: 'github-public-ci', context, observe,
     async execute(job, { signal, mayDispatch = () => false } = {}) {
@@ -84,9 +84,8 @@ export function createGitHubExecutor(profile, { token = () => process.env[profil
       return makeReceipt(job, profile.workerSha256, 'accepted');
     },
     async lookup(job) {
-      const result = await api('GET', '/actions/workflows/compute-worker.yml/runs?event=workflow_dispatch&per_page=20');
-      if (!Array.isArray(result.workflow_runs)) throw Error('invalid_github_runs');
-      const matches = result.workflow_runs.filter(run => run.display_title === runName(job)
+      const result = await api('GET', WORKER_RUNS_PATH, undefined, undefined, WORKER_RUNS_MAXIMUM_BYTES);
+      const matches = workerRuns(result).filter(run => run.display_title === runName(job)
         && run.head_sha === profile.commitSha && run.event === 'workflow_dispatch' && run.path === EXECUTION_WORKFLOW && validId(run.id));
       if (matches.length !== 1) return makeReceipt(job, profile.workerSha256, 'uncertain', null,
         matches.length ? 'multiple_matching_ci_runs' : 'ci_run_not_found');
@@ -99,13 +98,7 @@ export function createGitHubExecutor(profile, { token = () => process.env[profil
       if (!validId(workerJob.id) || workerJob.run_id !== run.id || workerJob.run_attempt !== 1 || workerJob.name !== 'fixed-project-checks'
         || !Array.isArray(workerJob.labels) || !workerJob.labels.includes('ubuntu-latest') || workerJob.labels.includes('self-hosted'))
         throw Error('unexpected_github_runner');
-      const output = await logs(workerJob.id);
-      const lines = output.split(/\r?\n/).filter(line => line.includes(RESULT_MARKER));
-      const match = lines.length === 1 && lines[0].match(/^(?:[0-9T:.+-]+Z )?PICARD_COMPUTE_RESULT_V1:([A-Za-z0-9+/]+={0,2})$/);
-      if (!match || Buffer.byteLength(match[1]) > 22_000) throw Error('invalid_github_receipt');
-      const bytes = Buffer.from(match[1], 'base64');
-      if (bytes.toString('base64') !== match[1] || bytes.length > 16_384) throw Error('invalid_github_receipt');
-      const receipt = JSON.parse(bytes.toString('utf8'));
+      const receipt = readWorkerReceipt(await logs(workerJob.id));
       if (!['completed', 'failed'].includes(receipt?.state)
         || (receipt.state === 'completed' && run.conclusion !== 'success') || (receipt.state === 'failed' && run.conclusion !== 'failure'))
         throw Error('github_outcome_mismatch');

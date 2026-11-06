@@ -59,11 +59,25 @@ If `gh` is unavailable, use the connected GitHub tools to fetch the coordinator 
 
 Return to the user: exact code SHA, check scope, pass/failure/unknown, coordinator and worker links, and any skipped/unsupported coverage. Keep source checked, source merged and production deployed distinct. The machine result includes bounded log tails and the inline result artifact; GitHub's full job logs provide detail subject to retention.
 
+### Recover an existing worker after an MCP handoff failure
+
+If the coordinator stopped at `mcp_operation_failed` after its one dispatch, the worker can still finish. Preserve the consumed request and both run IDs. Use this explicit read-only command with the **original** request JSON and request-head SHA:
+
+```sh
+node experimental/compute-broker/coding-check.mjs recover REQUEST_JSON_FILE REQUEST_HEAD_SHA COORDINATOR_RUN_ID WORKER_RUN_ID
+```
+
+Recovery makes at most nine bounded GETs. It checks the failed coordinator's original intent/stop pair with zero retries, successful offline prerequisite, first-attempt public run identities and standard runners. A complete worker listing within the coordinator's creation-to-stop window must contain exactly one matching job/hash. Missing, duplicate or truncated history, unavailable logs, unexpected uploads or a changed receipt fail closed. The worker receipt must bind the exact source, fixed worker and inline result.json. Known failed test groups remain `state: failed`.
+
+The output labels this `recovery: read-only-worker-log` and sets `savedRecoveryAfterRestart: false`: it verifies the worker's answer without claiming the failed coordinator saved it. It does not dispatch again, change the consumed request, extend approval, write a replacement coordinator marker or repair its ephemeral ledger. Original expired approvals remain readable. Normal `collect` still requires the coordinator's result and actual credential-free restart recovery.
+
 ## Zero-dollar boundary and limits
 
 Only standard `ubuntu-latest` runners in this public repository are eligible. Worker v2 has a ten-minute job limit; its suite plan has a 7.5-minute total deadline, at most five minutes per group and 1 MiB output per group. A timeout/output limit kills the Linux process group and stops with unknown outcome, never a false pass. Known nonzero test exits are recorded while later groups still run. The coordinator has a twelve-minute job limit and at most 120 read-only collection attempts at five-second intervals. These remain one invocation, with no execution retry. The finite CPU admission value is a reservation, not measured usage or a provider entitlement.
 
 The workflows use no artifact/cache uploads and contain no paid fallback, GPU, provisioning or runner-selection input. This is public-project CI, not general-purpose free hosting or an account-wide billing cap. See the linked [provider conditions](UNATTENDED.md#credential-and-cost-boundary).
+
+Worker history is capped at twenty rows and 512 KiB per response because GitHub repeats repository metadata in every row. Other coordinator API responses retain their 128 KiB bound. The coding CLI permits 512 KiB for its fixed historical query, 256 KiB for run/job/artifact metadata and 4 MiB for log transport; coordinator marker parsing stays capped at 256 KiB and worker receipt decoding at 16 KiB. No unbounded pagination or enlarged MCP frame is needed. Historical recovery refuses incomplete windows; normal collection cannot find a worker displaced beyond the latest twenty runs.
 
 The dispatch runs inside CI using GitHub's temporary credential; the local coding agent submits requests and reads results through its existing GitHub access. This does not install an always-on public MCP server or grant arbitrary GitHub write access to Picard. The runner ledger is ephemeral; cross-run fencing and receipts depend on retained GitHub history/logs. Preserve uncertain evidence and stop if it is unavailable. Permanent multi-host recovery and other projects/providers remain separate work.
 

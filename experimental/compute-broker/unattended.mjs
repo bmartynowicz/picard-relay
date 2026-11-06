@@ -6,6 +6,7 @@ import { workerSha256, jobSha256, hex256 } from './src/execution-protocol.mjs';
 import { validateReceipt } from './src/receipt.mjs';
 import { openMcp } from './src/mcp-client.mjs';
 import { repositoryResultState } from './src/repository-checks.mjs';
+import { WORKER_RUNS_PATH, WORKER_RUNS_MAXIMUM_BYTES, workerRuns } from './src/github-result.mjs';
 
 export const REPOSITORY = 'bmartynowicz/picard-relay';
 export const DISPATCH_WORKFLOW = '.github/workflows/compute-broker-tests.yml';
@@ -64,12 +65,12 @@ export async function runUnattended(value, { env = process.env, event, temporary
   open = openMcp, now = Date.now, wait = ms => new Promise(r => setTimeout(r, ms)), log = () => {} } = {}) {
   const request = validateRequest(value, env, event, now());
   if (!credential(env.PICARD_COMPUTE_GITHUB_TOKEN)) throw Error('ephemeral_workflow_credential_required');
-  async function get(path) {
+  async function get(path, maximum = 131_072) {
     const response = await fetchImpl(API + path, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(5000),
       headers: { accept: 'application/vnd.github+json', authorization: `Bearer ${env.PICARD_COMPUTE_GITHUB_TOKEN}`, 'user-agent': 'picard-unattended-ci' } });
     if (response.status !== 200) { await response.body?.cancel(); throw Error('dispatch_history_unavailable'); }
     const chunks = []; let count = 0;
-    for await (const chunk of response.body) { count += chunk.length; if (count > 131_072) throw Error('dispatch_history_too_large'); chunks.push(chunk); }
+    for await (const chunk of response.body) { count += chunk.length; if (count > maximum) throw Error('dispatch_history_too_large'); chunks.push(chunk); }
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   }
   const history = await get(`/actions/workflows/compute-broker-tests.yml/runs?event=pull_request&branch=${encodeURIComponent(env.GITHUB_HEAD_REF)}&per_page=20`);
@@ -109,8 +110,8 @@ export async function runUnattended(value, { env = process.env, event, temporary
     const recovered = await session.call('compute_get', { id: request.job.id });
     if (JSON.stringify(recovered) !== JSON.stringify(result)) throw Error('restart_result_mismatch');
   } finally { await session.close(); }
-  const runs = await get('/actions/workflows/compute-worker.yml/runs?event=workflow_dispatch&per_page=20');
-  const matches = runs.workflow_runs?.filter(r => r.display_title === `picard-compute/${request.job.id}/${jobSha256(request.job)}`
+  const runs = await get(WORKER_RUNS_PATH, WORKER_RUNS_MAXIMUM_BYTES);
+  const matches = workerRuns(runs).filter(r => r.display_title === `picard-compute/${request.job.id}/${jobSha256(request.job)}`
     && r.head_sha === request.workerCommit && r.event === 'workflow_dispatch' && r.path === '.github/workflows/compute-worker.yml');
   if (matches?.length !== 1 || matches[0].run_attempt !== 1
     || matches[0].conclusion !== (result.state === 'completed' ? 'success' : 'failure')) throw Error('worker_run_identity_mismatch');
