@@ -54,7 +54,7 @@ function harness(t, changes = {}) {
     const data = url.includes('compute-broker-tests.yml') ? f.history : { workflow_runs: [{ id: 202,
       display_title: `picard-compute/${f.request.job.id}/${jobSha256(f.request.job)}`, head_sha: sha,
       event: 'workflow_dispatch', path: '.github/workflows/compute-worker.yml', run_attempt: 1, conclusion: changes.conclusion ?? 'success' }] };
-    return new Response(JSON.stringify(data));
+    return new Response(JSON.stringify(changes.response ? changes.response(data, url) : data));
   };
   return { ...f, directory, calls, opened, logs, completed, waits: () => waits,
     options: { env: f.env, event: f.event, temporaryRoot: directory, now: () => CLOCK, open, fetchImpl,
@@ -93,6 +93,16 @@ test('native harness calls compute_run once, collects, and recovers after restar
   assert.equal(summary.workerRunId, 202); assert.equal(summary.savedRecoveryAfterRestart, true);
   assert.equal(h.calls.filter(n => n === 'compute_run').length, 1); assert.equal(h.opened.length, 2);
   assert.equal(h.logs[0].maximumDispatches, 1); assert.equal(h.logs[1].marker, 'PICARD_UNATTENDED_RESULT_V1');
+});
+test('final handoff accepts realistic worker listings above 128 KiB, with a separate 512 KiB cap', async t => {
+  const response = bytes => (data, url) => url.includes('compute-worker.yml') ? { ...data, repositoryMetadata: 'x'.repeat(bytes) } : data;
+  const h = harness(t, { response: response(229_152) });
+  assert.equal((await runUnattended(h.request, h.options)).savedRecoveryAfterRestart, true);
+  assert.equal(h.calls.filter(n => n === 'compute_run').length, 1);
+  const excessive = harness(t, { response: response(524_288) });
+  await assert.rejects(runUnattended(excessive.request, excessive.options), /too_large/);
+  assert.equal(excessive.calls.filter(n => n === 'compute_run').length, 1);
+  assert.equal(excessive.logs.length, 1);
 });
 test('uncertain outcomes perform only bounded collection and never another dispatch', async t => {
   const h = harness(t, { call: name => name === 'compute_collect' ? { state: 'uncertain' } : null });

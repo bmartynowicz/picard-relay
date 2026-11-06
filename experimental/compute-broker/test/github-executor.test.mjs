@@ -39,6 +39,24 @@ test('GitHub fixed standard workflow dispatch is one POST with exact source, job
   assert.deepEqual(JSON.parse(Buffer.from(body.inputs.job_json_b64, 'base64')), s.job);
   assert.equal(body.inputs.job_sha256, jobSha256(s.job)); assert.equal(freeWorkflowSha256().length, 64);
 });
+test('worker history with repeated GitHub repository metadata fits a bounded collection response', async () => {
+  const base = setup(), runs = [base.run(), ...Array.from({ length: 16 }, (_, i) => ({
+    ...base.run(), id: i + 100, display_title: `unrelated-${i}`, repository: { description: 'x'.repeat(13_000) },
+  }))];
+  assert.ok(Buffer.byteLength(JSON.stringify({ workflow_runs: runs })) > 131_072);
+  const s = setup({ runs });
+  assert.equal((await s.adapter.lookup(s.job)).state, 'completed');
+  assert.equal(s.calls.some(c => c.options.method !== 'GET'), false);
+});
+test('large worker history does not relax other API bounds or allow unbounded rows', async () => {
+  const good = setup();
+  for (const overrides of [{ runs: [{ ...good.run(), metadata: 'x'.repeat(524_288) }] },
+    { runs: Array.from({ length: 21 }, () => good.run()) },
+    { jobs: { jobs: good.jobs().jobs, metadata: 'x'.repeat(131_072) } }]) {
+    const s = setup(overrides); await assert.rejects(s.adapter.lookup(s.job));
+    assert.equal(s.calls.some(c => c.options.method !== 'GET'), false);
+  }
+});
 test('pinned protected branch enrollment needs no Contents write scope and cannot switch namespaces silently', async () => {
   const s = setup(), p = { ...s.p, refKind: 'branch' };
   const branch = createGitHubExecutor(p, { fetchImpl: s.fetchImpl, now: () => CLOCK, token: () => TOKEN });
