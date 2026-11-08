@@ -4,6 +4,18 @@ A small Node.js + SQLite relay that takes an exact approved AI request, sends it
 
 **Start here:** [What it does and how to use it](docs/QUICKSTART.md) · [Documentation](docs/README.md) · [Limitations](docs/LIMITATIONS.md) · [Known bugs and features](docs/WORK-REGISTER.md) · [For AI tools](llms.txt)
 
+## Your relay. Your cockpit.
+
+Keep the essentials in view. Open the detail when you need it.
+
+[![Picard Relay cockpit: moving stars, spinning brass insignia, projected activity and an expanded Jobs deck](docs/images/cockpit-jobs.png)](docs/COCKPIT-TOUR.md)
+
+**[Take the cockpit tour](docs/COCKPIT-TOUR.md)** · [Watch the 15-second GIF](docs/images/picard-cockpit-walkthrough.gif) · [Video file (MP4)](docs/images/picard-cockpit-walkthrough.mp4)
+
+Recorded on the enrolled v1.0.33 relay. Activate the top-left insignia five times
+to enter the optional cockpit. Select a view to open its reading deck; click
+exposed space to retract it. The tour covers controls, ranks and current limits.
+
 ## Choose your starting point
 
 ![Four ways to start: terminal demo, synthetic interface, enrolled relay, or integration guides](docs/images/choose-a-start.svg)
@@ -63,9 +75,9 @@ Built for modest hardware, Picard preserves request identity, stores correlated 
 
 The v1 source adds ordinary request creation, exact-input approval, named job history, saved answer/code downloads, provenance handoff and persistent owner reviews. It reuses the durable one-call relay and existing Groq enrollment. Read the [v1 guide](docs/V1.md) and [machine-readable workspace contract](docs/workspace-contract.json).
 
-![Picard Relay interface walkthrough: overview, request creation, provider status, job history and saved-result review](docs/images/picard-relay-interface-demo.gif)
-
-*A 27-second silent interface walkthrough. The saved code proposal shown is a synthetic example; generated code remains inert until you choose to use it.*
+The [earlier 27-second workspace demo](docs/images/picard-relay-interface-demo.gif)
+shows request creation and saved-result review in the older layout using synthetic
+data. For the current interface, use the [cockpit tour](docs/COCKPIT-TOUR.md).
 
 Try the complete workflow locally with Node 24:
 

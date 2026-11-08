@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-04",
+  "updatedAt": "2026-11-08",
   "scope": "Sanitized Picard product work known from the live audit and existing project backlog. Not a complete export of the private owner board.",
   "operationalRecord": "Owner private task board",
   "statusGuide": {
@@ -11,7 +11,8 @@
     "fixture_only": "Available only as an offline test/design fixture; production enablement is not claimed.",
     "needs_design": "Scope or authority contract needs design before implementation.",
     "installed_pending_live_verification": "Signed source is installed and its code/state checks passed; final authenticated production browser comparison is still pending.",
-    "source_candidate": "Implemented source under review; not a claim of installation or owner acceptance."
+    "source_candidate": "Implemented source under review; not a claim of installation or owner acceptance.",
+    "verified_from_main": "Merged source was checked through the documented coding workflow; this does not imply a production runtime deployment or owner acceptance."
   },
   "verification": {
     "baselineRelease": "0.1.17",
@@ -400,6 +401,130 @@
         "experimental/compute-broker/test/repository-checks.test.mjs"
       ],
       "remaining": "Review/merge PR #13 and verify the merged helper while retaining consumed evidence. Broader durable orchestration, account-wide preventive cost controls and owner acceptance remain open. Individual proofs do not authorize new jobs or complete the full cloud-network task."
+    },
+    {
+      "id": "PR-BUG-006",
+      "kind": "bug",
+      "severity": "P2",
+      "title": "Cockpit discovery and persistence",
+      "status": "planned",
+      "behavior": "Five insignia activations currently enable cockpit and stars together. The mode resets on page reload; ordinary Refresh reads status only.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/oracle-service.mjs"
+      ],
+      "remaining": "Make cockpit independently selectable without coupling it to the hidden stars toggle; no implementation claimed."
+    },
+    {
+      "id": "PR-FTR-009",
+      "kind": "feature",
+      "title": "Cockpit navigation, reading decks, earned ranks and brighter round stars",
+      "status": "verified_on_deployment",
+      "behavior": "Horizontal control rail, projected readings, opaque expanding decks, 128 round SVG stars and earned-work insignia. Linked tour includes a real v1.0.33 recording.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/oracle-service.mjs"
+      ],
+      "tests": [
+        "experimental/runtime-control/test/console-ui.test.mjs",
+        "experimental/runtime-control/test/console.test.mjs"
+      ],
+      "verification": {
+        "verifiedAt": "2026-11-05T17:43:39.767Z",
+        "release": "1.0.33",
+        "sequence": 33001,
+        "sourceCommit": "043a11cf49b2c70de6a5558bb1979ed2f18e5bde",
+        "releaseHash": "b9d5044804385cc0902d432e650d911ec749c900cebc514eb2087f06f5bf7a5d",
+        "pullRequest": "https://github.com/bmartynowicz/picard-relay/pull/35",
+        "workflow": "https://github.com/bmartynowicz/picard-relay/actions/runs/42075634462",
+        "liveChecks": [
+          "Physical identity and all 20 signed modules",
+          "128 round stars and two moving planes",
+          "Opaque navigation and reading deck",
+          "Pause/resume and static reduced motion",
+          "320px and 390px without horizontal overflow",
+          "Existing Jobs and saved result recovery"
+        ],
+        "providerCallsDuringDeploymentValidation": 0,
+        "preservedJobs": 32,
+        "preservedInvocationMarkers": 33,
+        "ownerAcceptance": false
+      },
+      "remaining": "Owner acceptance remains separate; cockpit mode selection/reset is tracked by PR-BUG-006."
+    },
+    {
+      "id": "PR-FTR-010",
+      "kind": "feature",
+      "title": "Whole-VM power reading, restrained load-linked travel and background look-around",
+      "status": "verified_on_deployment",
+      "behavior": "The VM CPU projection opens memory details; CPU changes star travel from 1x to at most 1.3x while input-only look-around moves only the background. Existing status sampling is bounded and cached.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/runtime-control.mjs",
+        "experimental/runtime-control/src/oracle-service.mjs"
+      ],
+      "tests": [
+        "experimental/runtime-control/test/vm-power.test.mjs",
+        "experimental/runtime-control/test/console-ui.test.mjs"
+      ],
+      "verification": {
+        "verifiedAt": "2026-11-06T21:29:32.482334Z",
+        "release": "1.0.34",
+        "sequence": 34001,
+        "sourceCommit": "f764cdf2d0543f6f6dc24fa05ca47f6b9d2a9c20",
+        "releaseHash": "03beb69c280faa1ae3f07d053089bdf5114d39f8f8581208dd852ad0b1904815",
+        "pullRequest": "https://github.com/bmartynowicz/picard-relay/pull/38",
+        "workflow": "https://github.com/bmartynowicz/picard-relay/actions/runs/42132908841",
+        "providerCallsDuringDeploymentValidation": 0,
+        "ownerAcceptance": false
+      },
+      "remaining": "Other-host installation, device-performance benchmarks and owner acceptance remain separate."
+    },
+    {
+      "id": "PR-BUG-007",
+      "kind": "bug",
+      "severity": "P2",
+      "title": "Worker history exceeds coordinator response limit after jobs accumulate",
+      "status": "verified_from_main",
+      "behavior": "A dedicated 512 KiB/twenty-row limit accepts repeated GitHub repository metadata in worker listings without enlarging other coordinator API/MCP bounds. Explicit read-only recovery preserves the original failed coordinator state and never reruns a worker.",
+      "sourceFiles": [
+        "experimental/compute-broker/src/github-executor.mjs",
+        "experimental/compute-broker/src/github-result.mjs",
+        "experimental/compute-broker/coding-check.mjs",
+        "experimental/compute-broker/unattended.mjs"
+      ],
+      "tests": [
+        "experimental/compute-broker/test/github-executor.test.mjs",
+        "experimental/compute-broker/test/coding-check.test.mjs",
+        "experimental/compute-broker/test/unattended.test.mjs"
+      ],
+      "verification": {
+        "verifiedAt": "2026-11-08T18:04:03.893Z",
+        "sourceCommit": "075d15b080dec941cf976663c431fbea2daa6631",
+        "pullRequest": "https://github.com/bmartynowicz/picard-relay/pull/40",
+        "coordinator": "https://github.com/bmartynowicz/picard-relay/actions/runs/42507868898",
+        "worker": "https://github.com/bmartynowicz/picard-relay/actions/runs/42507907646",
+        "scope": "full-repository-v1",
+        "savedRecoveryAfterRestart": true,
+        "uploadedArtifacts": 0,
+        "automaticRetries": 0,
+        "ownerAcceptance": false
+      },
+      "remaining": "Retained bounded history/logs are required; source verification does not imply owner acceptance."
+    },
+    {
+      "id": "PR-BUG-008",
+      "kind": "bug",
+      "severity": "P2",
+      "title": "Updater preflight or process startup failure can appear ready",
+      "status": "planned",
+      "behavior": "An observed pre-check permission error removed the request queue before failure status was recorded. Startup failures must retain queue or durable failed/unknown evidence without updater/provider retry.",
+      "sourceFiles": [
+        "experimental/updater/owner-request.mjs",
+        "experimental/updater/picard-owner-update.service",
+        "experimental/updater/picard-owner-update.path"
+      ],
+      "tests": [
+        "experimental/updater/owner-request.test.mjs"
+      ],
+      "remaining": "Negative setup/startup regressions and durable reporting correction; no general source fix or new host activation claimed by this snapshot."
     }
   ]
 }

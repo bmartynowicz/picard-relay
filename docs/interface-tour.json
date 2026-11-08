@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-08",
+  "title": "Your relay. Your cockpit.",
+  "summary": "Optional space cockpit for bounded AI work: readiness and activity remain visible while task-specific reading decks open on demand.",
+  "textEquivalent": "docs/COCKPIT-TOUR.md",
+  "source": {
+    "kind": "owner_supplied_screen_recording",
+    "filename": "New Picard Relay Interface.gif",
+    "sha256": "483c876e9f5e2ed0db4842ff66d859ac2e33090a35fc8c1f4770064c34230ee7",
+    "width": 2400,
+    "height": 1584,
+    "frameCount": 386,
+    "durationMs": 15440,
+    "bytes": 26287189,
+    "audio": false,
+    "syntheticPreview": false,
+    "recordedDate": "2026-11-05",
+    "visibleRelease": "1.0.33",
+    "visibleSequence": 33001,
+    "visibleSourceCommit": "043a11cf49b2c70de6a5558bb1979ed2f18e5bde",
+    "scope": "One enrolled owner console; recorded counts and rank are historical values for that relay.",
+    "visibleCounts": {
+      "active": 0,
+      "completed": 28,
+      "uncertain": 3,
+      "failed": 1
+    },
+    "visibleRank": "Lieutenant"
+  },
+  "assets": [
+    {
+      "path": "docs/images/picard-cockpit-walkthrough.gif",
+      "bytes": 2052446,
+      "sha256": "11df96f9b7e27d12bca57535ce6365b8bc1de22f4eefc35c715d1dc676d9e801",
+      "format": "gif",
+      "width": 1200,
+      "height": 792,
+      "frameCount": 154,
+      "durationMs": 15400,
+      "framesPerSecond": 10,
+      "loops": true
+    },
+    {
+      "path": "docs/images/picard-cockpit-walkthrough.mp4",
+      "bytes": 638507,
+      "sha256": "137aa96312c3dd59dc86069758d2dafe1e420e2ba7ee242df899bc4708fcccd6",
+      "format": "mp4",
+      "codec": "h264",
+      "width": 1600,
+      "height": 1056,
+      "durationMs": 15440,
+      "framesPerSecond": 25,
+      "audio": false
+    },
+    {
+      "path": "docs/images/cockpit-overview.png",
+      "bytes": 100826,
+      "sha256": "8d1034941d1bfb229e982bcb4b443966cc7fcda930a8e34c6e5f36adbcb11b45",
+      "format": "png",
+      "width": 1600,
+      "height": 1056,
+      "sourceTimeSeconds": 0
+    },
+    {
+      "path": "docs/images/cockpit-jobs.png",
+      "bytes": 189113,
+      "sha256": "108017aa5436f67b71abe4ad8bc0e45d5de3441f4b7d5322c133a4a9435e9f73",
+      "format": "png",
+      "width": 1600,
+      "height": 1056,
+      "sourceTimeSeconds": 5
+    },
+    {
+      "path": "docs/images/cockpit-progress.png",
+      "bytes": 161587,
+      "sha256": "1faeb973ba5dc36295c1d6c4ed99d559a3181ec928805561e3e45bcaddd995c5",
+      "format": "png",
+      "width": 1600,
+      "height": 1056,
+      "sourceTimeSeconds": 8
+    }
+  ],
+  "timeline": [
+    {
+      "startSeconds": 0,
+      "endSeconds": 3,
+      "view": "compact",
+      "observed": "Rotating brass insignia, horizontal navigation, moving stars, readiness, projected activity, progress and New request."
+    },
+    {
+      "startSeconds": 3,
+      "endSeconds": 7,
+      "view": "jobs",
+      "observed": "Broad Jobs reading deck opens beneath the instruments, displays existing completed jobs, then retracts."
+    },
+    {
+      "startSeconds": 7,
+      "endSeconds": 12,
+      "view": "overview",
+      "observed": "Overview deck opens and scrolls through progress, readiness, outcomes and recent activity."
+    },
+    {
+      "startSeconds": 12,
+      "endSeconds": 14,
+      "view": "groq_then_system",
+      "observed": "Narrower Groq and System decks; System displays version, sequence and source commit."
+    },
+    {
+      "startSeconds": 14,
+      "endSeconds": 15.44,
+      "view": "compact",
+      "observed": "Reading deck retracts; open windshield remains."
+    }
+  ],
+  "timelinePrecision": "Approximate segments, not exact input-event timestamps. Transitions overlap segment boundaries.",
+  "sourceDocumentedControls": {
+    "toggleCockpitAndStars": {
+      "target": "top-left insignia",
+      "activationCount": 5,
+      "maxGapMs": 5000,
+      "inputs": [
+        "click",
+        "Enter",
+        "Space"
+      ],
+      "defaultEnabled": false,
+      "persistsAfterReload": false
+    },
+    "openDeck": "Select Overview, Jobs, Requests, Groq or System in the horizontal navigation.",
+    "retractDeck": [
+      "Click exposed starfield",
+      "Minimize panel",
+      "Escape"
+    ],
+    "retractPreserves": [
+      "current draft",
+      "selected result",
+      "job context"
+    ],
+    "hudShortcuts": {
+      "counts": "Jobs",
+      "readiness": "System",
+      "Progress": "Overview",
+      "primaryAction": "Current onboarding or request step"
+    },
+    "utilities": "Upper-right ellipsis menu: Documentation, motion and Sign out.",
+    "statusRefresh": "Refresh button; existing 15000 ms read-only visible-tab cadence. Does not reload interface source.",
+    "softwareUpdate": "System / Check for updates; separately enrolled host updater required.",
+    "activeReadoutDefinition": "Current source uses queued + invoking from a fresh scoped status observation; completed is saved responses."
+  },
+  "sourceDocumentedBehaviorNotDemonstratedInClip": [
+    "v1.0.34 whole-VM power reading, bounded CPU-linked travel pace and background-only look-around",
+    "Five-activation cockpit toggle and keyboard controls",
+    "Requests composer, exact approval, result exports and local reviews",
+    "Rank advancement and progressive interface unlocks",
+    "Update-button installation",
+    "Pause, reduced motion, hidden-tab behavior and narrow layouts"
+  ],
+  "notEstablishedByRecording": [
+    "New model invocation or live provider quota/billing",
+    "Correct, executed or accepted generated code",
+    "CPU, GPU, battery or low-end device performance",
+    "Other hosts having this release installed",
+    "Owner acceptance or feature completeness"
+  ],
+  "renderingContract": {
+    "starCount": 128,
+    "svgPlanes": 2,
+    "staticPaths": 4,
+    "animation": "CSS",
+    "canvas": false,
+    "webgl": false,
+    "javascriptRenderLoop": false,
+    "extraPollingTimer": false,
+    "externalSceneAssets": false,
+    "hiddenTabs": "pause animation and status polling",
+    "reducedMotion": "static scene",
+    "mediaBundledInSignedRuntime": false,
+    "performanceBenchmark": false,
+    "baseTravelSeconds": [
+      113,
+      179
+    ],
+    "maximumPlaybackRate": 1.3,
+    "lookAroundMaximumPx": {
+      "x": 14,
+      "y": 10
+    },
+    "powerReading": "whole-VM CPU; memory and Picard RAM expand on selection"
+  },
+  "knownWork": [
+    {
+      "id": "PR-BUG-006",
+      "state": "planned",
+      "summary": "Make cockpit independently selectable; current hidden toggle also enables stars and resets on reload."
+    }
+  ],
+  "relatedGuides": [
+    "docs/CONSOLE-WORKSPACE.md",
+    "docs/OWNER-FEATURES.md",
+    "docs/OWNER-UPDATES.md",
+    "docs/V1.md",
+    "docs/LIMITATIONS.md",
+    "docs/STATUS.md",
+    "docs/FLIGHT-INSTRUMENTS.md"
+  ],
+  "suggestedCaption": "Your relay. Your cockpit. Follow AI work at a glance, open the details when you need them, and come back to the saved answer.",
+  "behaviorSourceCommit": "075d15b080dec941cf976663c431fbea2daa6631",
+  "behaviorSourceReviewDate": "2026-11-08",
+  "recordedRenderingContract": {
+    "starCount": 128,
+    "svgPlanes": 2,
+    "staticPaths": 4,
+    "travelSeconds": 90,
+    "animation": "CSS",
+    "canvas": false,
+    "webgl": false,
+    "javascriptRenderLoop": false,
+    "extraPollingTimer": false,
+    "externalSceneAssets": false,
+    "hiddenTabs": "pause animation and status polling",
+    "reducedMotion": "static scene",
+    "mediaBundledInSignedRuntime": false,
+    "performanceBenchmark": false
+  }
+}

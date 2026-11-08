@@ -1,8 +1,10 @@
 # Owner updates, earned ranks and the space window
 
-Source candidate, November 5, 2026. These changes are not installed merely by
-opening the preview or publishing a PR. Existing hosts still need a signed
-release; the owner-update bridge needs separate host enrollment.
+Updated November 8, 2026. The cockpit and ranks are in the signed-runtime source;
+the latest recorded enrolled-host checks cover v1.0.34. Use the [visual tour](COCKPIT-TOUR.md)
+for controls and the walkthrough, and [Status](STATUS.md) for dated installation
+evidence. Other hosts still need a signed release; the owner-update bridge needs
+separate host enrollment.
 
 ## Check for updates
 
@@ -45,10 +47,10 @@ space windshield. A centered horizontal control rail keeps the navigation opaque
 and preserves the spinning upper-left insignia.
 The refresh control sits at the right of the same rail; documentation, motion
 and sign-out controls are grouped in its adjacent menu. Two
-small inline SVG star planes scale slowly over 90 seconds, giving a sense of
-forward travel. Round stroke caps replace expanding square pixels; 128 points
-use two restrained sizes and higher contrast, and both planes start partway
-through their travel so the scene is visible immediately. The two planes still
+small inline SVG star planes use independent 113-second and 179-second base
+loops, giving a sense of forward travel. Round stroke caps replace expanding
+square pixels; 128 irregularly placed points use two restrained sizes, and both
+planes start partway through their travel so the scene is visible immediately. The two planes still
 contain only four static paths. The opaque navigation covers the
 scene. Stars remain off by
 default and persist only in the current page.
@@ -70,7 +72,8 @@ Clicks on controls or inside the deck do not retract it. Navigation is horizonta
 at every size, using a second header row on smaller screens.
 
 The [flight instrument refinement](FLIGHT-INSTRUMENTS.md) adds a VM CPU reading,
-an etched navigation rail and background-only look-around. There is no canvas,
+an etched navigation rail and background-only look-around. Measured whole-VM CPU
+gently changes travel speed from 1× to at most 1.3×. There is no canvas,
 WebGL, bitmap download, blur, JavaScript render loop, dependency or new polling
 timer. Pointer movement is handled only over exposed space. Two CSS star animations run only
 while the optional scene is active. Pause Motion and hidden tabs pause them;

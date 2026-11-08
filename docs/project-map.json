@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-04",
+  "updatedAt": "2026-11-08",
   "project": "Picard Relay",
   "summary": "Self-hosted Node.js and SQLite delivery layer for exact approved AI requests, durable one-shot invocation and saved-result recovery.",
   "documentationIndex": "docs/README.md",
@@ -200,8 +200,10 @@
   "guides": [
     "docs/QUICKSTART.md",
     "docs/CONSOLE-WORKSPACE.md",
+    "docs/COCKPIT-TOUR.md",
     "docs/OWNER-UPDATES.md",
     "docs/OWNER-FEATURES.md",
+    "docs/FLIGHT-INSTRUMENTS.md",
     "docs/BADGE-RESEARCH.md",
     "docs/ARCHITECTURE.md",
     "docs/API.md",
@@ -263,5 +265,6 @@
     "unapproved prompt invocation"
   ],
   "workspaceContract": "docs/workspace-contract.json",
-  "computeBrokerContract": "experimental/compute-broker/contract.json"
+  "computeBrokerContract": "experimental/compute-broker/contract.json",
+  "interfaceTour": "docs/interface-tour.json"
 }
