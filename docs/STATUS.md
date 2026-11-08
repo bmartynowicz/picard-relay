@@ -1,8 +1,81 @@
 # Verification status
 
-Last documentation review: **November 4, 2026 UTC**. This page separates a reusable source contract from one enrolled host's dated observations. Read [Limitations](LIMITATIONS.md) and [known work](WORK-REGISTER.md) alongside it.
+Last documentation review: **November 8, 2026 UTC**. This page separates a reusable source contract from one enrolled host's dated observations. Read [Limitations](LIMITATIONS.md) and [known work](WORK-REGISTER.md) alongside it.
 
-## Current verified release — v1 workspace
+## Latest recorded host release — v1.0.34 flight instruments
+
+On November 6, 2026, the enrolled host installed **v1.0.34 / sequence 34001**
+after [PR #38](https://github.com/bmartynowicz/picard-relay/pull/38). Source:
+`f764cdf2d0543f6f6dc24fa05ca47f6b9d2a9c20`; physical release:
+`03beb69c280faa1ae3f07d053089bdf5114d39f8f8581208dd852ad0b1904815`.
+The [signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/42132908841)
+passed on its first attempt.
+
+Authenticated browser verification at 16:04 UTC checked all five views,
+whole-VM CPU and memory details, saved-result recovery, fixed HUD/navigation,
+background-only look-around, CPU-linked travel speed, deck retraction and
+pause/reduced motion. Actual 390px and 320px layouts had no horizontal overflow.
+Those checks made no new provider call or paid-resource request.
+
+A read-only server audit at 21:29 UTC matched all 20 installed file sizes/hashes
+to the signed manifest and merged source. Configuration, proxy, updater policy
+and the 32 historical jobs, 33 historical invocation markers and 42 historical
+workspace records were preserved. One previously authorized gauge-helper job,
+its marker and two workspace records explain the additions: the final totals
+were 33 jobs, 34 markers and 29 completed / 1 failed / 3 uncertain outcomes.
+SQLite integrity passed; service and saved-result recovery were ready and
+SELinux remained Enforcing. This is a dated observation, not a fresh assertion
+about every host or a device-performance benchmark.
+
+The walkthrough below records the earlier v1.0.33 appearance. It does not show
+the v1.0.34 power reading or look-around controls.
+
+## Coding workflow — verified from main on November 8
+
+[PR #40](https://github.com/bmartynowicz/picard-relay/pull/40) fixed an oversized
+GitHub worker-list response that interrupted result handoff. Exact merged main
+`075d15b080dec941cf976663c431fbea2daa6631` passed all seven repository groups through
+the [Picard coordinator](https://github.com/bmartynowicz/picard-relay/actions/runs/42507868898)
+and [protected worker](https://github.com/bmartynowicz/picard-relay/actions/runs/42507907646).
+Normal read-only collection verified the receipt and saved recovery after a
+credential-free coordinator restart, with zero uploaded artifacts and retries.
+The one-use verification PR was closed unmerged. This coordinator/CLI-only change
+required no signed-runtime deployment. See [the coding workflow](../experimental/compute-broker/CODING-WORKFLOW.md).
+
+## Recorded walkthrough release — v1.0.33 cockpit
+
+On November 5, 2026 at 17:37 UTC, **v1.0.33 / sequence 33001** was installed
+using the authenticated owner update button after [PR #35](https://github.com/bmartynowicz/picard-relay/pull/35).
+Source: `043a11cf49b2c70de6a5558bb1979ed2f18e5bde`; physical release:
+`b9d5044804385cc0902d432e650d911ec749c900cebc514eb2087f06f5bf7a5d`.
+All 20 installed files matched the signed manifest and merged source. The
+[signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/42075634462)
+passed on its first attempt. The updater reported installed, exited successfully
+and retained its cooldown after reload.
+
+Authenticated Chrome checks completed at 17:43 UTC: System identity and saved
+result recovery passed; the cockpit showed 128 round stars with both planes
+visible immediately and moving. Pause/resume, static reduced motion and actual
+390px/320px layouts without horizontal overflow passed. Navigation and reading
+surfaces stayed opaque. The [owner-supplied walkthrough](COCKPIT-TOUR.md) shows
+this release and its real recorded data, rather than the older synthetic demo.
+
+All 32 jobs (28 completed, 1 failed, 3 uncertain), 33 invocation markers and
+environment/configuration/proxy/updater-policy hashes matched the pre-install
+baseline. The service, provider and saved-result recovery were ready, with no
+unresolved invocation or pending cost latch. SELinux remained Enforcing. No new
+provider call or paid resource was used for deployment validation. These dated
+checks are not a performance benchmark or a claim about every installation.
+
+The exact tested source `4282f17d76bf5f5cac3de43abed652e41206f8fb` and merge have
+the same tree. The [seven-group Linux worker](https://github.com/bmartynowicz/picard-relay/actions/runs/42074610507)
+passed after a fractional CLI deadline bug was corrected. Its coordinator still
+failed during result handoff; the worker receipt was recovered and validated
+read-only. This does not claim repaired end-to-end unattended recovery. The CLI
+correction is outside the 20-module runtime bundle. Default cockpit selection,
+the reload reset and owner acceptance remain separate work.
+
+## v1.0.26 workspace activation baseline
 
 On November 3, 2026 at 9:55 PM EST (November 4 UTC), **v1.0.26 / sequence 26002** was installed through the enrolled updater. Source: `cae592b60114118dc11bb794fde59932ab8ef2ee`; physical release: `ead28a19e2f4d38bf8e1b5203dc8ced3ce41b30596802903a11cb57439a556d4`. All 20 installed modules match the signed manifest and merged source. [PR #6](https://github.com/bmartynowicz/picard-relay/pull/6) is merged. The [signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41763218647) passed on attempt 2 with unchanged source after an initial pre-existing CLI deadline-test timing failure. No runtime change was made to obtain that rerun.
 
