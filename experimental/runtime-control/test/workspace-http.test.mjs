@@ -24,6 +24,10 @@ test('real owner login, HTTP approval, real markers, dispatcher and restart reco
   assert.equal((await f.dispatcher.runOnce()).status,'completed');assert.equal(f.calls,1);f.restart();
   const newAuth=createOwnerAuth({stateDir:authDir});assert.equal(await newAuth.authenticate(cookie.split('=')[1]),true);
   const saved=await send('/workspace/requests/'+d.payload.eventId,undefined,cookie);assert.equal(saved.status,200);assert.equal(saved.body.result.body,f.output);assert.equal((await f.dispatcher.runOnce()).status,'idle');assert.equal(f.calls,1);
+  const grade={expectedRevision:0,score:4,note:'Real local HTTP fixture.',resultSha256:saved.body.result.sha256};
+  assert.equal((await send('/workspace/grades/'+d.payload.eventId,grade)).status,401);
+  assert.equal((await send('/workspace/grades/'+d.payload.eventId,grade,cookie)).body.grade.latest.score,4);f.restart();
+  const graded=await send('/workspace/requests/'+d.payload.eventId,undefined,cookie);assert.equal(graded.body.grade.revision,1);assert.equal(graded.body.review.revision,0);assert.equal(graded.body.result.body,f.output);assert.equal(f.calls,1);
   assert(fs.existsSync(path.join(stateDir,'groq-once-'+d.payload.grantId+'.consumed')));
   await send('/auth/logout',{},cookie);assert.equal((await send('/workspace/requests/'+d.payload.eventId,undefined,cookie)).status,401);
   console.log(JSON.stringify({proof:'workspace-real-http',node:process.version,realOwnerAuth:true,realInvocationMarkers:true,externalProviderCalls:0,syntheticProviderCalls:f.calls,rssBytes:process.memoryUsage().rss,heapUsedBytes:process.memoryUsage().heapUsed}));

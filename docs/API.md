@@ -78,7 +78,22 @@ These routes exist only with explicit workspace activation, on the existing exac
 | POST /workspace/requests | {requestId,nonce,draftSha256,approve:true}; atomically consumes approval and queues one exact job. |
 | GET /workspace/requests/<ref> | Read the draft or validate the owner-scoped job/result and review history. This never invokes the provider. |
 | POST /workspace/reviews/<ref> | {expectedRevision,decision,note,resultSha256}; decision is accepted or changes_requested. |
+| POST /workspace/grades/<ref> | {expectedRevision,score,note,resultSha256}; score is an integer 1–5, note is at most 500 characters. Reviewer is assigned as owner by the server. |
 
 The server assigns a grant and fixes the provider, output ceiling and 15-minute request lifetime. A duplicate draft ID with the same input returns the original clocks and grant; different input conflicts. Approval, immutable work, enrollment association and source provenance are committed in one SQLite transaction. Owner-console approval records are distinct from signed-Board attestations. Replays never become new grants. A lost response is recovered through GET; clients must not silently prepare a replacement request.
 
 The HTTP body cap is 24,576 UTF-8 bytes; combined provider input is at most 12,000 bytes. There are at most eight active jobs, 16 live uncommitted drafts, 10 POST attempts per minute, 100 review events per result and 10,000 retained drafts/jobs. Counts are storage limits, not renewed call allowances.
+
+## Response quality grades
+
+In a saved result, open **Quality**, select 1 (Poor) through 5 (Excellent), optionally add a note and save. The latest score shows whether the owner or a signed client recorded it. History preserves earlier grades. Grades describe the exact saved answer text; they do not accept a result, earn rank, change provider selection or run another call.
+
+The authenticated owner route above uses the existing session and exact-origin checks. `expectedRevision` starts at zero and must match the grade history. A lost response can be recovered by reading the same request; an exact duplicate write is idempotent. Changed input at an old revision returns conflict. Each result permits at most 100 grade events, with a 500-character note per event. Records reuse the existing durable SQLite metadata table without migration. Unreadable grade metadata returns `grade:null` without hiding an otherwise intact saved answer, review or rank credit; further grading stops. A valid recorded grade whose hash contradicts changed saved answer text still fails closed.
+
+AI tools can record a grade through the existing signed `POST /bridge/v1` transport with this exact body:
+
+```json
+{"v":1,"action":"grade","ownerId":"<configured owner>","taskId":"<original task>","eventId":"<original ref>","payloadHash":"<original payload hash>","expectedRevision":0,"score":4,"note":"Useful, with a clear boundary.","resultSha256":"<saved answer SHA-256>"}
+```
+
+Use the existing `signRequest` and `verifyResponse` helpers. Workspace activation, same owner/task/source and the signed client's existing expiry/revocation boundary still apply; a key alone grants no new scope. The server records reviewer `{kind:"client",keyId:<authenticated key ID>}`. This identifies the authenticated client, not a verified AI model or human identity. A caller cannot label itself as the owner. Read the current grade using signed action `grade_status` with exactly `{v,action,ownerId,taskId,eventId,payloadHash}` before a later write. Grade reads and writes return only `{revision,latest}`, keeping transport responses bounded without enlarging the existing result response; the owner result route includes the complete bounded history. Grading is available during a provider outage and never renews execution approval. Host operators must include the new exact grade route from the disabled Caddy template when separately deploying this candidate.

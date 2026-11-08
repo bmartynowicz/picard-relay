@@ -27,7 +27,7 @@ relay.example.com {
     }
     @review {
         method POST
-        path_regexp review ^/workspace/reviews/[a-f0-9]{64}$
+        path_regexp review ^/workspace/(reviews|grades)/[a-f0-9]{64}$
     }
     handle @review {
         request_body {

@@ -282,6 +282,29 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
    db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(key,ASSOCIATION_EXPIRY);return workspaceReview(ref);
   });
  }
+ function workspaceGrade(ref){
+  if(workspaceEnabled!==true||!hex(ref))stop('request_invalid');
+  const rows=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 101').all(PREFIX+'workspace:'+workspaceScope()+':grade:'+ref+':*');
+  if(rows.length>100)stop('grade_invalid');
+  const history=rows.map(row=>{if(row.expires!==ASSOCIATION_EXPIRY)stop('grade_invalid');const g=decode(row);if(!exact(g,['v','ref','revision','score','note','reviewer','resultSha256','recordedAt'])||g.v!==1||g.ref!==ref||!integer(g.revision)||g.revision<1||!Number.isInteger(g.score)||g.score<1||g.score>5||typeof g.note!=='string'||g.note.length>500||!validGradeReviewer(g.reviewer)||!hex(g.resultSha256)||!integer(g.recordedAt))stop('grade_invalid');return g;}).sort((a,b)=>a.revision-b.revision);
+  if(history.some((g,i)=>g.revision!==i+1))stop('grade_invalid');
+  return {revision:history.length,latest:history.at(-1)??null,history};
+ }
+ function validGradeReviewer(r){return exact(r,['kind'])&&r.kind==='owner'||exact(r,['kind','keyId'])&&r.kind==='client'&&typeof r.keyId==='string'&&/^[A-Za-z0-9_.:-]{1,100}$/.test(r.keyId);}
+ function saveWorkspaceGrade({ref,expectedRevision,score,note,resultSha256,reviewer}){
+  return transaction(()=>{
+   if(!integer(expectedRevision)||!Number.isInteger(score)||score<1||score>5||typeof note!=='string'||note.length>500||!hex(resultSha256)||!validGradeReviewer(reviewer))stop('request_invalid');
+   const row=get(ref);if(!row||row.owner!==reusableBinding?.ownerId||row.state!=='completed')stop('grade_unavailable');
+   let result;try{result=JSON.parse(row.result_json);}catch{stop('grade_unavailable');}
+   if(typeof result.body!=='string'||admissionHash(result.body)!==resultSha256)stop('grade_unavailable');
+   const grade=workspaceGrade(ref),next={v:1,ref,revision:expectedRevision+1,score,note,reviewer:{...reviewer},resultSha256,recordedAt:clock()};
+   if(grade.history.some(g=>g.resultSha256!==resultSha256))stop('grade_unavailable');
+   if(grade.revision===expectedRevision+1&&grade.latest.score===score&&grade.latest.note===note&&canonical(grade.latest.reviewer)===canonical(reviewer)&&grade.latest.resultSha256===resultSha256)return grade;
+   if(grade.revision!==expectedRevision)stop('grade_conflict');if(grade.revision>=100)stop('queue_capacity');
+   const key=PREFIX+'workspace:'+workspaceScope()+':grade:'+ref+':'+next.revision+':'+Buffer.from(canonical(next)).toString('base64url');
+   db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(key,ASSOCIATION_EXPIRY);return workspaceGrade(ref);
+  });
+ }
  // Disposable SQLite fixture for reusable admission. This is not connected to
  // the receiver and cannot authorize production work or invoke a provider.
  function commitReusableFixture({payload,ownerId,enrollmentId,approvedInputSha256,currentAvailability}){
@@ -373,7 +396,7 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
    if(changed.changes!==1)return null;const claimed=get(row.event_id);return {...claimed,request_id:claimed.event_id};
   });
  }
- return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,commitWorkspace,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,workspaceReviewedRefs,workspaceProgressVersion,saveWorkspaceReview,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,reconcileEligible,claimEligible,
+ return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,commitWorkspace,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,workspaceReviewedRefs,workspaceProgressVersion,saveWorkspaceReview,workspaceGrade,saveWorkspaceGrade,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,reconcileEligible,claimEligible,
   close(){db.close();if(!relayStore)relay.close();},
  });
 }
