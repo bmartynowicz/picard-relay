@@ -12,13 +12,32 @@ export async function runOwnerUpdateRequest(d){
  const previous=await d.readStatus(),at=d.now();
  // An interrupted check is not automatically replayed after restart.
  if(previous.state==='checking'||previous.state==='unknown'){await d.writeStatus({...previous,state:'unknown'});return 'unknown';}
+ if(previous.state==='held')return 'held';
  if(previous.retryAt!==null&&at<previous.retryAt)return 'cooldown';
  const state={v:1,state:'checking',requestedAt:at,finishedAt:null,retryAt:at+COOLDOWN};
  const finish=async outcome=>{await d.writeStatus({...state,state:outcome,finishedAt:d.now()});return outcome;};
- if(await d.blocked())return finish('held');
- await d.writeStatus(state);const before=await d.release();
- try{await d.check();if(await d.blocked())return finish('held');const after=await d.release();return finish(after===before?'up_to_date':'installed');}
- catch{return finish(await d.blocked()?'held':'failed');}
+ // Persist intent before any fallible preflight. If writing fails, the queue remains evidence.
+ await d.writeStatus(state);let phase='preflight';
+ try{
+  if(await d.blocked())return finish('held');const before=await d.release();
+  phase='check';await d.check();phase='verify';
+  if(await d.blocked())return finish('held');const after=await d.release();return finish(after===before?'up_to_date':'installed');
+ }catch(error){
+  if(phase==='preflight')return finish('failed');
+  try{if(await d.blocked())return finish('held');}catch{return finish('unknown');}
+  const uncertain=phase==='verify'||error?.killed===true||!!error?.signal||['ETIMEDOUT','ERR_CHILD_PROCESS_STDIO_MAXBUFFER'].includes(error?.code);
+  return finish(uncertain?'unknown':'failed');
+ }
+}
+// Explicit dependency seam for local queue fixtures; main supplies only the fixed host paths.
+export async function consumeOwnerUpdateRequest(d){
+ const request=await d.readRequest();
+ if(!request.isDirectory()||request.isSymbolicLink()||(request.mode&0o777)!==0o700)throw Error('invalid_request');
+ const outcome=await runOwnerUpdateRequest(d);
+ // Preserve the directory after unreadable state, failed persistence or an unknown outcome.
+ if(outcome==='unknown')return outcome;
+ const after=await d.readRequest();if(after.ino!==request.ino||after.dev!==request.dev)throw Error('request_changed');
+ await d.removeRequest();return outcome;
 }
 async function safeDir(root,mode){const s=await fs.lstat(root);if(!s.isDirectory()||s.isSymbolicLink()||s.uid!==0||(s.mode&0o777)!==mode||await fs.realpath(root)!==root)throw Error('unsafe_directory');return s;}
 async function readStatus(){
@@ -37,15 +56,10 @@ async function blocked(){
 async function release(){const s=await fs.lstat('/usr/local/lib/board-event-relay/current'),v=await fs.readlink('/usr/local/lib/board-event-relay/current');if(!s.isSymbolicLink()||s.uid!==0||!/^releases\/[a-f0-9]{64}$/.test(v))throw Error('unsafe_release');return v;}
 export async function main(){
  if(process.getuid?.()!==0)throw Error('administrator_required');
- await safeDir(QUEUE,0o770);const request=await fs.lstat(QUEUE+'/request');
- if(!request.isDirectory()||request.isSymbolicLink()||(request.mode&0o777)!==0o700)throw Error('invalid_request');
- try{
-  await runOwnerUpdateRequest({readStatus,writeStatus,blocked,release,now:Date.now,check:async()=>{
+ await safeDir(QUEUE,0o770);
+ return consumeOwnerUpdateRequest({readStatus,writeStatus,blocked,release,now:Date.now,
+  readRequest:()=>fs.lstat(QUEUE+'/request'),removeRequest:()=>fs.rmdir(QUEUE+'/request'),check:async()=>{
    await exec('/usr/bin/systemctl',['--no-ask-password','start','picard-updater.service'],{timeout:195000,maxBuffer:4096,windowsHide:true,env:{PATH:'/usr/bin:/bin',LANG:'C',TZ:'UTC'}});
   }});
- }finally{
-  // Empty-directory removal never follows a link or recursively deletes input.
-  const after=await fs.lstat(QUEUE+'/request');if(after.ino!==request.ino||after.dev!==request.dev)throw Error('request_changed');await fs.rmdir(QUEUE+'/request');
- }
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(()=>{console.error('{"state":"request_failed"}');process.exitCode=1;});

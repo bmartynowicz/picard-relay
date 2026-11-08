@@ -1,8 +1,8 @@
 # Check for updates from Picard
 
-Source candidate, November 5, 2026. This change are not installed merely by
-opening the preview or publishing a PR. Existing hosts still need a signed
-release; the owner-update bridge needs separate host enrollment.
+The System button runs on enrolled hosts. Source changes are not installed by
+opening a preview or publishing a PR. Runtime changes need a signed release;
+the owner-update helper and its units are separate host support.
 
 ## Check for updates
 
@@ -31,6 +31,20 @@ for operator review; the button cannot clear stop evidence or request a replay.
 `up_to_date` means that this successful check did not change the installed source;
 it is not a guarantee against an upstream cache or a later publication.
 
+Setup failures before the updater starts are saved as failed. A timed-out check
+or unreadable post-check observation stays unknown. The helper removes the empty
+request directory only after a known outcome has been saved. If the helper cannot
+start or status cannot be read/written, the directory remains: the console shows
+checking briefly, then unknown, and refuses another request. No private error text
+is added to public status.
+
+The service and path templates limit starts to one per five minutes. A retained
+request can cause the path unit to stop at that limit; it does not authorize a
+replay after the cooldown. An operator must inspect the original status, queue,
+HOLD/STOP/journal evidence and unit result before repairing setup or re-enabling
+the watcher. Preserve checking/unknown/held evidence; do not reset it to idle or
+delete the queue merely to make the button ready.
+
 ### Host enrollment checklist
 
 This is preparation, not a portable installer or permission to activate it:
@@ -49,6 +63,9 @@ This is preparation, not a portable installer or permission to activate it:
 4. Validate the fixed units, service filesystem restrictions and actual SELinux
    labels/permissions. Permit only the required queue creation, status reads,
    fixed unit start and helper status write. Keep SELinux enforcing.
+   Check Node startup under the exact service environment, including any existing
+   host OpenSSL configuration. Install the reviewed helper and both unit files
+   together; a runtime-only source update does not change their limits or logic.
 5. Add only GET/POST `/updates` to the existing exact proxy routes; see the
    disabled `deploy/Caddyfile.workspace.example`. Set
    `BRIDGE_OWNER_UPDATES_ENABLED=true` only after the bridge is ready, then

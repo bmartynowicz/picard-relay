@@ -1,5 +1,7 @@
 [Unit]
 Description=Request the existing fixed signed Picard updater
+StartLimitIntervalSec=300
+StartLimitBurst=1
 [Service]
 Type=oneshot
 User=root
