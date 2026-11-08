@@ -44,6 +44,37 @@ test('v1 UI: ordinary brief, approval, result formatting, exact downloads and lo
  assert.equal(await h.urls.get(answer.url).text(),h.f.output);const exported=JSON.parse(await h.urls.get(handoff.url).text());assert.equal(exported.result.body,h.f.output);assert.equal(exported.provenance.maxOutputTokens,4096);assert.match(await h.urls.get(source.url).text(),/export function statusLabel/);
  assert.equal(h.f.calls,1);
 });
+test('quality disclosure saves a score without accepting, unlocking or making another provider call',async t=>{
+ const h=await harness(t);await h.brief();await h.click('request-approve');await h.f.dispatcher.runOnce();await h.click('request-check');
+ assert.equal(h.get('request-grade-summary').textContent,'Ungraded');assert.equal(h.get('request-grade-save').disabled,true);
+ h.get('request-grade-score').value='4';h.get('request-grade-score').listeners.change();h.get('request-grade-note').value='<script> stays an inert note';
+ assert.equal(h.get('request-grade-save').disabled,false);await h.click('request-grade-save');
+ assert.equal(h.get('request-grade-summary').textContent,'4/5 · Owner');assert.equal(h.get('request-grade-history').children.length,1);
+ assert.match(h.get('request-grade-history').children[0].textContent,/<script> stays an inert note/);assert.equal(h.created.some(n=>n.tag==='script'),false);
+ assert.equal(h.context.workspaceTest.result.review.revision,0);assert.equal(h.get('request-review-summary').textContent,'Not reviewed.');
+ assert.equal(h.get('training-rank').textContent,'Ensign');assert.equal(h.get('request-handoff').disabled,true);assert.equal(h.get('request-grade-score').value,'');assert.equal(h.get('request-grade-note').value,'');assert.equal(h.f.calls,1);
+});
+test('an older result response cannot erase a just-saved grade and sign-out clears quality data',async t=>{
+ const h=await harness(t);await h.brief();await h.click('request-approve');await h.f.dispatcher.runOnce();await h.click('request-check');
+ const held=h.deferResultResponse(),read=h.context.workspaceTest.readWorkspaceRequest();await held.ready;
+ h.get('request-grade-score').value='5';h.get('request-grade-score').listeners.change();h.get('request-grade-note').value='Clear and correct.';await h.click('request-grade-save');
+ assert.equal(h.context.workspaceTest.result.grade.revision,1);held.release();await read;
+ assert.equal(h.context.workspaceTest.result.grade.revision,1);assert.equal(h.get('request-grade-summary').textContent,'5/5 · Owner');
+ await h.click('logout');assert.equal(h.get('request-grade-summary').textContent,'Ungraded');assert.equal(h.get('request-grade-history').children.length,0);assert.equal(h.get('request-grade-note').value,'');assert.equal(h.get('request-grade-save').disabled,true);assert.equal(h.f.calls,1);
+});
+test('signed-client quality stays attributed and a failed read disables further grading',async t=>{
+ const h=await harness(t);await h.brief();await h.click('request-approve');await h.f.dispatcher.runOnce();await h.click('request-check');
+ const result=h.context.workspaceTest.result;h.f.store.saveWorkspaceGrade({ref:result.ref,expectedRevision:0,score:3,note:'Synthetic client assessment',resultSha256:result.result.sha256,reviewer:{kind:'client',keyId:'fixture-client'}});await h.click('request-check');
+ assert.equal(h.get('request-grade-summary').textContent,'3/5 · Signed client · fixture-client');
+ h.get('request-grade-score').value='4';h.get('request-grade-score').listeners.change();assert.equal(h.get('request-grade-save').disabled,false);
+ h.setFailReads(true);await h.click('request-check');assert.equal(h.get('request-grade-save').disabled,true);assert.equal(h.get('request-grade-summary').textContent,'3/5 · Signed client · fixture-client');assert.equal(h.f.calls,1);
+});
+test('unavailable quality metadata leaves the saved answer and owner review usable',async t=>{
+ const h=await harness(t);await h.brief();await h.click('request-approve');await h.f.dispatcher.runOnce();await h.click('request-check');
+ const {DatabaseSync}=await import('node:sqlite'),result=h.context.workspaceTest.result;h.f.store.saveWorkspaceGrade({ref:result.ref,expectedRevision:0,score:4,note:'Synthetic assessment',resultSha256:result.result.sha256,reviewer:{kind:'owner'}});
+ const db=new DatabaseSync(h.f.dbPath);db.prepare("UPDATE relay_nonces SET expires=1 WHERE nonce GLOB '*:grade:*'").run();db.close();await h.click('request-check');
+ assert.equal(h.get('request-original').textContent,h.f.output);assert.equal(h.get('request-grade-summary').textContent,'Unavailable');assert.equal(h.get('request-grade-save').disabled,true);assert.equal(h.get('request-accept').disabled,false);assert.equal(h.f.calls,1);
+});
 test('commissioning requires every verified setup check and clears on sign-out without a provider call',async t=>{
  const h=await harness(t);assert.equal(h.get('commissioning').dataset.earned,'true');assert.equal(h.get('commission-title').textContent,'Ensign');assert.equal(h.get('training-progress').value,1);assert.equal(h.get('request-advanced').hidden,true);assert.equal(h.get('request-template-code').disabled,true);assert.equal(h.f.calls,0);
  assert.equal(h.calls.filter(c=>c.url==='/workspace/config').length,1);

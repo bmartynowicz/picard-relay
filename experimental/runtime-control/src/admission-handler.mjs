@@ -42,17 +42,18 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
   if(p.ownerId!==binding.ownerId||p.assistantId!==binding.assistantId||p.eventId!==ref||row.task!==p.taskId||row.message_id!==p.requestId||row.grant_id!==p.grantId||row.payload_hash!==p.payloadHash||row.grant_expires!==p.grantExpiresAt||!knownStates.includes(row.state))stop('existing_record_invalid');
   const approved=store.getWorkspaceWork(ref)??store.getReusableBoard(ref);
   const response={v:1,ref,state:row.state,observedAt:new Date(now()).toISOString(),createdAt:row.created_at,updatedAt:row.updated_at,request:{title:p.context.title,text:p.request.text,context:p.context.latestFinding,taskId:p.taskId},resultAvailable:false,reasonCode:recentJobReason(row.state,row.last_error,row.state==='completed'&&!!row.result_json),review:store.workspaceReview(ref),provenance:{model:p.assistantId,requestId:p.requestId,inputSha256:admissionHash(canonical({requestText:p.request.text,taskContext:p.context})),payloadSha256:p.payloadHash,approvedAt:approved?.approval.issuedAt??Date.parse(p.request.createdAt),expiresAt:p.grantExpiresAt,maxOutputTokens:approved?.approval.maxCompletionTokens===4096?4096:512,source:store.getWorkspaceWork(ref)?'Owner console':store.getReusableBoard(ref)?'Signed task board':'Enrolled request',measuredTokens:null,billedUsd:null}};
+  try{response.grade=store.workspaceGrade(ref);}catch{response.grade=null;} // Quality metadata cannot block intact answer recovery or rank reads.
   if(row.state==='completed'){
    let r;try{r=JSON.parse(row.result_json);}catch{stop('existing_record_invalid');}
    if(r?.v!==1||r.eventId!==ref||r.ownerId!==p.ownerId||r.taskId!==p.taskId||r.requestId!==p.requestId||r.grantId!==p.grantId||r.assistantId!==p.assistantId||r.payloadHash!==p.payloadHash||r.responseId!=='resp:'+ref||typeof r.body!=='string'||!r.body.trim()||r.body.length>16000||!['information','question'].includes(r.outcome?.kind))stop('existing_record_invalid');
-   const resultSha256=admissionHash(r.body);if(response.review.history.some(review=>review.resultSha256!==resultSha256))stop('existing_record_invalid');
+   const resultSha256=admissionHash(r.body);if([...response.review.history,...(response.grade?.history??[])].some(review=>review.resultSha256!==resultSha256))stop('existing_record_invalid');
    response.resultAvailable=true;response.result={body:r.body,kind:r.outcome.kind,sha256:resultSha256};
   }
   return response;
  }
  return async(req,res)=>{
-  const url=typeof req.url==='string'?req.url:'',readDraft=/^\/workspace\/drafts\/([a-f0-9-]{36})$/.exec(url),readResult=/^\/workspace\/requests\/([a-f0-9]{64})$/.exec(url),reviewPath=/^\/workspace\/reviews\/([a-f0-9]{64})$/.exec(url),historyPath=url==='/workspace/history'||url.startsWith('/workspace/history?');
-  if(!(req.method==='GET'&&(url==='/workspace/config'||readDraft||readResult||historyPath)||req.method==='POST'&&(['/workspace/drafts','/workspace/approvals','/workspace/requests'].includes(url)||reviewPath)))return false;
+  const url=typeof req.url==='string'?req.url:'',readDraft=/^\/workspace\/drafts\/([a-f0-9-]{36})$/.exec(url),readResult=/^\/workspace\/requests\/([a-f0-9]{64})$/.exec(url),reviewPath=/^\/workspace\/reviews\/([a-f0-9]{64})$/.exec(url),gradePath=/^\/workspace\/grades\/([a-f0-9]{64})$/.exec(url),historyPath=url==='/workspace/history'||url.startsWith('/workspace/history?');
+  if(!(req.method==='GET'&&(url==='/workspace/config'||readDraft||readResult||historyPath)||req.method==='POST'&&(['/workspace/drafts','/workspace/approvals','/workspace/requests'].includes(url)||reviewPath||gradePath)))return false;
   const reply=(status,value)=>{res.writeHead(status,headers);res.end(JSON.stringify(value));return true;};
   let origin;try{const host=req.headers.host,u=new URL('https://'+host);if(typeof host==='string'&&u.host===host&&!u.username&&!u.password&&u.pathname==='/'&&!u.search&&!u.hash)origin=u.origin;}catch{}
   if(!allowed.has(origin)||req.headers.origin!==undefined&&req.headers.origin!==origin||!['same-origin','none',undefined].includes(req.headers['sec-fetch-site'])||req.method==='POST'&&req.headers.origin!==origin)return reply(403,{error:'auth_failed'});
@@ -96,6 +97,10 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
     if(!exact(body,['expectedRevision','decision','note','resultSha256']))stop('request_invalid');
     await ownedResult(reviewPath[1]);const review=store.saveWorkspaceReview({ref:reviewPath[1],...body});return reply(200,{v:1,review});
    }
+   if(gradePath){
+    if(!exact(body,['expectedRevision','score','note','resultSha256']))stop('request_invalid');
+    await ownedResult(gradePath[1]);const grade=store.saveWorkspaceGrade({ref:gradePath[1],...body,reviewer:{kind:'owner'}});return reply(200,{v:1,grade});
+   }
    if(!exact(body,url==='/workspace/approvals'?['requestId']:['requestId','nonce','draftSha256','approve'])||!uuid.test(body.requestId??''))stop('request_invalid');
    const d=draft(body.requestId),p=policy(),row=store.get(d.payload.eventId),sessionSha256=admissionHash(token);
    const identity={scope,sessionSha256,catalogueSha256:binding.configurationSha256,entryId:body.requestId,slotId:'workspace',inputSha256:d.draftSha256};
@@ -108,7 +113,7 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
    const result=store.commitWorkspace({draft:d,proof:{...identity,nonce:body.nonce},currentAvailability,revalidate:()=>policy().catalogueSha256===p.catalogueSha256&&draft(body.requestId).draftSha256===d.draftSha256});
    await afterCommit();return reply(result.duplicate?200:201,{v:1,...result});
   }catch(error){
-   const statuses={...failureStatuses,not_registered:404,draft_conflict:409,review_conflict:409,review_unavailable:409,review_invalid:503,queue_capacity:429,approval_capacity:429};
+   const statuses={...failureStatuses,not_registered:404,draft_conflict:409,review_conflict:409,review_unavailable:409,review_invalid:503,grade_conflict:409,grade_unavailable:409,grade_invalid:503,queue_capacity:429,approval_capacity:429};
    const code=Object.hasOwn(statuses,error?.code)?error.code:'workspace_unavailable';return reply(statuses[code]??503,{error:code,mayInvoke:false});
   }
  };

@@ -46,7 +46,7 @@ export function createAdmissionAssistantAdapter({activationEnabled=false,signedB
   const payload=JSON.parse(row.payload_json),gate=gateFromCommittedWork(p,found.entry,found.slot,payload,{allowShorterLifetime:signedBridgeEnabled===true});if(row.owner!==payload.ownerId||row.task!==payload.taskId||row.message_id!==payload.requestId||row.grant_id!==payload.grantId||row.payload_hash!==payload.payloadHash||row.grant_expires!==payload.grantExpiresAt)throw blocked('groq_scope_mismatch');return {p,...found,row,payload,gate};
  }
  return Object.freeze({kind:activationEnabled===true?'groq-finite-admission':'groq-finite-admission-disabled',assistantId:'groq:openai/gpt-oss-20b',localTestOnly:synthetic,routingPolicy:FREE_ONLY_ROUTING_POLICY,reusableBoardEnabled:reusableBoardEnabled===true,
-  permitsBoardTask({ownerId,taskId,action}){return reusableBoardEnabled===true&&ownerId===binding?.ownerId&&typeof taskId==='string'&&taskId.length>0&&taskId.length<=200&&['exchange','result','cancel'].includes(action);},
+  permitsBoardTask({ownerId,taskId,action}){return reusableBoardEnabled===true&&ownerId===binding?.ownerId&&typeof taskId==='string'&&taskId.length>0&&taskId.length<=200&&['exchange','result','cancel','grade','grade_status'].includes(action);},
   get ready(){return availability().acceptingRequests;},get canServeResults(){return configured&&parentReady();},availability,
   attachStore(store,{accepting=()=>true}={}){if(storage)throw blocked('groq_scope_mismatch');storage=store;canAccept=accepting;},
   async registerSignedWork(payload,identity,approval){

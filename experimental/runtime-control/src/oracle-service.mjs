@@ -276,13 +276,13 @@ export async function startOracleService(config,assistantAdapter,{intervalMs=100
  let store,live=false;
  const control=createRuntimeControl({socketPath:config.controlSocket,releaseHash:config.releaseHash,stats:()=>store.stats(),providerReady:()=>assistantAdapter.ready===true,providerAvailability:()=>assistantAdapter.availability?.(),resultRecoveryReady:()=>live,serviceReady:()=>live});
  store=createRelayStore({...config,canAccept:()=>control.accepting});
- const receiver=createReceiver({store,config,assistantAdapter,canAccept:()=>control.accepting,runtimeHealth:()=>control.health()});
  const boardAdapter={kind:'signed-relay-result-ledger',scopeEnforced:true,getTaskContext:store.getTaskContext,appendReply:store.appendReply,getReplyByRequestId:store.getReplyByRequestId};
  let dispatcher,admission=null;
  let stopping=false,shutdownPromise=null,finishBusy=null;
  let consoleAuth=null;
  if(config.consoleEnabled===true){try{consoleAuth=createOwnerAuth({stateDir:config.consoleAuthDir});}catch{/* Console fails closed; independent signed bridge remains available. */}}
  if(config.admissionEnabled===true){try{if(typeof admissionFactory!=='function')throw Error('admission_configuration_invalid');admission=admissionFactory({store,control,auth:consoleAuth,baseHtml:CONSOLE_HTML});}catch{admission?.close();store.close();throw Error('admission_configuration_invalid');}}
+ const receiver=createReceiver({store,config,assistantAdapter,canAccept:()=>control.accepting,runtimeHealth:()=>control.health(),gradeResult:admission?.gradeResult,readGrade:admission?.readGrade});
  dispatcher=createDispatcher({store:admission?.dispatchStore??store,boardAdapter,assistantAdapter,production:true,enabled:true,dbPath:config.dbPath,workerId:'oracle-relay',claimTtlMs:60000});
  // Reusable Board admission accepts separately approved tasks for this owner.
  // Its console must use that same owner scope, not the legacy catalogue task.
