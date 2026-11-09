@@ -6,6 +6,10 @@ import {DatabaseSync} from 'node:sqlite';
 import {workspaceFixture} from '../../../test/fixtures/workspace-fixture.mjs';
 import {canonical,signRequest,verifyResponse} from '../src/protocol.mjs';
 import {createReceiver} from '../src/receiver.mjs';
+import {encodeInvocationError} from '../src/adapters.mjs';
+import {admissionHash} from '../src/admission-store.mjs';
+import {admissionConfigurationDigest} from '../src/admission-runtime.mjs';
+import {planGroqKeyReplacement} from '../../../scripts/stage-groq-key-replacement.mjs';
 const fixture=async t=>{const f=await workspaceFixture();t.after(()=>f.close());return f;};
 const complete=async f=>{const d=await f.prepare();await f.submit(d,await f.approve(d));assert.equal((await f.dispatcher.runOnce()).status,'completed');return d;};
 function mutate(f,fn){const db=new DatabaseSync(f.dbPath);try{fn(db);}finally{db.close();}}
@@ -81,3 +85,57 @@ test('prior per-grant pending evidence remains isolated only with intact job and
  for(const bad of ['invalid',JSON.stringify({...record,enrollmentId:f.binding.enrollmentId}),JSON.stringify({...record,state:'resolved'})]){fs.writeFileSync(name,bad);assert.equal(f.router.availability().acceptingRequests,false);}
  fs.writeFileSync(name,JSON.stringify(record));mutate(f,db=>db.prepare('DELETE FROM relay_nonces WHERE nonce GLOB ?').run('picard-admission:v1:enrollment:*:'+d.payload.eventId));assert.equal(f.router.availability().acceptingRequests,false);assert.equal(fs.readFileSync(name,'utf8'),JSON.stringify(record));assert.equal(f.calls,1);
 });
+
+test('offline staging binds a new Free key and creates no grants',()=>{
+ const oldKey='SYNTHETIC_OLD_KEY_ONLY',newKey='SYNTHETIC_NEW_KEY_ONLY',at=1794258000000,markerDirectory='/private/markers';
+ const config={ownerId:'fixture-owner',allowedTaskId:'legacy-fixture',assistantId:'groq:openai/gpt-oss-20b',keyId:'fixture',consoleOrigins:['https://fixture.invalid'],workspaceEnabled:true,admissionReusableBoardEnabled:true,admissionSignedBridgeEnabled:true};
+ const old={v:1,provider:'groq',model:'openai/gpt-oss-20b',owner:config.ownerId,accountLabel:'Fixture',organizationId:'org',projectId:'free',keySha256:admissionHash(oldKey),accountPlan:'Free',noPaidFallback:true,verifiedAt:at-6000,enrolledAt:at-5000,evidenceRef:'free evidence',keyAssociationEvidenceRef:'original key proof'};
+ const enrollmentId=admissionHash(canonical(old));
+ const oldGate={v:3,owner:config.ownerId,task:config.allowedTaskId,enrollmentId,costEnrollment:old};
+ const oldPolicy={v:1,costEnrollment:old,configurationSha256:admissionConfigurationDigest({config,enrollmentId,keySha256:old.keySha256,markerDirectory}),catalogue:{v:1,kind:'FINITE_ADMISSION_PROTOTYPE_ONLY',ownerId:config.ownerId,taskId:config.allowedTaskId,assistantId:config.assistantId,enrollmentId,notBefore:at-5000,expiresAt:at+60000,maxRequestLifetimeMs:600000,entries:[]}};
+ const evidence={v:1,accountLabel:old.accountLabel,organizationId:old.organizationId,projectId:old.projectId,accountPlan:'Free',noPaidFallback:true,verifiedAt:at-1000,evidenceRef:'new free evidence',keyAssociationEvidenceRef:'new key proof'};
+ const args={config,markerDirectory,oldGate,oldKey,oldPolicy,newKey,evidence,at};
+ const original=canonical(args),plan=planGroqKeyReplacement(args);
+ assert.equal(canonical(args),original);
+ assert.equal(plan.gate.costEnrollment.keySha256,admissionHash(newKey));
+ assert.deepEqual(plan.history.previous,[old]);
+ assert.equal(plan.history.activeEnrollmentId,plan.gate.enrollmentId);
+ assert.deepEqual(plan.policy.catalogue.entries,[]);
+ assert.equal(plan.policy.catalogue.enrollmentId,plan.gate.enrollmentId);
+ assert.doesNotMatch(canonical(plan),/SYNTHETIC_(OLD|NEW)_KEY_ONLY/);
+ for(const change of [{newKey:oldKey},{oldKey:newKey},{evidence:{...evidence,accountPlan:'Paid'}},{evidence:{...evidence,projectId:'other'}},
+  {evidence:{...evidence,verifiedAt:at+1}},{evidence:{...evidence,keyAssociationEvidenceRef:old.keyAssociationEvidenceRef}},
+  {previous:[{...old,keySha256:admissionHash(newKey)}]}]) assert.throws(()=>planGroqKeyReplacement({...args,...change}),/groq_replacement_invalid/);
+});
+
+test('a different key can resume only with intact old 401 evidence and the original legacy inventory',
+ {skip:process.platform!=='linux'?'Requires actual private Linux reservation files.':false},async t=>{
+  const f=await workspaceFixture({preserveLegacyBaseline:true});t.after(()=>f.close());
+  const old=await complete(f);f.advance(61000);
+  const rejected=await f.prepare(),proof=await f.approve(rejected);await f.submit(rejected,proof);f.setMode('unauthorized');
+  assert.equal((await f.dispatcher.runOnce()).status,'blocked');
+  const ref=rejected.payload.eventId,row=f.store.get(ref),prior=f.binding.enrollmentId;
+  const consumed=path.join(f.dir,'groq-once-'+rejected.payload.grantId+'.consumed'),pending=consumed+'.pending';
+  const consumedBytes=fs.readFileSync(consumed,'utf8'),pendingBytes=fs.readFileSync(pending,'utf8'),before=snapshot(f);
+  assert.equal(f.router.availability().acceptingRequests,false);
+  assert.equal(f.calls,2);
+  await f.rotateEnrollment({provePredecessor:true});f.setMode('complete');
+  assert.equal(snapshot(f),before);assert.notEqual(f.binding.enrollmentId,prior);
+  assert.equal(f.store.legacyAdmissionReady(f.binding.enrollmentId),true);
+  assert.equal(f.store.legacyAdmissionReady(prior),false);
+  assert.equal(f.router.availability().acceptingRequests,true);
+  assert.equal(f.router.acceptsWorkScope(rejected.payload),false);
+  assert.equal((await f.dispatcher.runOnce()).status,'idle');
+  assert.equal((await f.request('/workspace/requests/'+old.payload.eventId)).body.result.body,f.output);
+  fs.writeFileSync(consumed,consumedBytes.replace(ref,'0'.repeat(64)));
+  assert.equal(f.router.availability().acceptingRequests,false);
+  fs.writeFileSync(consumed,consumedBytes);
+  mutate(f,db=>db.prepare('UPDATE relay_jobs SET last_error=? WHERE event_id=?').run(encodeInvocationError('groq_request_rejected',{phase:'http',code:'http_rejected',httpStatus:403}),ref));
+  assert.equal(f.router.availability().acceptingRequests,false);
+  mutate(f,db=>db.prepare('UPDATE relay_jobs SET last_error=? WHERE event_id=?').run(row.last_error,ref));
+  assert.equal(snapshot(f),before);assert.equal(f.router.availability().acceptingRequests,true);
+  f.advance(61000);const next=await complete(f);
+  assert.notEqual(next.payload.grantId,rejected.payload.grantId);assert.equal(f.calls,3);
+  assert.equal(fs.readFileSync(consumed,'utf8'),consumedBytes);assert.equal(fs.readFileSync(pending,'utf8'),pendingBytes);
+  assert.deepEqual(f.store.get(ref),row);
+ });

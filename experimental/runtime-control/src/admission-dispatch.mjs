@@ -10,12 +10,24 @@ import {admissionHash} from './admission-store.mjs';
 import {validateReusableBoardAttestation} from './admission-plan.mjs';
 
 const blocked=code=>new AdapterBlockedError(code,code);
-export function createAdmissionAssistantAdapter({activationEnabled=false,signedBridgeEnabled=false,reusableBoardEnabled=false,workspaceEnabled=false,bridgeKeyId='',loadPolicy,binding,apiKey='',markerDirectory='',now=Date.now,fetchImpl=groqHttpsFetch,testOnly=null}={}){
+export function createAdmissionAssistantAdapter({activationEnabled=false,signedBridgeEnabled=false,reusableBoardEnabled=false,workspaceEnabled=false,bridgeKeyId='',loadPolicy,binding,apiKey='',markerDirectory='',now=Date.now,fetchImpl=groqHttpsFetch,priorEnrollmentIds=[],testOnly=null}={}){
  let storage=null,canAccept=()=>false,busy=false;const attempted=new Set(),live=new Map();
  const synthetic=testOnly?.synthetic===true;
+ const priorEnrollments=new Set(priorEnrollmentIds);
  const configured=activationEnabled===true&&typeof apiKey==='string'&&apiKey.length>0&&!/[\r\n]/.test(apiKey)&&typeof loadPolicy==='function'&&binding?.assistantId==='groq:openai/gpt-oss-20b'&&admissionHash(apiKey)===binding.keySha256;
  function parentReady(){if(synthetic&&testOnly.markerParentReady)return testOnly.markerParentReady()===true;try{const s=lstatSync(markerDirectory);return isAbsolute(markerDirectory)&&resolve(markerDirectory)===markerDirectory&&realpathSync(markerDirectory)===markerDirectory&&s.isDirectory()&&!s.isSymbolicLink()&&s.uid===process.getuid?.()&&(s.mode&0o777)===0o700;}catch{return false;}}
  function spent(grantId){if(synthetic&&testOnly.markerSpent)return testOnly.markerSpent(grantId)===true;try{const names=readdirSync(markerDirectory);return names.length>1024||names.some(name=>name.includes(grantId));}catch{return true;}}
+ function readReservation(name){
+  const file=join(markerDirectory,name),before=lstatSync(file);
+  if(!before.isFile()||before.nlink!==1||before.size<1||before.size>1024)throw Error('reservation_invalid');
+  if(process.platform==='linux'&&(before.uid!==process.getuid()||(before.mode&0o777)!==0o600))throw Error('reservation_invalid');
+  const fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
+  try{
+   const bytes=Buffer.alloc(1025),size=readSync(fd,bytes,0,bytes.length,0),after=fstatSync(fd),current=lstatSync(file);
+   if(size!==before.size||['dev','ino','mode','uid','gid','nlink','size','mtimeMs','ctimeMs'].some(key=>before[key]!==after[key]||before[key]!==current[key]))throw Error('reservation_changed');
+   return JSON.parse(bytes.subarray(0,size).toString('utf8'));
+  }finally{closeSync(fd);}
+ }
  function reservationsReady(){
   try{
    const names=readdirSync(markerDirectory);if(names.length>1024)return false;
@@ -23,15 +35,11 @@ export function createAdmissionAssistantAdapter({activationEnabled=false,signedB
     if(name.startsWith('.groq-cost-'))return false;
     if(!name.endsWith('.pending'))continue;
     const match=/^groq-once-([a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})\.consumed\.pending$/.exec(name);
-    if(!match||reusableBoardEnabled!==true||!storage.pendingGrantAssociated(match[1]))return false;
-    const file=join(markerDirectory,name),before=lstatSync(file);
-    if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1||before.size<1||before.size>1024)return false;
-    let fd;try{
-     fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);const bytes=Buffer.alloc(1025),size=readSync(fd,bytes,0,bytes.length,0),after=fstatSync(fd),current=lstatSync(file);
-     if(size!==before.size||['dev','ino','mode','uid','gid','nlink','size','mtimeMs','ctimeMs'].some(key=>before[key]!==after[key]||before[key]!==current[key]))return false;
-     const record=JSON.parse(bytes.subarray(0,size).toString('utf8'));
-     if(Object.keys(record).sort().join(',')!=='enrollmentId,state,v'||record.v!==1||record.state!=='pending-before-io'||!storage.pendingGrantAssociated(match[1],record.enrollmentId))return false;
-    }finally{if(fd!==undefined)closeSync(fd);}
+    if(!match||reusableBoardEnabled!==true)return false;
+    const record=readReservation(name);
+    if(!record||Object.keys(record).sort().join(',')!=='enrollmentId,state,v'||record.v!==1||record.state!=='pending-before-io')return false;
+    const retired=record.enrollmentId!==binding.enrollmentId&&priorEnrollments.has(record.enrollmentId);
+    if(!storage.pendingGrantAssociated(match[1],record.enrollmentId,retired?()=>readReservation(name.slice(0,-'.pending'.length)):null))return false;
    }
    return true;
   }catch{return false;}
