@@ -58,9 +58,9 @@ jobs:
           import {execFileSync} from 'node:child_process';
           const endpoint='repos/bmartynowicz/picard-relay/contents/releases/stable.json';
           let sha;
-          try { sha=JSON.parse(execFileSync('gh',['api',endpoint],{encoding:'utf8'})).sha; }
+          try { sha=execFileSync('gh',['api',endpoint,'--jq','.sha'],{encoding:'utf8'}).trim(); }
           catch(error) { if(!String(error.stderr).includes('404')) throw error; }
           const body={message:'Publish signed Picard source release',branch:'main',content:(await readFile('release-output/stable.json')).toString('base64'),...(sha?{sha}:{})};
           await writeFile('release-output/publish.json',JSON.stringify(body));
-          execFileSync('gh',['api','--method','PUT',endpoint,'--input','release-output/publish.json'],{stdio:'inherit'});
+          execFileSync('gh',['api','--method','PUT',endpoint,'--input','release-output/publish.json','--jq','.commit.sha'],{stdio:'inherit'});
           JS
