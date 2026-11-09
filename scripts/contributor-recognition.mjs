@@ -10,7 +10,7 @@ function readPage(login, label) {
     creator: login, labels: label, state: 'all', per_page: String(pageSize),
   });
   return JSON.parse(execFileSync('gh', [
-    'api', 'repos/' + repository + '/issues?' + query,
+    'api', '--hostname', 'github.com', 'repos/' + repository + '/issues?' + query,
     '--jq', '[.[] | {number, login: .user.login, labels: [.labels[].name], pull: has("pull_request"), mergedAt: .pull_request.merged_at}]',
   ], { encoding: 'utf8', timeout: 20_000, maxBuffer: 512 * 1024 }));
 }
@@ -36,7 +36,8 @@ export function contributorCredits(login, read = readPage) {
       if (row.labels.includes(labels.kills) && row.labels.includes(labels.captures)) {
         throw Error('Conflicting recognition labels on #' + row.number + '.');
       }
-      if (row.pull && (kind !== 'kills' || !Number.isFinite(Date.parse(row.mergedAt)))) continue;
+      if (row.pull && (kind !== 'kills' || typeof row.mergedAt !== 'string'
+        || !Number.isFinite(Date.parse(row.mergedAt)))) continue;
       numbers.add(row.number);
     }
     credits[kind] = [...numbers].sort((a, b) => a - b);
