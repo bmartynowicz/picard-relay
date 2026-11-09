@@ -1,0 +1,25 @@
+name: Verify shared feedback on Linux
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/verify-shared-feedback-linux.yml'
+permissions:
+  contents: read
+jobs:
+  repository-check:
+    if: github.repository == 'bmartynowicz/picard-relay' && github.event.repository.private == false && github.head_ref == 'verify/shared-feedback-linux-20261109' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 21312623fbc8da6baee10c7ba0bc81b987f9dcd7
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.22.1'
+      - name: Check the exact feedback candidate using offline fixtures
+        run: |
+          test "$(git rev-parse HEAD)" = 21312623fbc8da6baee10c7ba0bc81b987f9dcd7
+          test "$(git rev-parse HEAD^{tree})" = 745e2941508d8e77ffc7a626d1e95dfcbb470af6
+          npm run check:repository
