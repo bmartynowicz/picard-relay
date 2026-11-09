@@ -364,7 +364,7 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
    if(typeof loadLegacyBaseline!=='function'||typeof readLegacyMarkers!=='function')return false;
    const baseline=loadLegacyBaseline();
    if(baseline&&typeof baseline.then==='function'){void Promise.resolve(baseline).catch(()=>{});return false;}
-   if(!exact(baseline,['v','kind','enrollmentId','ownerId','taskId','assistantId','observedAt','rows'])||baseline.v!==1||baseline.kind!=='PICARD_LEGACY_BASELINE_V1'||baseline.enrollmentId!==enrollmentId||!legacyBinding||['ownerId','taskId','assistantId','enrollmentId'].some(key=>baseline[key]!==legacyBinding[key])||!integer(baseline.observedAt)||baseline.observedAt>clock()||!Array.isArray(baseline.rows)||baseline.rows.length!==legacy.length)return false;
+   if(!exact(baseline,['v','kind','enrollmentId','ownerId','taskId','assistantId','observedAt','rows'])||baseline.v!==1||baseline.kind!=='PICARD_LEGACY_BASELINE_V1'||enrollmentId!==(reusableBinding?.enrollmentId??legacyBinding?.enrollmentId)||!legacyBinding||['ownerId','taskId','assistantId','enrollmentId'].some(key=>baseline[key]!==legacyBinding[key])||!integer(baseline.observedAt)||baseline.observedAt>clock()||!Array.isArray(baseline.rows)||baseline.rows.length!==legacy.length)return false;
    const ids=new Set(legacy.map(row=>row.event_id)),markers=new Map();
    for(const entry of baseline.rows){
     if(!exact(entry,['eventId','grantId','state','rowSha256','markerName','markerSha256','acknowledgement'])||!hex(entry.eventId)||!ids.delete(entry.eventId)||typeof entry.grantId!=='string'||!entry.grantId||entry.grantId.length>200||!['completed','uncertain'].includes(entry.state)||!hex(entry.rowSha256)||!legacyMarkerName(entry.markerName)||!hex(entry.markerSha256)||markers.has(entry.markerName))return false;
@@ -404,15 +404,29 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
  }
  // A per-grant reservation may be isolated only when its durable owner/job and
  // original enrollment association remain verifiable. Unknown evidence stops use.
- function pendingGrantAssociated(grantId,enrollmentId=null){
+ function pendingGrantAssociated(grantId,enrollmentId,readRetiredConsumed=null){
   try{
+   if(!hex(enrollmentId))return false;
    const rows=db.prepare('SELECT * FROM relay_jobs WHERE grant_id=? LIMIT 2').all(grantId);
    if(rows.length!==1)return false;const row=rows[0],owner=reusableBinding?.ownerId??legacyBinding?.ownerId;
-   if(!owner||row.owner!==owner||!['invoking','uncertain','failed'].includes(row.state))return false;
-   const saved=readHistoricalWork(row.event_id);if(saved)return enrollmentId===null||saved.approval.enrollmentId===enrollmentId;
+   if(!owner||row.owner!==owner)return false;
+   const saved=readHistoricalWork(row.event_id);
+   if(row.state==='blocked'){
+    const {code,diagnostic}=decodeInvocationError(row.last_error);
+    if(!saved||saved.approval.enrollmentId!==enrollmentId||enrollmentId===reusableBinding?.enrollmentId||typeof readRetiredConsumed!=='function'
+     ||code!=='groq_request_rejected'||diagnostic?.phase!=='http'||diagnostic.code!=='http_rejected'||diagnostic.httpStatus!==401
+     ||!integer(row.attempt)||row.attempt<1||row.response_id!==null||row.result_json!==null||row.claimed_by!==null||row.claimed_until!==null)return false;
+    const marker=readRetiredConsumed(),startedAt=Date.parse(marker?.startedAt);
+    return exact(marker,['v','provider','model','owner','task','requestId','invocationId','startedAt','state'])
+     &&marker.v===1&&marker.provider==='groq'&&marker.model==='openai/gpt-oss-20b'&&marker.owner===row.owner&&marker.task===row.task
+     &&marker.requestId===row.event_id&&marker.invocationId===row.event_id&&marker.state==='consumed-before-io'
+     &&integer(startedAt)&&startedAt>=row.created_at&&startedAt<=row.updated_at&&new Date(startedAt).toISOString()===marker.startedAt;
+   }
+   if(!['invoking','uncertain','failed'].includes(row.state))return false;
+   if(saved)return saved.approval.enrollmentId===enrollmentId;
    if(row.task!==legacyBinding?.taskId)return false;
    const associations=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 2').all(PREFIX+'enrollment:*:'+row.event_id);
-   return associations.length===1&&(enrollmentId===null||associations[0].nonce===PREFIX+'enrollment:'+enrollmentId+':'+row.event_id)&&associations[0].expires===ASSOCIATION_EXPIRY&&/^picard-admission:v1:enrollment:[a-f0-9]{64}:[a-f0-9]{64}$/.test(associations[0].nonce);
+   return associations.length===1&&associations[0].nonce===PREFIX+'enrollment:'+enrollmentId+':'+row.event_id&&associations[0].expires===ASSOCIATION_EXPIRY&&hex(row.event_id);
   }catch{return false;}
  }
  function reconcileEligible(ids){

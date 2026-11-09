@@ -1,3 +1,6 @@
+import {createHash} from 'node:crypto';
+import {canonical} from './protocol.mjs';
+
 const object=v=>v&&typeof v==='object'&&!Array.isArray(v);
 const exact=(v,keys)=>object(v)&&Object.keys(v).sort().join(',')===[...keys].sort().join(',');
 export function validCostEnrollmentMetadata(e){
@@ -12,4 +15,16 @@ export function recordedGroqKeyExpiry(record,keySha256){
   ||record.keySha256!==keySha256||typeof record.expiresAt!=='string'||record.expiresAt.length!==24)return null;
  const expiresAt=Date.parse(record.expiresAt);
  return Number.isFinite(expiresAt)&&expiresAt>=0&&new Date(expiresAt).toISOString()===record.expiresAt?expiresAt:null;
+}
+const enrollmentId=e=>createHash('sha256').update(canonical(e)).digest('hex');
+export function priorGroqEnrollmentIds(record,current){
+ if(!validCostEnrollmentMetadata(current)||!exact(record,['v','activeEnrollmentId','previous'])||record.v!==1
+  ||record.activeEnrollmentId!==enrollmentId(current)||!Array.isArray(record.previous)||record.previous.length<1||record.previous.length>8)throw Error('groq_replacement_invalid');
+ const ids=new Set(),keys=new Set([current.keySha256]);
+ for(const prior of record.previous){
+  if(!validCostEnrollmentMetadata(prior)||['owner','organizationId','projectId'].some(k=>prior[k]!==current[k])
+   ||prior.enrolledAt>current.enrolledAt||keys.has(prior.keySha256))throw Error('groq_replacement_invalid');
+  keys.add(prior.keySha256);ids.add(enrollmentId(prior));
+ }
+ return [...ids];
 }
