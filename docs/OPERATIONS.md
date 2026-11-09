@@ -133,7 +133,11 @@ approval. Keep the project on Free for continued zero-dollar use.
    Never reset an existing checking or unknown record to retry it.
 3. Confirm the runtime control socket uses
    `/run/picard-relay-control/control.sock` or
-   `/var/lib/board-event-relay/control.sock`. Check the unit filesystem
+   `/var/lib/board-event-relay/control.sock`. Set `BRIDGE_CONTROL_SOCKET`
+   in the root-controlled service environment to that same path so the
+   separate helper can find it even when the launcher also sets it inside
+   Node. The helper reads the release identity from the root-owned current
+   pointer and checks it against the running service. Check the unit filesystem
    paths and existing narrow SELinux policy. Verify the relay can connect
    to the group-owned socket and read the status file. Keep SELinux enforcing.
 4. Add the exact GET and POST `/groq/key` TLS proxy routes from the

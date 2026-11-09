@@ -79,7 +79,7 @@ export function currentGroqEnrollment(){
  const oldPolicy=createCatalogueLoader({activationEnabled:true,file:env.BRIDGE_ADMISSION_CATALOGUE_FILE,expectedUid:0,expectedGid:identity.gid})();
  const prior=env.GROQ_KEY_REPLACEMENT_FILE||env.GROQ_KEY_REPLACEMENT_SHA256;
  const previous=prior?readGroqReplacementHistory(env.GROQ_KEY_REPLACEMENT_FILE,env.GROQ_KEY_REPLACEMENT_SHA256,old,identity).record.previous:[];
- return {pid,identity,config,webReplacementEnabled:env.BRIDGE_GROQ_KEY_REPLACEMENT_ENABLED==='true',controlSocket:env.BRIDGE_CONTROL_SOCKET,releaseHash:env.BRIDGE_RELEASE_HASH,markerDirectory:path.dirname(env.GROQ_ONCE_MARKER_FILE),oldGate,oldKey,oldPolicy,previous};
+ return {pid,identity,config,webReplacementEnabled:env.BRIDGE_GROQ_KEY_REPLACEMENT_ENABLED==='true',controlSocket:env.BRIDGE_CONTROL_SOCKET,markerDirectory:path.dirname(env.GROQ_ONCE_MARKER_FILE),oldGate,oldKey,oldPolicy,previous};
 }
 
 function stagedFiles(directory,plan,key){
