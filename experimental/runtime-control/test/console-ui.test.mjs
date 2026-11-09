@@ -3,9 +3,9 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"cae1d99111056eaa380a77af8ade0ba56a271fc724bc131da52c21f429069f35");
+assert.equal(createHash('sha256').update(script).digest('hex'),"ea0ae59b6084392c25a91115e722fb109a583b38110352f48776284d88b9b035");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
-assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|@import|url\(/i.test(html.replace(/url\(#picard-metal-(?:face|recess)\)/g,'')));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md','https://github.com/bmartynowicz/picard-relay/issues/new']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
+assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|@import|url\(/i.test(html.replace(/url\(#picard-metal-(?:face|recess)\)/g,'')));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md','https://github.com/bmartynowicz/picard-relay/blob/main/docs/OPERATIONS.md#replace-a-groq-key','https://github.com/bmartynowicz/picard-relay/issues/new']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
 const health={v:1,observedAt:'2026-10-30T16:00:00Z',service:{ready:true,providerReady:false,resultRecoveryReady:true,acceptingNewWork:false,draining:false},jobs:{queued:0,invoking:0,completed:2,uncertain:0},release:{hash:'a'.repeat(64),version:null},updater:{state:'unknown'}};
 const ok=body=>({ok:true,status:200,json:async()=>body}),bad=(status,error)=>({ok:false,status,json:async()=>({error})});
@@ -29,6 +29,31 @@ function harness(handler,{jobsHandler,clock=Date}={}){
 const feedbackFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health));
 await flush();
 assert.equal(feedbackFlow.get('recognition').hidden,true);
+assert.equal(feedbackFlow.get('groq-key').hidden,true);
+
+let keyNow=Date.parse(health.observedAt),keyStatus={...health,groqKeyExpiresAt:null};
+class KeyClock extends Date {static now(){return keyNow;}}
+const keyFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):keyStatus?ok(keyStatus):bad(503,'unavailable'),{clock:KeyClock});
+await flush();
+assert.equal(keyFlow.get('groq-key').hidden,false);
+assert.equal(keyFlow.get('key-expiry').textContent,'Expiry unknown');
+for(const [time,pattern] of [[604800001,/^Expires · /],[604800000,/^Expires soon · /],[0,/^Expired · /]]){
+ keyStatus={...health,groqKeyExpiresAt:keyNow+time};
+ await keyFlow.click('refresh');
+ assert.match(keyFlow.get('key-expiry').textContent,pattern);
+}
+keyNow+=60000;
+await keyFlow.click('refresh');
+assert.equal(keyFlow.get('key-expiry').textContent,'Expiry unknown');
+keyStatus={...keyStatus,observedAt:new Date(keyNow).toISOString()};
+await keyFlow.click('refresh');
+assert.match(keyFlow.get('key-expiry').textContent,/^Expired · /);
+keyStatus=null;
+await keyFlow.click('refresh');
+assert.equal(keyFlow.get('key-expiry').textContent,'Expiry unknown');
+keyFlow.wl.pagehide();
+assert.equal(keyFlow.get('groq-key').hidden,true);
+
 let recognitionStatus={...health,recognition:'2 Kills · 1 Capture'};
 const recognitionFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(recognitionStatus));
 await flush();
@@ -170,7 +195,7 @@ await app.get('jobs-list').children[0].children[0].listeners.click();assert.equa
 for(const [filter,expected] of [['completed',1],['active',1],['attention',1],['all',3]]){app.get('jobs-filter').value=filter;app.get('jobs-filter').listeners.change();assert.equal(app.get('jobs-list').children.length,expected);assert.equal(app.get('job-details').hidden,true);assert.equal(app.get('detail-ref').textContent,'-');}
 assert.deepEqual(app.requests.slice(requestsBeforeNavigation).map(r=>({path:r.path,method:r.options.method})),[{path:"/updates",method:"GET"}]);assert.equal(app.get('activity-list').children.length,3);
 assert.equal(app.get('groq-availability').textContent,'Not available for new work');assert.match(app.get('groq-blocking').textContent,/unavailable|not supplied|not reported/i);
-assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.match(html,/<details class="technical"><summary>Request limits and safeguards<\/summary>/);assert.equal((html.match(/<details/g)||[]).length,3);assert.match(html,/<details class="console-info"><summary aria-label="About status and privacy">/);
+assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.match(html,/<details class="technical"><summary>Request limits and safeguards<\/summary>/);assert.equal((html.match(/<details/g)||[]).length,4);assert.match(html,/<details class="console-info"><summary aria-label="About status and privacy">/);
 
 for(const event of ['logout','401','403','pagehide']){
  let lost=false;const code=event==='403'?403:401;
