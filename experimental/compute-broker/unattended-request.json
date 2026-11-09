@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "enabled": true,
-  "approvedAt": 1793839722925,
-  "validUntil": 1793846922925,
-  "workerRef": "compute-worker-v1",
-  "workerCommit": "b928ef2a10c7792a9c709f38a8065373d76160b4",
-  "workerSha256": "ae31a4c71dbf5a79a751832199e6dd8b77af4a82bb02426890486b1619d00439",
+  "approvedAt": 1794262681090,
+  "validUntil": 1794269881090,
+  "workerRef": "compute-worker-v2",
+  "workerCommit": "c3d05f0c8d48e244481459a5cf1b7e222c50e14f",
+  "workerSha256": "92bf82d89359c0942c961e39e1ebafaa50076da41e46ec7d152ac4092d639df2",
   "job": {
-    "id": "coding-workflow-20261104-01",
+    "id": "groq-key-button-fixture-20261109",
     "operation": "project-checks",
     "workload": "project-ci",
     "arch": "x64",
@@ -18,7 +18,7 @@
       "gpus": 0
     },
     "input": {
-      "text": "cd3f2532ea5a7e8accbc2b2a20aa8f4dc93c77a8"
+      "text": "30bd004fc6549b5ce9df25a3ede5461cbf81ce13"
     },
     "timeoutMs": 30000
   }
