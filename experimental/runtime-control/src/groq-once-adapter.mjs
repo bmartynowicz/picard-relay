@@ -1,4 +1,4 @@
-import {lstatSync,realpathSync,openSync,writeFileSync,fsyncSync,closeSync,fstatSync,unlinkSync} from 'node:fs';
+import {lstatSync,realpathSync,openSync,writeFileSync,fsyncSync,closeSync,fstatSync,unlinkSync,readdirSync} from 'node:fs';
 import {dirname,isAbsolute,resolve,join} from 'node:path';
 import {createGroqAdapter,GROQ_ID,GROQ_MODEL,inputDigest,retainedCostScopeConfigured} from './groq-adapter.mjs';
 import {canonical} from './protocol.mjs';
@@ -26,7 +26,13 @@ export function createGroqOnceAdapter({enabled=false,apiKey='',gate=null,markerP
  // isolate the reservation to its own grant; its consumed marker remains durable.
  // No reservation is automatically reused or retried.
  function costLatch(){return perGrantCostLatch===true?`${markerPath}.pending`:join(dirname(markerPath),`.groq-cost-${gate.enrollmentId}.pending`);}
- function costStopped(){if(gate?.v!==3)return false;try{lstatSync(costLatch());return true;}catch(e){return e.code!=='ENOENT';}}
+ function costStopped(){
+  if(gate?.v!==3)return false;
+  // Shared reservations survive key/enrollment rotation. Names alone stop use;
+  // never read, rewrite or acknowledge a prior process's pending evidence.
+  try{const names=readdirSync(dirname(markerPath));if(names.length>1024||names.some(name=>name.startsWith('.groq-cost-')))return true;}catch{return true;}
+  try{lstatSync(costLatch());return true;}catch(e){return e.code!=='ENOENT';}
+ }
  function ready(){return configured()&&(gate.v===3?gate.requestIssuedAt<=now()&&now()<gate.requestExpiresAt:gate.verifiedAt<=now()&&now()<gate.validUntil)&&!spent()&&!costStopped();}
  function syncParent(){const fd=openSync(dirname(markerPath),'r');try{fsyncSync(fd);}finally{closeSync(fd);}}
  function reserveCost(){let fd;try{fd=openSync(costLatch(),'wx',0o600);writeFileSync(fd,JSON.stringify({v:1,enrollmentId:gate.enrollmentId,state:'pending-before-io'}));fsyncSync(fd);const identity=fstatSync(fd);syncParent();return identity;}catch{throw blocked('groq_cost_enrollment_stopped');}finally{if(fd!==undefined)closeSync(fd);}}

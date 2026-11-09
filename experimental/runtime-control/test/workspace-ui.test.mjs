@@ -10,7 +10,7 @@ test('the complete workspace fits the production console document limit',()=>{
  assert.doesNotThrow(()=>createConsoleHandler({enabled:true,html}));
 });
 const flush=()=>new Promise(r=>setImmediate(r));
-async function harness(t,{configTransform=value=>value,beforeBoot=async()=>{},initialHash='#requests'}={}){
+async function harness(t,{configTransform=value=>value,beforeBoot=async()=>{},initialHash='#requests',configDelayMs=0}={}){
  const f=await workspaceFixture({realMarkers:false});t.after(()=>f.close());const created=[],downloads=[],urls=new Map(),listeners={},windowListeners={},mediaListeners={},timers=new Map();let timerId=0,signedIn=true,failReads=false,holdRead=null,heldResultResponse=null;
  const element=(tag='div')=>{const n={tag,children:[],attrs:{},dataset:{},listeners:{},value:'',hidden:true,disabled:false,_text:'',get textContent(){return this._text+this.children.map(x=>x.textContent).join('');},set textContent(v){this._text=String(v);this.children=[];},classList:{toggle(){}},setAttribute(k,v){this.attrs[k]=String(v);},addEventListener(k,fn){this.listeners[k]=fn;},append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this._text='';this.children=nodes;},focus(){},remove(){},click(){if(this.tag==='a')downloads.push({name:this.download,url:this.href});else return this.listeners.click?.();},animate(){return {cancel(){}};}};created.push(n);return n;};
  const els=new Map([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,element()]));
@@ -21,6 +21,7 @@ async function harness(t,{configTransform=value=>value,beforeBoot=async()=>{},in
  const calls=[];
  const fetch=async(url,options)=>{
   calls.push({url,method:options.method});assert.equal(options.cache,'no-store');assert.equal(options.redirect,'error');
+  if(url==='/workspace/config'&&configDelayMs)await new Promise(resolve=>setTimeout(resolve,configDelayMs));
   if(url==='/auth/state')return response(200,{enrolled:true});
   if(url==='/auth/logout'){signedIn=false;return response(200,{ok:true});}
   if(!signedIn)return response(401,{error:'auth_failed'});
@@ -32,8 +33,9 @@ async function harness(t,{configTransform=value=>value,beforeBoot=async()=>{},in
  };
  const context=vm.createContext({document,window,TextEncoder,AbortController,Date,queueMicrotask,crypto:{randomUUID},Blob,URL:{createObjectURL:b=>{const id='blob:'+randomUUID();urls.set(id,b);return id;},revokeObjectURL:id=>urls.delete(id)},navigator:{clipboard:{writeText:async text=>{context.copied=text;}}},setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id),fetch});
  await beforeBoot(f);
- vm.runInContext(script.replace('motion();void boot();','globalThis.workspaceTest={get draft(){return workDraft;},get result(){return workResult;},get ref(){return workRef;},get poll(){return workTimer;},loadWorkspace,readWorkspaceRequest,newWorkspaceRequest};motion();void boot();'),context);
- for(let i=0;i<12;i++)await flush();
+ vm.runInContext(script.replace('motion();void boot();','globalThis.workspaceTest={get configFlight(){return workConfigFlight;},get draft(){return workDraft;},get result(){return workResult;},get ref(){return workRef;},get poll(){return workTimer;},loadWorkspace,readWorkspaceRequest,newWorkspaceRequest};motion();globalThis.workspaceBoot=boot();'),context);
+ // Await actual bootstrap/configuration work, not an arbitrary count of event-loop ticks.
+ await context.workspaceBoot;await context.workspaceTest.configFlight;await flush();
  return {f,context,els,created,downloads,urls,calls,pref,document,listeners,mediaListeners,windowListeners,get:id=>els.get(id),click:async id=>await els.get(id).listeners.click(),submit:async()=>await els.get('request-form').listeners.submit({preventDefault(){}}),async brief(){els.get('request-title').value='Browser fixture task';els.get('request-text').value='Propose a useful status helper.';await this.submit();},setFailReads:v=>failReads=v,setHoldRead:p=>holdRead=p,loseAuth(){signedIn=false;},deferResultResponse(){let captured,release;const ready=new Promise(r=>captured=r),gate=new Promise(r=>release=r);heldResultResponse={captured,gate};return {ready,release};}};
 }
 test('v1 UI: ordinary brief, approval, result formatting, exact downloads and local review',async t=>{
@@ -149,4 +151,9 @@ test('material future observation keeps saved text readable but disables review'
 });
 test('uncertain submission response offers status recovery without automatic replacement',async t=>{
  const h=await harness(t);await h.brief();const original=h.context.workspaceTest.draft;h.f.loseResponse();await h.click('request-approve');assert.equal(h.get('request-approve').disabled,true);assert.match(h.get('request-notice').textContent,/Submission was not confirmed/);h.f.loseResponse(false);await h.click('request-check');assert.equal(h.context.workspaceTest.ref,original.payload.eventId);assert.equal(h.context.workspaceTest.result.state,'queued');assert.equal(h.f.calls,0);await h.f.dispatcher.runOnce();assert.equal(h.f.calls,1);
+});
+
+test('reviewed bootstrap waits for delayed configuration completion instead of event-loop ticks',async t=>{
+ const h=await harness(t,{beforeBoot:reviewedFixture,initialHash:'#overview',configDelayMs:50});
+ assert.equal(h.get('training-rank').textContent,'Lieutenant');assert.equal(h.calls.filter(c=>c.url==='/workspace/config').length,1);assert.equal(h.f.calls,1);
 });
