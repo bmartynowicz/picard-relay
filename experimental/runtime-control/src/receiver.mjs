@@ -69,7 +69,8 @@ export function createReceiver({store,config,assistantAdapter,canAccept=()=>true
     }
     // Groq admission is exact administrator-approved scope, never arbitrary text.
     if(pilot&&typeof assistantAdapter.acceptsWorkScope!=='function')throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
-    if(typeof assistantAdapter.acceptsWorkScope==='function'&&!assistantAdapter.acceptsWorkScope(p.payload))throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
+    const savedScope=store.get(p.payload.eventId)?.state==='completed'&&typeof assistantAdapter.acceptsSavedWorkScope==='function'&&assistantAdapter.acceptsSavedWorkScope(p.payload)===true;
+    if(typeof assistantAdapter.acceptsWorkScope==='function'&&!assistantAdapter.acceptsWorkScope(p.payload)&&!savedScope)throw Object.assign(Error('owner_scope_denied'),{code:'owner_scope_denied'});
     // Polling an authenticated existing immutable job never consumes provider capacity.
     // accept() still validates the entire payload and rejects altered replay content.
     if(!ready&&!store.get(p.payload.eventId))throw Object.assign(Error('assistant_invocation_unavailable'),{code:'assistant_invocation_unavailable'});

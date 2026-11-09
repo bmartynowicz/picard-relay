@@ -100,7 +100,7 @@ function restartRouter(p){
 
 test('reply-persistence uncertainty survives catalogue removal, expiry cleanup and restart under same enrollment',async t=>{
  const p=await pipeline(t,{appendFailure:true}),first=await p.register(),ref=first.body.ref;assert.equal((await p.dispatcher.runOnce()).status,'uncertain');assert.equal(p.calls,1);
- p.f.entry.slots=p.f.entry.slots.slice(1);assert.equal(p.router.availability().code,'pending_uncertainty');assert.equal(p.f.store.hasEnrollmentUncertainty(p.f.catalogue.enrollmentId),true);assert.equal(p.f.store.hasEnrollmentUncertainty('f'.repeat(64)),false);
+ p.f.entry.slots=p.f.entry.slots.slice(1);assert.equal(p.router.availability().code,'pending_uncertainty');assert.equal(p.f.store.hasEnrollmentUncertainty(p.f.catalogue.enrollmentId),true);assert.equal(p.f.store.hasEnrollmentUncertainty('f'.repeat(64)),true);
  p.f.tick(3600001);p.f.catalogue.notBefore=p.f.now()-1000;p.f.catalogue.expiresAt=p.f.now()+3600000;p.f.restart();const next=restartRouter(p);assert.equal(next.availability().code,'pending_uncertainty');
  const handler=createLocalAdmissionHandler({mode:'synthetic-integration-only',store:p.f.store,auth:{authenticate:async value=>value===token},loadPolicy:()=>p.f.policy,binding:p.f.binding,origins:[origin],now:p.f.now,currentAvailability:next.availability});
  const denied=await p.f.request('/request-approvals',{body:{entryId:p.f.entry.entryId,slotId:p.f.entry.slots[0].slotId},adapter:handler});assert.equal(denied.status,503);

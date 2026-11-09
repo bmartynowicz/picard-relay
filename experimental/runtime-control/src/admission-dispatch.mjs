@@ -1,4 +1,4 @@
-import {lstatSync,realpathSync,readdirSync} from 'node:fs';
+import {lstatSync,realpathSync,readdirSync,openSync,readSync,fstatSync,closeSync,constants} from 'node:fs';
 import {isAbsolute,resolve,join} from 'node:path';
 import {canonical,validateWork} from './protocol.mjs';
 import {createGroqOnceAdapter} from './groq-once-adapter.mjs';
@@ -16,6 +16,26 @@ export function createAdmissionAssistantAdapter({activationEnabled=false,signedB
  const configured=activationEnabled===true&&typeof apiKey==='string'&&apiKey.length>0&&!/[\r\n]/.test(apiKey)&&typeof loadPolicy==='function'&&binding?.assistantId==='groq:openai/gpt-oss-20b'&&admissionHash(apiKey)===binding.keySha256;
  function parentReady(){if(synthetic&&testOnly.markerParentReady)return testOnly.markerParentReady()===true;try{const s=lstatSync(markerDirectory);return isAbsolute(markerDirectory)&&resolve(markerDirectory)===markerDirectory&&realpathSync(markerDirectory)===markerDirectory&&s.isDirectory()&&!s.isSymbolicLink()&&s.uid===process.getuid?.()&&(s.mode&0o777)===0o700;}catch{return false;}}
  function spent(grantId){if(synthetic&&testOnly.markerSpent)return testOnly.markerSpent(grantId)===true;try{const names=readdirSync(markerDirectory);return names.length>1024||names.some(name=>name.includes(grantId));}catch{return true;}}
+ function reservationsReady(){
+  try{
+   const names=readdirSync(markerDirectory);if(names.length>1024)return false;
+   for(const name of names){
+    if(name.startsWith('.groq-cost-'))return false;
+    if(!name.endsWith('.pending'))continue;
+    const match=/^groq-once-([a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})\.consumed\.pending$/.exec(name);
+    if(!match||reusableBoardEnabled!==true||!storage.pendingGrantAssociated(match[1]))return false;
+    const file=join(markerDirectory,name),before=lstatSync(file);
+    if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1||before.size<1||before.size>1024)return false;
+    let fd;try{
+     fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);const bytes=Buffer.alloc(1025),size=readSync(fd,bytes,0,bytes.length,0),after=fstatSync(fd),current=lstatSync(file);
+     if(size!==before.size||['dev','ino','mode','uid','gid','nlink','size','mtimeMs','ctimeMs'].some(key=>before[key]!==after[key]||before[key]!==current[key]))return false;
+     const record=JSON.parse(bytes.subarray(0,size).toString('utf8'));
+     if(Object.keys(record).sort().join(',')!=='enrollmentId,state,v'||record.v!==1||record.state!=='pending-before-io'||!storage.pendingGrantAssociated(match[1],record.enrollmentId))return false;
+    }finally{if(fd!==undefined)closeSync(fd);}
+   }
+   return true;
+  }catch{return false;}
+ }
  const policy=()=>readBoundAdmissionPolicy(loadPolicy,binding);
  function availability(){
   if(!configured||!storage||!parentReady())return {acceptingRequests:false,pendingUncertainty:false,costContradiction:true,code:'configuration_unavailable'};
@@ -24,6 +44,7 @@ export function createAdmissionAssistantAdapter({activationEnabled=false,signedB
    if(busy||!canAccept())return {acceptingRequests:false,pendingUncertainty:false,costContradiction:false,code:'relay_busy_or_draining'};
    if(!storage.legacyAdmissionReady(c.enrollmentId))return {acceptingRequests:false,pendingUncertainty:false,costContradiction:false,code:'legacy_review_required'};
    const pending=storage.hasEnrollmentUncertainty(c.enrollmentId);
+   if(!reservationsReady())return {acceptingRequests:false,pendingUncertainty:true,costContradiction:true,code:'pending_uncertainty'};
    if(pending&&reusableBoardEnabled!==true)return {acceptingRequests:false,pendingUncertainty:true,costContradiction:false,code:'pending_uncertainty'};
    let available=false;
    for(const e of at>=c.notBefore&&at<c.expiresAt?c.entries:[])for(const s of e.slots){const row=storage.get(s.eventId);if(row)approved(s.eventId);if(attempted.has(s.eventId)||spent(s.grantId)||storage.grantSeenElsewhere(s.grantId,s.eventId)||row&&!['queued','claimed'].includes(row.state))continue;
@@ -59,12 +80,14 @@ export function createAdmissionAssistantAdapter({activationEnabled=false,signedB
    return storage.commitSignedBridge({payload,catalogue:p.catalogue,selection:{entryId:found.entry.entryId,slotId:found.slot.slotId},catalogueSha256:p.catalogueSha256,currentAvailability:availability,revalidate:()=>policy().catalogueSha256===p.catalogueSha256&&!attempted.has(payload.eventId)&&!spent(found.slot.grantId)});
   },
   acceptsWorkScope(payload){try{const a=approved(payload?.eventId);return a.row.payload_json===canonical(payload);}catch{return false;}},
+  // Read permission does not register, claim, renew or invoke historical work.
+  acceptsSavedWorkScope(payload){try{const saved=storage?.readHistoricalWork(payload?.eventId);return !!saved&&saved.row.state==='completed'&&saved.row.payload_json===canonical(payload);}catch{return false;}},
   claimNext(input){
    if(!configured||!storage)return null;
    try{const p=policy(),old=p.catalogue.entries.flatMap(e=>e.slots.map(s=>s.eventId)).filter(id=>{const r=storage.get(id);return r&&['queued','claimed','invoking'].includes(r.state);}),ids=[...new Set([...old,...(reusableBoardEnabled===true?storage.listReusableBoard():[])])];if(ids.length>8)return null;storage.reconcileEligible(ids);const mayInvoke=availability().acceptingRequests;const eligible=ids.filter(id=>{try{const a=approved(id),saved=a.row.response_id&&a.row.result_json&&a.row.state==='invoking'&&a.row.claimed_until<=now()&&a.row.grant_expires>now();return !!saved||mayInvoke&&!spent(a.slot.grantId)&&!attempted.has(id);}catch{return false;}});return storage.claimEligible({...input,ids:eligible});}catch{return null;}
   },
   async answer(input){
-   if(busy||!parentReady())throw blocked('groq_free_scope_unavailable');
+   if(busy||!parentReady()||!reservationsReady())throw blocked('groq_free_scope_unavailable');
    const a=approved(input.requestId);
    if(attempted.has(input.requestId)||a.row.state!=='invoking'||a.row.attempt!==input.attempt||a.row.claimed_until<=now()||input.owner!==a.row.owner||input.task!==a.row.task||input.invocationId!==a.row.event_id)throw blocked('groq_scope_mismatch');
    const at=now(),pending=storage.hasEnrollmentUncertainty(a.p.catalogue.enrollmentId,{excludeInvokingEventId:input.requestId});

@@ -15,7 +15,7 @@ export async function workspaceFixture({realMarkers=process.platform==='linux',a
  const dir=directory??fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'picard-workspace-'));
  fs.chmodSync(dir,0o700);fs.writeFileSync(path.join(dir,'fixture-only.marker'),'PICARD_SYNTHETIC_ADMISSION_ONLY\n');
  let offset=0,calls=0,failResponse=false,mode='complete',available=true,session=fixtureToken,store,router,handler,dispatcher;
- const now=()=>Date.now()+offset,at=now(),apiKey='SYNTHETIC_WORKSPACE_KEY_ONLY';
+ const now=()=>Date.now()+offset,at=now();let apiKey='SYNTHETIC_WORKSPACE_KEY_ONLY';
  const enrollment={v:1,owner:'fixture-owner',provider:'groq',model:'openai/gpt-oss-20b',accountLabel:'Synthetic',organizationId:'synthetic',projectId:'synthetic',keySha256:await digest(apiKey),accountPlan:'Free',noPaidFallback:true,verifiedAt:at-86400000,enrolledAt:at-10000,evidenceRef:'SYNTHETIC_ONLY',keyAssociationEvidenceRef:'SYNTHETIC_ONLY'};
  const binding={ownerId:enrollment.owner,taskId:'legacy-fixture',assistantId:'groq:'+enrollment.model,enrollmentId:await digest(canonical(enrollment)),keySha256:enrollment.keySha256,configurationSha256:'b'.repeat(64)};
  const policy={v:1,configurationSha256:binding.configurationSha256,costEnrollment:enrollment,catalogue:{v:1,kind:'FINITE_ADMISSION_PROTOTYPE_ONLY',ownerId:binding.ownerId,taskId:binding.taskId,assistantId:binding.assistantId,enrollmentId:binding.enrollmentId,notBefore:at-1000,expiresAt:at+3600000,maxRequestLifetimeMs:600000,entries:[]}};
@@ -47,6 +47,7 @@ export async function workspaceFixture({realMarkers=process.platform==='linux',a
  return {dir,dbPath,binding,policy,now,brief,request,prepare,approve,submit,output:realMarkers?'[Groq / openai/gpt-oss-20b]\n'+output:output,auth,
   get handler(){return handler;},get store(){return store;},get router(){return router;},get dispatcher(){return dispatcher;},get calls(){return calls;},
   advance(ms){offset+=ms;},setMode(value){mode=value;},setAvailable(value){available=value;},loseResponse(value=true){failResponse=value;},rotateSession(){session='B'.repeat(43);},
+  async rotateEnrollment(){store.close();apiKey='SYNTHETIC_ROTATED_WORKSPACE_KEY_ONLY';enrollment.keySha256=await digest(apiKey);binding.keySha256=enrollment.keySha256;binding.enrollmentId=await digest(canonical(enrollment));binding.configurationSha256=await digest('SYNTHETIC_ROTATED_CONFIGURATION');policy.configurationSha256=binding.configurationSha256;policy.catalogue.enrollmentId=binding.enrollmentId;open();},
   restart(){store.close();open();},close(){store.close();fs.rmSync(dir,{recursive:true,force:true});},
  };
 }
