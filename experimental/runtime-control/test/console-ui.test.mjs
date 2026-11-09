@@ -3,14 +3,16 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"3338221a0d17c0b5a9e9609356eb2e0a523bb34a8fdbfff538320f7b70ec690c");
+assert.equal(createHash('sha256').update(script).digest('hex'),"3d55e43e3343cf63b543c90bef8a935dab8e03803b115d71abd952ffcad94d3f");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
-assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|@import|url\(/i.test(html.replace(/url\(#picard-metal-(?:face|recess)\)/g,'')));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md','https://github.com/bmartynowicz/picard-relay/blob/main/docs/OPERATIONS.md#replace-a-groq-key','https://github.com/bmartynowicz/picard-relay/issues/new','https://console.groq.com/keys']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
+const noDisplayStorage=script.replace(/localStorage\.(?:getItem\(stealthPreference\)|setItem\(stealthPreference,stealth\?'1':'0'\))/g,'');
+assert.match(script,/const stealthPreference='picard:stealth';/);
+assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(noDisplayStorage));assert.ok(!/src=|@import|url\(/i.test(html.replace(/url\(#picard-metal-(?:face|recess)\)/g,'')));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md','https://github.com/bmartynowicz/picard-relay/blob/main/docs/OPERATIONS.md#replace-a-groq-key','https://github.com/bmartynowicz/picard-relay/issues/new','https://console.groq.com/keys']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password','replace-groq-secret'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
 const health={v:1,observedAt:'2026-10-30T16:00:00Z',service:{ready:true,providerReady:false,resultRecoveryReady:true,acceptingNewWork:false,draining:false},jobs:{queued:0,invoking:0,completed:2,uncertain:0},release:{hash:'a'.repeat(64),version:null},updater:{state:'unknown'}};
 const ok=body=>({ok:true,status:200,json:async()=>body}),bad=(status,error)=>({ok:false,status,json:async()=>({error})});
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
-function harness(handler,{jobsHandler,clock=Date}={}){
+function harness(handler,{jobsHandler,clock=Date,storage}={}){
  const animations=[];const element=()=>({_text:'',get textContent(){return this._text+this.children.map(n=>n.textContent).join('')},set textContent(v){this._text=String(v);this.children=[]},children:[],value:'',className:'',hidden:true,disabled:false,dataset:{},listeners:{},attrs:{},classList:{items:new Set(),toggle(n,v){v?this.items.add(n):this.items.delete(n)}},setAttribute(n,v){this.attrs[n]=v},addEventListener(n,fn){this.listeners[n]=fn},append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this._text='';this.children=nodes},animate(frames,options){const a={frames,options,cancelled:false,cancel(){this.cancelled=true;this.oncancel?.()}};animations.push(a);return a}});
  const els=new Map([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,element()]));
  const copied=[];
@@ -26,7 +28,7 @@ function harness(handler,{jobsHandler,clock=Date}={}){
  const window={matchMedia:()=>pref,addEventListener:(n,fn)=>wl[n]=fn};
  const navigator={clipboard:{writeText:async text=>{copied.push(text);}}};
  let count=0;const requests=[],timers=new Map();
- vm.runInNewContext(script,{document,window,navigator,TextEncoder,AbortController,crypto:{randomUUID:()=>replacementId},Date:clock,queueMicrotask,setTimeout:fn=>{timers.set(++count,fn);return count},clearTimeout:id=>timers.delete(id),fetch:async(path,options)=>{assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.ok(['/auth/state','/auth/setup','/auth/login','/auth/logout','/status','/updates','/groq/key'].includes(path)||path==='/jobs'||path.startsWith('/jobs?cursor='));if(options.method==='POST')assert.equal(options.headers['Content-Type'],'application/json');requests.push({path,options});return path.startsWith('/jobs')?(jobsHandler?jobsHandler(path,options):ok({v:1,rows:[],nextCursor:null,observedAt:health.observedAt})):handler(path,options)}});
+ vm.runInNewContext(script,{document,window,navigator,localStorage:storage,TextEncoder,AbortController,crypto:{randomUUID:()=>replacementId},Date:clock,queueMicrotask,setTimeout:fn=>{timers.set(++count,fn);return count},clearTimeout:id=>timers.delete(id),fetch:async(path,options)=>{assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.ok(['/auth/state','/auth/setup','/auth/login','/auth/logout','/status','/updates','/groq/key'].includes(path)||path==='/jobs'||path.startsWith('/jobs?cursor='));if(options.method==='POST')assert.equal(options.headers['Content-Type'],'application/json');requests.push({path,options});return path.startsWith('/jobs')?(jobsHandler?jobsHandler(path,options):ok({v:1,rows:[],nextCursor:null,observedAt:health.observedAt})):handler(path,options)}});
  return {get:id=>els.get(id),els,requests,timers,wl,dl,ml,pref,document,animations,starAnimations,copied,async submit(id){await els.get(id).listeners.submit({preventDefault(){}})},async click(id){await els.get(id).listeners.click()}};
 }
 const feedbackFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health));
@@ -34,6 +36,36 @@ await flush();
 assert.equal(feedbackFlow.get('recognition').hidden,true);
 assert.equal(feedbackFlow.get('groq-key').hidden,true);
 assert.equal(feedbackFlow.get('replace-groq-row').hidden,true);
+
+const displayPrefs=new Map(),displayStorage={getItem:key=>displayPrefs.get(key),setItem:(key,value)=>displayPrefs.set(key,value)};
+const displayStatus=async path=>path==='/auth/state'?ok({enrolled:true}):ok(health);
+const stealthFlow=harness(displayStatus,{storage:displayStorage});
+await flush();
+for(let i=0;i<5;i++)await stealthFlow.click('logo-wrap');
+assert.equal(stealthFlow.get('console-surface').dataset.starfield,'true');
+const beforeStealthReads=stealthFlow.requests.length;
+await stealthFlow.click('stealth-mode');
+assert.equal(stealthFlow.document.title,'Work Console');
+assert.equal(stealthFlow.get('brand-name').textContent,'Work Console');
+assert.equal(stealthFlow.get('stealth-mode').attrs['aria-pressed'],'true');
+assert.equal(stealthFlow.get('console-surface').dataset.starfield,'false');
+assert.equal(stealthFlow.get('console-surface').dataset.motion,'off');
+assert.equal(stealthFlow.get('hud-instruments').hidden,true);
+assert.equal(stealthFlow.requests.length,beforeStealthReads);
+assert.deepEqual([...displayPrefs],[['picard:stealth','1']]);
+const restoredStealth=harness(displayStatus,{storage:displayStorage});
+await flush();
+assert.equal(restoredStealth.document.title,'Work Console');
+assert.equal(restoredStealth.get('stealth-mode').attrs['aria-pressed'],'true');
+stealthFlow.pref.matches=true;stealthFlow.ml.change();
+await stealthFlow.click('stealth-mode');
+assert.equal(stealthFlow.document.title,'Picard Relay — Console');
+assert.equal(stealthFlow.get('console-surface').dataset.starfield,'true');
+assert.equal(stealthFlow.get('console-surface').dataset.motion,'off');
+assert.deepEqual([...displayPrefs],[['picard:stealth','0']]);
+await feedbackFlow.click('stealth-mode');
+assert.equal(feedbackFlow.document.title,'Work Console');
+await feedbackFlow.click('stealth-mode');
 
 const replacementId='00000000-0000-4000-8000-000000000001';
 let replacementStatus={v:1,enabled:true,project:'Test / Free project',state:'idle',id:null,recent:true};

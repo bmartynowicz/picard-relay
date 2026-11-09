@@ -4,9 +4,13 @@ The authenticated console has five views when finite admission is enabled. A hos
 
 The [cockpit tour](COCKPIT-TOUR.md) includes a 15-second recording and a quick
 control guide. Navigation is centered horizontally. Open the **…** menu beside
-Refresh for **Documentation ↗**, motion controls and Sign out. Documentation opens
-the guide index in a new tab, keeping the console open; it is also available on
-the sign-in screen.
+Refresh for **Documentation ↗**, **Stealth mode**, motion controls and Sign out.
+Documentation opens the guide index in a new tab and is available on the sign-in
+screen.
+
+Choose **Stealth mode** for a plain Work Console with a neutral title and motion
+turned off. The browser remembers the display preference. Use the same menu
+item to return to the Picard view.
 
 | View | What to use it for |
 | --- | --- |
