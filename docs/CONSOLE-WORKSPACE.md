@@ -8,9 +8,14 @@ Refresh for **Documentation ↗**, **Stealth mode**, motion controls and Sign ou
 Documentation opens the guide index in a new tab and is available on the sign-in
 screen.
 
-Choose **Stealth mode** for a plain Work Console with a neutral title and motion
-turned off. The browser remembers the display preference. Use the same menu
-item to return to the Picard view.
+Choose **Stealth mode** or press **Alt+Shift+S** for a plain Work Console with a
+neutral title, sidebar on desktop, and motion turned off. Use the same control
+to return to Picard. The cockpit HUD shows the shortcut.
+
+Under **… → Auto stealth**, choose when the tab is hidden, after five minutes
+without a click, keystroke or scroll, or both. Auto stealth starts off. Your
+browser remembers the setting. Automatic entry stays on until you toggle it or
+reload. The same job and request data remain visible.
 
 | View | What to use it for |
 | --- | --- |
