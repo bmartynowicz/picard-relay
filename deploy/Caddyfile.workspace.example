@@ -3,9 +3,19 @@
 relay.example.com {
     @read {
         method GET
-        path / /auth/state /status /jobs /updates /workspace/config /workspace/history /request-catalogue
+        path / /auth/state /status /jobs /updates /groq/key /workspace/config /workspace/history /request-catalogue
     }
     handle @read {
+        reverse_proxy 127.0.0.1:8787
+    }
+    @groqkey {
+        method POST
+        path /groq/key
+    }
+    handle @groqkey {
+        request_body {
+            max_size 1KB
+        }
         reverse_proxy 127.0.0.1:8787
     }
     @result {

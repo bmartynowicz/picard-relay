@@ -24,6 +24,22 @@ The console uses same-origin credentialed requests, no-store responses and no lo
 
 Common error classes are `400` invalid request, `401` authentication failure, `409` invalid/expired/conflicting approval or record, `413` oversized body, `429` rate limit and `503` unavailable/blocked state. A status/error response never grants permission to resubmit an uncertain invocation. See the handler's typed error map for exact per-route behavior.
 
+### Groq key replacement
+
+On hosts with the protected replacement helper connected, authenticated
+`GET /groq/key` returns the enrolled project label, replacement state,
+request ID and whether the owner recently signed in. The normal status
+response also carries the safe replacement state while the helper is enabled.
+Same-origin `POST /groq/key` accepts exactly `{id,key,free:true}` from a
+recent owner session. The UUID identifies the operation. The key is sent
+only to the local protected helper and never returned. The 1 KiB request
+limit also applies at the reverse proxy.
+
+An accepted submission returns HTTP 202 and `checking`. Read status to learn
+whether the key was `replaced`, `rejected` with the previous key kept, or
+`unknown`. An interrupted submission is followed by a read, with zero
+automatic retries or provider calls. See [Operations](OPERATIONS.md#replace-a-groq-key).
+
 ## Status and history scope
 
 `GET /status` includes an allowlisted `scope` value (`owner` or `task`) and counters for queued, claimed, invoking, completed, failed, blocked, cancelled and uncertain jobs. With both admission and reusable Board admission already enabled, the service queries only the configured owner across tasks; other configurations retain their allowed-task filter. Clients cannot override this scope through query parameters. `GET /jobs` uses the same server-selected scope and continues to exclude raw prompts, results and owner/task IDs.

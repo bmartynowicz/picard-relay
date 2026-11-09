@@ -106,6 +106,49 @@ does not give you a date, leave it unknown. An approval deadline, a finite
 catalogue deadline and the date Picard verified Free-plan evidence each have a
 different meaning.
 
+### Replace from the Groq tab
+
+On a connected host, choose **Groq → Replace key**. In the Groq Console,
+check that the displayed project is still on Free and create a key there.
+Paste it in Picard, confirm the project and plan, then choose **Save key**.
+Picard may ask you to sign in again first. The key field clears on submission.
+Wait for **Key replaced**. Use Refresh to check an interrupted submission.
+
+The owner verifies the project and plan in Groq Console. The public Groq API
+does not expose a billing tier for a submitted key. Picard uses the enrolled
+project and records the owner's confirmation. The replacement runs offline
+with zero provider calls. A request after replacement still needs its own
+approval. Keep the project on Free for continued zero-dollar use.
+
+#### Connect the button on an enrolled host
+
+1. Install the reviewed checkout for this feature under root-controlled
+   `/usr/local/lib/picard-groq-replacement`. The helper imports the stager,
+   fixed service adapter and their runtime dependencies from that checkout.
+   Install both `deploy/picard-groq-replacement` unit templates. Set
+   `SocketGroup` to the existing relay's dedicated primary group.
+2. Prepare `/var/lib/picard-groq-replacement` as root, relay group, mode
+   `0750`. Initialize a root-owned, relay-group `status.json` with mode
+   `0640` and contents `{"v":1,"state":"idle","id":null,"updatedAt":0}`.
+   Never reset an existing checking or unknown record to retry it.
+3. Confirm the runtime control socket uses
+   `/run/picard-relay-control/control.sock` or
+   `/var/lib/board-event-relay/control.sock`. Check the unit filesystem
+   paths and existing narrow SELinux policy. Verify the relay can connect
+   to the group-owned socket and read the status file. Keep SELinux enforcing.
+4. Add the exact GET and POST `/groq/key` TLS proxy routes from the
+   workspace template. Keep request bodies out of proxy logs. Set
+   `BRIDGE_GROQ_KEY_REPLACEMENT_ENABLED=true` in the root-controlled runtime
+   environment, enable the socket, and restart through the normal drain.
+   The source default is off.
+
+The helper starts on demand. It serializes against the signed updater, stages
+under the protected admission directory, drains the same fixed service, and
+checks the installed enrollment and result recovery. It preserves old files
+and records. Failed readiness triggers a guarded restoration of the previous
+configuration. An unknown outcome requires operator review of the saved status,
+installer lock, drop-in and staged files before another attempt.
+
 ### Stage and check on the host
 
 Use an administrator session on the enrolled Linux host, with Node 24 and a

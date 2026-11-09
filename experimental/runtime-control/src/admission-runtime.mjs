@@ -11,6 +11,57 @@ import {createAdmissionHandler,createWorkspaceHandler} from './admission-handler
 import {admissionConsoleHtml} from './admission-ui.mjs';
 import {groqHttpsFetch} from './https-fetch.mjs';
 import {TextDecoder} from 'node:util';
+import {connect} from 'node:net';
+
+export const GROQ_REPLACEMENT_SOCKET='/run/picard-groq-replacement.sock';
+export const GROQ_REPLACEMENT_STATUS='/var/lib/picard-groq-replacement/status.json';
+export const groqReplacementId=value=>typeof value==='string'&&value.length===36&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value);
+export const groqReplacementKey=value=>typeof value==='string'&&value.trim()===value&&/^gsk_[A-Za-z0-9_-]{20,508}$/.test(value);
+
+function replacementRequest(socketPath,body){
+ return new Promise((resolve,reject)=>{
+  const socket=connect(socketPath);
+  let reply='';
+  socket.setEncoding('utf8');
+  socket.setTimeout(3000,()=>socket.destroy(Error('key_replacement_unknown')));
+  socket.once('connect',()=>socket.write(JSON.stringify(body)+'\n'));
+  socket.once('error',()=>reject(Error('key_replacement_unknown')));
+  socket.on('data',part=>{
+   reply+=part;
+   if(reply.length>64)socket.destroy(Error('key_replacement_unknown'));
+   if(reply==='{"accepted":true}\n'){socket.destroy();resolve();}
+   if(reply==='{"accepted":false}\n'){socket.destroy();reject(Error('key_replacement_busy'));}
+  });
+  socket.once('close',()=>reject(Error('key_replacement_unknown')));
+ });
+}
+
+export function createGroqReplacementBridge({enabled=false,project='',enrollmentId='',socketPath=GROQ_REPLACEMENT_SOCKET,statusPath=GROQ_REPLACEMENT_STATUS,now=Date.now}={}){
+ let posting=false;
+ function status(){
+  const off={v:1,enabled:false,project:'',state:'unavailable',id:null};
+  if(!enabled)return off;
+  try{
+   const socket=fs.lstatSync(socketPath),parent=fs.lstatSync(path.dirname(statusPath));
+   if(!socket.isSocket()||socket.uid!==0||socket.gid!==process.getgid()||(socket.mode&0o777)!==0o660
+    ||fs.realpathSync(socketPath)!==socketPath||!parent.isDirectory()||parent.uid!==0||(parent.mode&0o022)!==0) return off;
+   const record=JSON.parse(readExistingAdmissionFile(statusPath,512,{rootOnly:true}).text);
+   if(Object.keys(record).sort().join(',')!=='id,state,updatedAt,v'||record.v!==1
+    ||!['idle','checking','replaced','rejected','unknown'].includes(record.state)||!Number.isSafeInteger(record.updatedAt)
+    ||record.updatedAt<0||record.updatedAt>now()+5000||(record.state==='idle'?record.id!==null:!groqReplacementId(record.id)))return off;
+   const state=record.state==='checking'&&now()-record.updatedAt>240000?'unknown':record.state;
+   return {v:1,enabled:true,project,state,id:record.id};
+  }catch{return off;}
+ }
+ return {status,async request({id,key}){
+  const current=status();
+  if(!current.enabled)throw Error('key_replacement_unavailable');
+  if(posting||current.id===id||['checking','unknown'].includes(current.state))throw Error('key_replacement_busy');
+  posting=true;
+  try{await replacementRequest(socketPath,{v:1,id,key,enrollmentId,free:true});return {v:1,enabled:true,project,state:'checking',id};}
+  finally{posting=false;}
+ }};
+}
 
 const fingerprint=s=>[s.dev,s.ino,s.mode,s.uid,s.gid,s.nlink,s.size,s.mtimeNs,s.ctimeNs].map(String).join(':');
 export function readExistingAdmissionFile(file,maxBytes=16384,{uid=process.getuid?.(),gid=process.getgid?.(),rootOnly=false}={}){
@@ -90,6 +141,7 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
  const loadPolicy=()=>{if(hasReplacement&&!history)stop('groq_replacement_invalid');return loadBoundFiles();};
  readBoundAdmissionPolicy(loadBoundFiles,binding);
  const adapter=createAdmissionAssistantAdapter({activationEnabled:true,signedBridgeEnabled:config.admissionSignedBridgeEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBoardEnabled:config.admissionReusableBoardEnabled===true,bridgeKeyId:config.keyId,loadPolicy,binding,apiKey,markerDirectory,now,fetchImpl,priorEnrollmentIds:history?.priorEnrollmentIds});
+ const groqReplacement=createGroqReplacementBridge({enabled:env.BRIDGE_GROQ_KEY_REPLACEMENT_ENABLED==='true'&&config.workspaceEnabled===true,project:e.accountLabel,enrollmentId:binding.enrollmentId,now});
  return {adapter,attach({store,control,auth,baseHtml}){
   if(!auth)stop('admission_configuration_invalid');
   const admissionStore=createAdmissionStore({activationEnabled:true,dbPath:config.dbPath,relayStore:store,now,loadLegacyBaseline,legacyBinding:{...binding,enrollmentId:legacyEnrollmentId},reusableBoardEnabled:config.admissionReusableBoardEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBinding:{ownerId:binding.ownerId,enrollmentId:binding.enrollmentId},readLegacyMarkers:names=>readLegacyAdmissionMarkers(markerDirectory,names)});
@@ -97,7 +149,7 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
   adapter.attachStore(admissionStore,{accepting:()=>control.accepting});
   const handler=createAdmissionHandler({activationEnabled:true,store:admissionStore,auth,loadPolicy,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability});
   const workspace=createWorkspaceHandler({enabled:config.workspaceEnabled===true,store:admissionStore,auth,loadPolicy,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability});
-  return {handler:async(req,res)=>await workspace(req,res)||await handler(req,res),groqKeyExpiresAt,gradeResult:config.workspaceEnabled===true?input=>{admissionStore.recordAttempt(admissionHash(canonical([binding.ownerId,'quality-grades'])));return admissionStore.saveWorkspaceGrade(input);}:null,readGrade:config.workspaceEnabled===true?ref=>admissionStore.workspaceGrade(ref):null,html:admissionConsoleHtml(baseHtml,{activationEnabled:true,workspaceEnabled:config.workspaceEnabled===true}),dispatchStore:{...store,claimNext:input=>adapter.claimNext(input)},close:()=>admissionStore.close()};
+  return {handler:async(req,res)=>await workspace(req,res)||await handler(req,res),groqKeyExpiresAt,groqReplacement,gradeResult:config.workspaceEnabled===true?input=>{admissionStore.recordAttempt(admissionHash(canonical([binding.ownerId,'quality-grades'])));return admissionStore.saveWorkspaceGrade(input);}:null,readGrade:config.workspaceEnabled===true?ref=>admissionStore.workspaceGrade(ref):null,html:admissionConsoleHtml(baseHtml,{activationEnabled:true,workspaceEnabled:config.workspaceEnabled===true}),dispatchStore:{...store,claimNext:input=>adapter.claimNext(input)},close:()=>admissionStore.close()};
   }catch{admissionStore.close();stop('admission_configuration_invalid');}
  }};
 }

@@ -98,7 +98,7 @@ function createOwnerAuth({stateDir,expectedUid=process.getuid?.(),now=Date.now}=
     const completedAt=now();check(integer(completedAt)&&completedAt>=at);const result=session(state,completedAt);await persist(ctx,state,completedAt);return result;
    });}finally{bytes.fill(0);}
   },
-  async authenticate(token){if(!encoded(token,32))return false;try{return await publicRead((state,at)=>matches(state,token,at));}catch{return false;}},
+  async authenticate(token,{fresh=false}={}){if(!encoded(token,32))return false;try{return await publicRead((state,at)=>matches(state,token,at)&&(!fresh||at-state.session.createdAt<300000));}catch{return false;}},
   async logout(token){if(!encoded(token,32))return false;return locked(async(ctx,state,at)=>{if(!matches(state,token,at))return false;state.session=null;await persist(ctx,state,at);return true;});},
  });
 }
@@ -109,6 +109,7 @@ export const createOwnerAuth=ownerAuthCore.createOwnerAuth;
 export const createBootstrapState=ownerAuthCore.createBootstrapState;
 
 import {createRuntimeControl,createUpdateRequestBridge,AVAILABILITY_CODES,readUpdaterActivity} from './runtime-control.mjs';
+import {groqReplacementId,groqReplacementKey} from './admission-runtime.mjs';
 // In tribute to Sir Patrick Stewart. Make it so.
 import {createServer} from 'node:http';
 import {createHash} from 'node:crypto';
@@ -243,8 +244,8 @@ export function createContributionRecognition({login,lookup=fetchContributorCred
  };
 }
 
-export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecentJobs,auth=null,origins=[],updates=createUpdateRequestBridge(),recognition=''}={}){
- if(typeof html!=='string'||Buffer.byteLength(html)>148480)throw Error('console_document_invalid');
+export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecentJobs,auth=null,origins=[],updates=createUpdateRequestBridge(),groqReplacement=null,recognition=''}={}){
+ if(typeof html!=='string'||Buffer.byteLength(html)>155648)throw Error('console_document_invalid');
  const hash=s=>"'sha256-"+createHash('sha256').update(s).digest('base64')+"'";
  const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>hash(m[1]));
  const styles=[...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(m=>hash(m[1]));
@@ -256,7 +257,7 @@ export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecen
  return async(req,res)=>{
   const path=req.url;
    const jobsPath=typeof path==='string'&&path.length<=1024&&/^\/jobs(?:\?[^#]*)?$/.test(path);
-   if(!enabled||!((req.method==='GET'&&(['/','/status','/auth/state','/updates'].includes(path)||jobsPath))||(req.method==='POST'&&['/auth/setup','/auth/login','/auth/logout','/updates'].includes(path))))return false;
+   if(!enabled||!((req.method==='GET'&&(['/','/status','/auth/state','/updates','/groq/key'].includes(path)||jobsPath))||(req.method==='POST'&&['/auth/setup','/auth/login','/auth/logout','/updates','/groq/key'].includes(path))))return false;
   const reply=(status,body,extra={})=>{res.writeHead(status,{...headers,'Content-Type':'application/json; charset=utf-8',...extra});res.end(JSON.stringify(body));return true;};
   let origin=null;try{const host=req.headers.host;if(typeof host==='string'){const u=new URL('https://'+host);if(u.host===host&&u.pathname==='/'&&!u.search&&!u.hash&&!u.username&&!u.password)origin=u.origin;}}catch{}
   if(!origin||!allowed.has(origin))return reply(403,{error:'auth_failed'});
@@ -269,7 +270,8 @@ export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecen
     if(!await auth.authenticate(tokenFrom(req)))return reply(401,{error:'auth_failed'});
     const snapshot=getSnapshot();
     const display=typeof recognition==='function'?recognition():recognition;
-    return reply(200,display?{...snapshot,recognition:display}:snapshot);
+    const keyReplacement=groqReplacement?.status();
+    return reply(200,{...snapshot,...(display?{recognition:display}:{}),...(keyReplacement?.enabled?{keyReplacement}:{})});
    }
    if(path==='/updates'){
     if(!await auth.authenticate(tokenFrom(req)))return reply(401,{error:'auth_failed'});
@@ -280,6 +282,29 @@ export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecen
     let body;try{body=JSON.parse(Buffer.concat(parts).toString('utf8'));}catch{return reply(400,{error:'request_invalid'});}
     if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length)return reply(400,{error:'request_invalid'});
     try{return reply(202,updates.request());}catch(e){const code=['update_not_connected','update_checking','update_unknown','update_held','update_cooldown'].includes(e.code)?e.code:'update_not_connected';return reply(code==='update_cooldown'?429:code==='update_not_connected'?503:409,{error:code});}
+   }
+   if(path==='/groq/key'){
+    const token=tokenFrom(req);
+    if(!await auth.authenticate(token))return reply(401,{error:'auth_failed'});
+    if((req.headers.origin!==undefined&&req.headers.origin!==origin)||req.headers['sec-fetch-site']==='cross-site')return reply(403,{error:'auth_failed'});
+    const status=groqReplacement?.status()??{v:1,enabled:false,project:'',state:'unavailable',id:null};
+    if(req.method==='GET')return reply(200,{...status,recent:status.enabled&&await auth.authenticate(token,{fresh:true})});
+    if(!status.enabled)return reply(503,{error:'key_replacement_unavailable'});
+    if(!await auth.authenticate(token,{fresh:true}))return reply(428,{error:'key_replacement_sign_in'});
+    if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(req.headers['content-type']??''))return reply(400,{error:'request_invalid'});
+    let bytes=0;const parts=[];
+    for await(const chunk of req){
+     bytes+=chunk.length;if(bytes>1024){for(const part of parts)part.fill(0);return reply(413,{error:'request_invalid'});}
+     parts.push(Buffer.from(chunk));
+    }
+    let body;const raw=Buffer.concat(parts);
+    try{body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(raw));}
+    catch{return reply(400,{error:'request_invalid'});}
+    finally{raw.fill(0);for(const part of parts)part.fill(0);}
+    if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).sort().join(',')!=='free,id,key'
+     ||body.free!==true||!groqReplacementId(body.id)||!groqReplacementKey(body.key))return reply(400,{error:'request_invalid'});
+    try{return reply(202,await groqReplacement.request(body));}
+    catch(e){const code=['key_replacement_unavailable','key_replacement_busy'].includes(e.message)?e.message:'key_replacement_unknown';return reply(code==='key_replacement_busy'?409:503,{error:code});}
    }
     if(jobsPath){
      if(!await auth.authenticate(tokenFrom(req)))return reply(401,{error:'auth_failed'});
@@ -388,14 +413,90 @@ function showRecognition(text=''){
 }
 `;
 
+const GROQ_REPLACEMENT_DIALOG=String.raw`
+<dialog id="replace-groq-dialog" class="feedback-dialog" aria-labelledby="replace-groq-heading">
+<h2 id="replace-groq-heading">Replace Groq key</h2>
+<p><a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">Create a key in Groq ↗</a></p>
+<form id="replace-groq-form" autocomplete="off">
+<label for="replace-groq-secret">New Groq key</label>
+<input id="replace-groq-secret" type="password" autocomplete="off" spellcheck="false" maxlength="512" required autofocus>
+<label class="groq-key-confirm"><input id="replace-groq-free" type="checkbox" required><span id="replace-groq-project"></span></label>
+<div class="groq-key-actions"><button class="refresh" id="replace-groq-submit">Save key</button><button id="replace-groq-cancel" type="button">Cancel</button></div>
+<p id="replace-groq-error" class="muted" role="status"></p>
+</form>
+</dialog>
+`;
+
+const GROQ_REPLACEMENT_CLIENT=String.raw`
+const replacement=part=>$('replace-groq-'+part);
+let keyStatus=null,keyChecking=false,keySaving=false,keyPendingId=null,keyGeneration=0;
+const keyMessages={idle:'',checking:'Replacing key…',replaced:'Key replaced.',rejected:'Key replacement did not complete. The previous key is still active.',unknown:'Replacement status unknown. Refresh to check.'};
+function clearGroqKeyForm(){
+ replacement('secret').value='';replacement('free').checked=false;replacement('error').textContent='';
+}
+function resetGroqReplacement(){
+ keyGeneration++;keyStatus=null;keyPendingId=null;keyChecking=false;keySaving=false;
+ if(replacement('dialog').open)replacement('dialog').close();
+ clearGroqKeyForm();replacement('submit').disabled=false;replacement('row').hidden=true;replacement('status').textContent='';
+}
+function renderGroqReplacement(status){
+ status=status??{v:1,enabled:false,project:'',state:'unavailable',id:null};
+ if(!status||status.v!==1||typeof status.enabled!=='boolean'||typeof status.project!=='string'
+  ||(status.enabled&&!Object.hasOwn(keyMessages,status.state)))throw Error('key_status_invalid');
+ keyStatus=status;replacement('row').hidden=!status.enabled&&!keyPendingId;
+ if(status.id===keyPendingId&&['replaced','rejected'].includes(status.state))keyPendingId=null;
+ replacement('open').disabled=Boolean(keyPendingId)||['checking','unknown'].includes(status.state);
+ replacement('status').textContent=keyPendingId&&status.id!==keyPendingId?keyMessages.unknown:keyMessages[status.state]??'';
+}
+async function readGroqReplacement(){
+ if(!authenticated||keyChecking||keySaving)return;
+ const generation=keyGeneration;keyChecking=true;
+ try{const status=await request('/groq/key');if(generation===keyGeneration){renderGroqReplacement(status);return status;}}
+ catch{if(generation===keyGeneration&&keyPendingId)replacement('status').textContent=keyMessages.unknown;}
+ finally{if(generation===keyGeneration)keyChecking=false;}
+}
+replacement('open').addEventListener('click',async()=>{
+ if(!authenticated||!keyStatus?.enabled||replacement('open').disabled)return;
+ const status=await readGroqReplacement();
+ if(!status?.enabled||replacement('open').disabled)return;
+ if(!status.recent){showAuth('login','Sign in again to replace your Groq key.');return;}
+ clearGroqKeyForm();
+ replacement('project').textContent='I created this key in '+keyStatus.project+' and confirmed Groq shows Free.';
+ replacement('dialog').showModal();
+});
+replacement('cancel').addEventListener('click',()=>replacement('dialog').close());
+replacement('dialog').addEventListener('close',clearGroqKeyForm);
+replacement('form').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(!authenticated||keySaving||keyPendingId||!replacement('free').checked)return;
+ const key=replacement('secret').value.trim();
+ if(!/^gsk_[A-Za-z0-9_-]{20,508}$/.test(key)){
+  replacement('error').textContent='Paste a Groq key beginning with gsk_.';return;
+ }
+ const generation=keyGeneration,id=crypto.randomUUID();
+ keySaving=true;keyPendingId=id;replacement('submit').disabled=true;replacement('open').disabled=true;
+ replacement('secret').value='';replacement('error').textContent='';
+ try{const status=await request('/groq/key',{id,key,free:true});if(generation===keyGeneration){renderGroqReplacement(status);replacement('dialog').close();}}
+ catch(error){
+  if(generation!==keyGeneration)return;
+  if([401,403,428].includes(error.status)){showAuth('login','Sign in again to replace your Groq key.');return;}
+  if([400,409].includes(error.status)){keyPendingId=null;replacement('error').textContent=error.status===409?'Check the current replacement status first.':'Check the key and try again.';}
+  else{replacement('dialog').close();replacement('status').textContent=keyMessages.unknown;}
+ }finally{
+  if(generation===keyGeneration){keySaving=false;replacement('submit').disabled=false;void readGroqReplacement();}
+ }
+});
+`;
+
 export const CONSOLE_HTML=CONSOLE_SHELL_HTML
-  .replace('</style>',FEEDBACK_STYLE+'#recognition{display:block;color:var(--accent)}</style>')
+  .replace('</style>',FEEDBACK_STYLE+'#recognition{display:block;color:var(--accent)}.groq-key-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 18px}.feedback-dialog .groq-key-confirm{display:flex;gap:8px;align-items:baseline}.feedback-dialog .groq-key-confirm input{width:auto;flex:none}</style>')
   .replace('id="training-rank" hidden></small>','id="training-rank" hidden></small><small id="recognition" hidden></small>')
-  .replace('function clearPrivate(){','function clearPrivate(){\n showRecognition();')
-  .replace("render(project(await request('/status')));","const data=await request('/status');render(project(data));showRecognition(typeof data.recognition==='string'?data.recognition:'');")
+  .replace('function clearPrivate(){','function clearPrivate(){\n showRecognition();resetGroqReplacement();')
+  .replace("render(project(await request('/status')));","const data=await request('/status');render(project(data));showRecognition(typeof data.recognition==='string'?data.recognition:'');if(!keySaving)renderGroqReplacement(data.keyReplacement);")
   .replace('<button class="logout"','<button id="feedback-open" type="button" hidden>Feedback</button><button class="logout"')
-  .replace('</main>',FEEDBACK_DIALOG+'</main>')
-  .replace('motion();void boot();',FEEDBACK_CLIENT+RECOGNITION_CLIENT+'\nmotion();void boot();');
+  .replace('<div class="provider-activity">','<div id="replace-groq-row" class="groq-key-actions" hidden><button id="replace-groq-open" type="button">Replace key</button><span id="replace-groq-status" class="muted" role="status"></span></div><div class="provider-activity">')
+  .replace('</main>',FEEDBACK_DIALOG+GROQ_REPLACEMENT_DIALOG+'</main>')
+  .replace('motion();void boot();',FEEDBACK_CLIENT+RECOGNITION_CLIENT+GROQ_REPLACEMENT_CLIENT+'\nmotion();void boot();');
 export function loadOracleConfig(e=process.env){
  if(e.BRIDGE_ENABLED!=='true')return {enabled:false};
  const secret=e.BRIDGE_HMAC_SECRET_FILE?readFileSync(e.BRIDGE_HMAC_SECRET_FILE,'utf8').trim():'';
@@ -432,7 +533,7 @@ export async function startOracleService(config,assistantAdapter,{intervalMs=100
  // Its console must use that same owner scope, not the legacy catalogue task.
  const consoleScope={ownerId:config.ownerId,allowedTaskId:config.admissionEnabled===true&&config.admissionReusableBoardEnabled===true?'':config.allowedTaskId??''};
  const recognition=config.consoleEnabled===true&&config.recognitionLogin?createContributionRecognition({login:config.recognitionLogin}):null;
- const consoleHandler=createConsoleHandler({enabled:config.consoleEnabled===true,html:admission?.html??CONSOLE_HTML,auth:consoleAuth,origins:config.consoleOrigins,recognition:recognition?.read??config.recognition,updates:createUpdateRequestBridge({enabled:process.env.BRIDGE_OWNER_UPDATES_ENABLED==='true'}),getSnapshot:()=>consoleSnapshot(control.health(),store.scopedStats(consoleScope),new Date(),consoleScope.allowedTaskId?'task':'owner',readResources(),admission?.groqKeyExpiresAt),getRecentJobs:query=>store.recentJobs({...query,...consoleScope})});
+ const consoleHandler=createConsoleHandler({enabled:config.consoleEnabled===true,html:admission?.html??CONSOLE_HTML,auth:consoleAuth,origins:config.consoleOrigins,recognition:recognition?.read??config.recognition,updates:createUpdateRequestBridge({enabled:process.env.BRIDGE_OWNER_UPDATES_ENABLED==='true'}),groqReplacement:admission?.groqReplacement,getSnapshot:()=>consoleSnapshot(control.health(),store.scopedStats(consoleScope),new Date(),consoleScope.allowedTaskId?'task':'owner',readResources(),admission?.groqKeyExpiresAt),getRecentJobs:query=>store.recentJobs({...query,...consoleScope})});
  const server=createServer(async(req,res)=>{try{
   // TLS/auth for the opt-in console terminate at the approved reverse proxy.
   if(admission&&await admission.handler(req,res))return;

@@ -51,7 +51,7 @@ function servicePid(){
  return pid;
 }
 
-function currentEnrollment(){
+export function currentGroqEnrollment(){
  const pid=servicePid(),proc='/proc/'+pid,identity=fs.statSync(proc);
  requireValid(identity.uid>0&&identity.gid>0);
  const fd=fs.openSync(proc+'/environ','r');let raw;
@@ -79,7 +79,7 @@ function currentEnrollment(){
  const oldPolicy=createCatalogueLoader({activationEnabled:true,file:env.BRIDGE_ADMISSION_CATALOGUE_FILE,expectedUid:0,expectedGid:identity.gid})();
  const prior=env.GROQ_KEY_REPLACEMENT_FILE||env.GROQ_KEY_REPLACEMENT_SHA256;
  const previous=prior?readGroqReplacementHistory(env.GROQ_KEY_REPLACEMENT_FILE,env.GROQ_KEY_REPLACEMENT_SHA256,old,identity).record.previous:[];
- return {pid,identity,config,markerDirectory:path.dirname(env.GROQ_ONCE_MARKER_FILE),oldGate,oldKey,oldPolicy,previous};
+ return {pid,identity,config,webReplacementEnabled:env.BRIDGE_GROQ_KEY_REPLACEMENT_ENABLED==='true',controlSocket:env.BRIDGE_CONTROL_SOCKET,releaseHash:env.BRIDGE_RELEASE_HASH,markerDirectory:path.dirname(env.GROQ_ONCE_MARKER_FILE),oldGate,oldKey,oldPolicy,previous};
 }
 
 function stagedFiles(directory,plan,key){
@@ -105,37 +105,51 @@ function writeStage(directory,files,gid){
  }
 }
 
-function main([mode,...args]){
- requireValid(process.platform==='linux'&&process.getuid()===0&&(mode==='stage'&&args.length===3||mode==='check'&&args.length===1));
- const current=currentEnrollment(),directory=args.at(-1),parent=path.dirname(directory);
+function protectedParent(directory){
+ requireValid(process.platform==='linux'&&process.getuid()===0);
+ const parent=path.dirname(directory);
  requireValid(/^\/[a-zA-Z0-9_./-]+$/.test(directory)&&path.resolve(directory)===directory&&fs.realpathSync(parent)===parent);
  for(let ancestor=parent;;ancestor=path.dirname(ancestor)){
   const info=fs.lstatSync(ancestor);
   requireValid(info.isDirectory()&&info.uid===0&&(info.mode&0o022)===0);
   if(ancestor==='/')break;
  }
- const now=Date.now();let newKey,evidence,at=now;
- if(mode==='stage'){
-  newKey=readExistingAdmissionFile(args[0],1024,{rootOnly:true}).text.trim();
-  evidence=JSON.parse(readExistingAdmissionFile(args[1],4096,{rootOnly:true}).text);
- }else{
+}
+function checkedFiles(current,directory,now){
+  protectedParent(directory);
   const info=fs.lstatSync(directory);
   requireValid(info.isDirectory()&&info.uid===0&&info.gid===current.identity.gid&&(info.mode&0o777)===0o750);
   const read=name=>readExistingAdmissionFile(path.join(directory,name),32768,{...current.identity,rootOnly:true}).text;
   const gate=JSON.parse(read('gate.json'));
-  newKey=read('key').trim();at=gate?.costEnrollment?.enrolledAt;
+  const newKey=read('key').trim(),at=gate?.costEnrollment?.enrolledAt;
   requireValid(Number.isSafeInteger(at)&&at<=now&&now-at<=hour);
-  evidence=Object.fromEntries(evidenceFields.map(k=>[k,gate.costEnrollment[k]]));
- }
- const plan=planGroqKeyReplacement({...current,newKey,evidence,at}),files=stagedFiles(directory,plan,newKey);
- requireValid(now-plan.gate.costEnrollment.verifiedAt<=hour);
- requireValid(servicePid()===current.pid);
- if(mode==='stage')writeStage(directory,files,current.identity.gid);
- else for(const [name,expected,permissions] of files){
+  const evidence=Object.fromEntries(evidenceFields.map(k=>[k,gate.costEnrollment[k]]));
+  const plan=planGroqKeyReplacement({...current,newKey,evidence,at});
+  requireValid(now-plan.gate.costEnrollment.verifiedAt<=hour&&servicePid()===current.pid);
+  for(const [name,expected,permissions] of stagedFiles(directory,plan,newKey)){
   const file=path.join(directory,name),info=fs.lstatSync(file);
   requireValid((info.mode&0o777)===permissions&&info.gid===current.identity.gid
    &&readExistingAdmissionFile(file,32768,{...current.identity,rootOnly:true}).text===expected);
- }
+  }
+  return plan.gate.enrollmentId;
+}
+
+export function stageGroqReplacement(current,{directory,newKey,evidence,at=Date.now()}){
+ protectedParent(directory);
+ const plan=planGroqKeyReplacement({...current,newKey,evidence,at});
+ requireValid(servicePid()===current.pid);
+ writeStage(directory,stagedFiles(directory,plan,newKey),current.identity.gid);
+ return checkedFiles(current,directory,Date.now());
+}
+
+function main([mode,...args]){
+ requireValid(process.platform==='linux'&&process.getuid()===0&&(mode==='stage'&&args.length===3||mode==='check'&&args.length===1));
+ const current=currentGroqEnrollment(),directory=args.at(-1);
+ if(mode==='stage'){
+  const newKey=readExistingAdmissionFile(args[0],1024,{rootOnly:true}).text.trim();
+  const evidence=JSON.parse(readExistingAdmissionFile(args[1],4096,{rootOnly:true}).text);
+  stageGroqReplacement(current,{directory,newKey,evidence});
+ }else checkedFiles(current,directory,Date.now());
  console.log(JSON.stringify({state:mode==='stage'?'staged':'checked',providerCalls:0}));
 }
 

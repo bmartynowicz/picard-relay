@@ -1,0 +1,22 @@
+[Unit]
+Description=Stage and apply one owner Groq key replacement
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/lib/board-event-relay/node --jitless /usr/local/lib/picard-groq-replacement/scripts/serve-groq-key-replacement.mjs
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+RuntimeMaxSec=190
+MemoryMax=96M
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/etc/board-event-relay/admission /etc/systemd/system/board-event-relay.service.d /usr/local/lib/board-event-relay /var/lib/picard-groq-replacement
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true

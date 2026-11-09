@@ -1,0 +1,12 @@
+[Unit]
+Description=Picard protected Groq key intake
+[Socket]
+ListenStream=/run/picard-groq-replacement.sock
+Accept=yes
+SocketUser=root
+SocketGroup=board-event-relay
+SocketMode=0660
+MaxConnections=1
+RemoveOnStop=true
+[Install]
+WantedBy=sockets.target
