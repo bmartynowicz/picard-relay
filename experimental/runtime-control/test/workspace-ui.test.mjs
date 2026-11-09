@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {randomUUID} from 'node:crypto';
 import {workspaceFixture} from '../../../test/fixtures/workspace-fixture.mjs';
-import {CONSOLE_HTML} from '../src/oracle-service.mjs';
+import {CONSOLE_HTML,createConsoleHandler} from '../src/oracle-service.mjs';
 import {admissionConsoleHtml} from '../src/admission-ui.mjs';
 const html=admissionConsoleHtml(CONSOLE_HTML,{activationEnabled:true,workspaceEnabled:true}),script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1];
+test('the complete workspace fits the production console document limit',()=>{
+ assert.doesNotThrow(()=>createConsoleHandler({enabled:true,html}));
+});
 const flush=()=>new Promise(r=>setImmediate(r));
 async function harness(t,{configTransform=value=>value,beforeBoot=async()=>{},initialHash='#requests'}={}){
  const f=await workspaceFixture({realMarkers:false});t.after(()=>f.close());const created=[],downloads=[],urls=new Map(),listeners={},windowListeners={},mediaListeners={},timers=new Map();let timerId=0,signedIn=true,failReads=false,holdRead=null,heldResultResponse=null;

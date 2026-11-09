@@ -18,6 +18,17 @@ the sign-in screen.
 
 ![Choose new work or recover a saved result](images/using-picard.svg)
 
+## Suggest a feature or report a bug
+
+Open **… → Feedback** and choose a type. In cockpit mode, right-click an
+exposed part of the starfield to start a bug report. The menu works with a
+keyboard or touch.
+
+Enter a title and details, choose **Preview**, then **Copy draft**. Open the
+GitHub issue form and paste the first line as the title and the rest as the
+description. GitHub issues are public. The preview contains only your typed
+text and the feedback type. Closing it clears the draft.
+
 ## Legacy finite picker: new work versus recovery
 
 Reading status, browsing job metadata, refreshing and checking a saved result do not make an AI call. Approve and queue can register one exact available request for a bounded provider invocation. It is disabled for spent or unavailable authority.
