@@ -119,6 +119,7 @@ import {createReceiver,healthDiagnostics} from './receiver.mjs';
 import {createSelectedAssistantAdapter} from './selected-assistant.mjs';
 import {createDispatcher} from './dispatcher.mjs';
 import {validConfig} from './protocol.mjs';
+import {fetchContributorCredits} from './https-fetch.mjs';
 
 // Opt-in console is protected by the administrator's HTTPS reverse proxy.
 // It exposes only a projection, never the ledger/control object or credentials.
@@ -197,15 +198,45 @@ export function consoleJobsSnapshot(page,now=new Date()){
  const rows=page.rows.map(row=>{if(!row||!/^[a-f0-9]{64}$/.test(row.ref??'')||!states.includes(row.state)||typeof row.resultAvailable!=='boolean'||!JOB_REASON_CODES.includes(row.reasonCode))unavailable();const time=value=>value===null||Number.isSafeInteger(value)&&value>=0&&value<=8640000000000000?value:null;return {ref:row.ref,state:row.state,createdAt:time(row.createdAt),updatedAt:time(row.updatedAt),resultAvailable:row.resultAvailable,reasonCode:row.reasonCode};});
  if(new Set(rows.map(row=>row.ref)).size!==rows.length)unavailable();const result={v:1,rows,nextCursor:page.nextCursor,observedAt:now.toISOString()};if(Buffer.byteLength(JSON.stringify(result))>16384)unavailable();return result;
 }
+function recognitionSummary(credits){
+ if(!credits||Object.keys(credits).sort().join(',')!=='captures,kills')return null;
+ const {kills,captures}=credits;
+ if(![kills,captures].every(ids=>Array.isArray(ids)&&ids.length<=100&&ids.every(id=>Number.isSafeInteger(id)&&id>0)))return null;
+ const ids=[...kills,...captures];
+ if(new Set(ids).size!==ids.length)return null;
+ if(!ids.length)return '';
+ return kills.length+' Kill'+(kills.length===1?'':'s')+' · '+captures.length+' Capture'+(captures.length===1?'':'s');
+}
+
 export function contributionRecognition(value){
  if(typeof value!=='string'||value.length>4096)return '';
- let credits;try{credits=JSON.parse(value);}catch{return '';}
- if(!credits||Object.keys(credits).sort().join(',')!=='captures,kills')return '';
- const {kills,captures}=credits;
- if(![kills,captures].every(ids=>Array.isArray(ids)&&ids.length<=100&&ids.every(id=>Number.isSafeInteger(id)&&id>0)))return '';
- const ids=[...kills,...captures];
- if(!ids.length||new Set(ids).size!==ids.length)return '';
- return kills.length+' Kill'+(kills.length===1?'':'s')+' · '+captures.length+' Capture'+(captures.length===1?'':'s');
+ try{return recognitionSummary(JSON.parse(value))??'';}catch{return '';}
+}
+
+// Status reads can start a check, but always return immediately from local memory.
+export function createContributionRecognition({login,lookup=fetchContributorCredits,now=()=>performance.now()}){
+ const lifetime=new AbortController();
+ const interval=10*60*1000;
+ let nextCheck=0,pending=false,summary='';
+ async function refresh(){
+  try{
+   const verified=recognitionSummary(await lookup(login,{signal:lifetime.signal}));
+   if(verified!==null&&!lifetime.signal.aborted)summary=verified;
+  }catch{/* Keep the last complete GitHub observation. */}
+  finally{pending=false;}
+ }
+ return {
+  read(){
+   const at=now();
+   if(!lifetime.signal.aborted&&!pending&&at>=nextCheck){
+    nextCheck=at+interval;
+    pending=true;
+    void refresh();
+   }
+   return summary;
+  },
+  close(){lifetime.abort();}
+ };
 }
 
 export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecentJobs,auth=null,origins=[],updates=createUpdateRequestBridge(),recognition=''}={}){
@@ -233,7 +264,8 @@ export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecen
    if(path==='/status'){
     if(!await auth.authenticate(tokenFrom(req)))return reply(401,{error:'auth_failed'});
     const snapshot=getSnapshot();
-    return reply(200,recognition?{...snapshot,recognition}:snapshot);
+    const display=typeof recognition==='function'?recognition():recognition;
+    return reply(200,display?{...snapshot,recognition:display}:snapshot);
    }
    if(path==='/updates'){
     if(!await auth.authenticate(tokenFrom(req)))return reply(401,{error:'auth_failed'});
@@ -365,6 +397,7 @@ export function loadOracleConfig(e=process.env){
  const secret=e.BRIDGE_HMAC_SECRET_FILE?readFileSync(e.BRIDGE_HMAC_SECRET_FILE,'utf8').trim():'';
  const c={enabled:true,keyId:e.BRIDGE_KEY_ID??'',secret,ownerId:e.BRIDGE_OWNER_ID??'',assistantId:e.BRIDGE_ASSISTANT_ID??'',allowedTaskId:e.BRIDGE_ALLOWED_TASK_ID??'',dbPath:e.BRIDGE_DB_PATH??'',port:Number(e.BRIDGE_PORT??8787),stopPath:e.BRIDGE_STOP_PATH??null,controlSocket:e.BRIDGE_CONTROL_SOCKET??'',releaseHash:e.BRIDGE_RELEASE_HASH??'',workspaceEnabled:e.BRIDGE_WORKSPACE_ENABLED==='true',admissionEnabled:e.BRIDGE_ADMISSION_ENABLED==='true',admissionSignedBridgeEnabled:e.BRIDGE_ADMISSION_SIGNED_BRIDGE_ENABLED==='true',admissionReusableBoardEnabled:e.BRIDGE_ADMISSION_REUSABLE_BOARD_ENABLED==='true',admissionCatalogueFile:e.BRIDGE_ADMISSION_CATALOGUE_FILE??'',admissionLegacyBaselineFile:e.BRIDGE_ADMISSION_LEGACY_BASELINE_FILE??'',admissionLegacyBaselineSha256:e.BRIDGE_ADMISSION_LEGACY_BASELINE_SHA256??'',consoleEnabled:e.BRIDGE_CONSOLE_ENABLED==='true',consoleAuthDir:e.BRIDGE_CONSOLE_AUTH_DIR??'',consoleOrigins:(()=>{try{return JSON.parse(e.BRIDGE_CONSOLE_ORIGINS??'[]');}catch{return [];}})()};
  c.recognition=contributionRecognition(e.BRIDGE_CONTRIBUTION_CREDITS);
+ c.recognitionLogin=e.BRIDGE_CONTRIBUTION_GITHUB_LOGIN??'';
  if(c.workspaceEnabled&&(!c.admissionEnabled||!c.admissionReusableBoardEnabled||!c.consoleEnabled))throw Error('workspace_configuration_unavailable');
  if(c.assistantId==='groq:openai/gpt-oss-20b'&&(!c.allowedTaskId||c.allowedTaskId.length>200))throw Error('production_configuration_unavailable');
  if(!validConfig(c)||!c.ownerId||!c.assistantId||!c.dbPath||c.dbPath===':memory:'||!Number.isSafeInteger(c.port)||c.port<1024||c.port>65535||e.BRIDGE_LOCAL_TEST_MODE==='true')throw Error('production_configuration_unavailable');
@@ -394,7 +427,8 @@ export async function startOracleService(config,assistantAdapter,{intervalMs=100
  // Reusable Board admission accepts separately approved tasks for this owner.
  // Its console must use that same owner scope, not the legacy catalogue task.
  const consoleScope={ownerId:config.ownerId,allowedTaskId:config.admissionEnabled===true&&config.admissionReusableBoardEnabled===true?'':config.allowedTaskId??''};
- const consoleHandler=createConsoleHandler({enabled:config.consoleEnabled===true,html:admission?.html??CONSOLE_HTML,auth:consoleAuth,origins:config.consoleOrigins,recognition:config.recognition,updates:createUpdateRequestBridge({enabled:process.env.BRIDGE_OWNER_UPDATES_ENABLED==='true'}),getSnapshot:()=>consoleSnapshot(control.health(),store.scopedStats(consoleScope),new Date(),consoleScope.allowedTaskId?'task':'owner',readResources()),getRecentJobs:query=>store.recentJobs({...query,...consoleScope})});
+ const recognition=config.consoleEnabled===true&&config.recognitionLogin?createContributionRecognition({login:config.recognitionLogin}):null;
+ const consoleHandler=createConsoleHandler({enabled:config.consoleEnabled===true,html:admission?.html??CONSOLE_HTML,auth:consoleAuth,origins:config.consoleOrigins,recognition:recognition?.read??config.recognition,updates:createUpdateRequestBridge({enabled:process.env.BRIDGE_OWNER_UPDATES_ENABLED==='true'}),getSnapshot:()=>consoleSnapshot(control.health(),store.scopedStats(consoleScope),new Date(),consoleScope.allowedTaskId?'task':'owner',readResources()),getRecentJobs:query=>store.recentJobs({...query,...consoleScope})});
  const server=createServer(async(req,res)=>{try{
   // TLS/auth for the opt-in console terminate at the approved reverse proxy.
   if(admission&&await admission.handler(req,res))return;
@@ -411,7 +445,7 @@ export async function startOracleService(config,assistantAdapter,{intervalMs=100
  const timer=setInterval(async()=>{if(stopping||!control.accepting||control.busy)return;if(config.stopPath&&existsSync(config.stopPath)){shutdown();return;}if(!control.tryBegin())return;try{const result=await dispatcher.runOnce();if(result.status!=='idle')console.log(JSON.stringify({state:result.status,eventId:result.requestId,attempt:result.attempt,code:result.code}));}finally{control.finish();if(finishBusy)finishBusy();}},intervalMs);
  function shutdown(){
   if(shutdownPromise)return shutdownPromise;
-  stopping=true;control.drain();clearInterval(timer);
+  stopping=true;control.drain();clearInterval(timer);recognition?.close();
   shutdownPromise=(async()=>{
    await Promise.all([new Promise(resolve=>server.close(resolve)),control.close(),control.busy?new Promise(resolve=>{finishBusy=resolve;}):Promise.resolve()]);
    live=false;admission?.close();store.close();if(installSignals){process.removeListener('SIGTERM',shutdown);process.removeListener('SIGINT',shutdown);}
