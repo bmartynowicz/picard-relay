@@ -42,16 +42,24 @@ For maintainers and self-hosted operators:
    `picard:capture` to an accepted feature issue. Credit goes to the GitHub
    author. Award one label per item and choose one record for the same
    contribution when a report and fix share an author.
-2. From a checkout, run `node scripts/contributor-recognition.mjs <github-username>`
-   using the existing GitHub CLI. It reads the public Picard Relay repository
-   and emits the distinct credited issue and PR numbers as JSON.
-3. Set `BRIDGE_CONTRIBUTION_CREDITS` to that JSON in the relay's existing
-   administrator-managed environment and reload the relay configuration.
-   Regenerate the summary when awards change. Empty or invalid input hides
-   the distinction.
+2. Set `BRIDGE_CONTRIBUTION_GITHUB_LOGIN` to the credited GitHub username in
+   the relay's administrator-managed environment, then restart the relay once.
+   This enables automatic recognition for that account.
+3. On the next signed-in status read, the relay checks the two labels in the
+   public Picard Relay repository. It checks at most once every ten minutes
+   while the console is in use. The existing console refresh picks up the
+   result. Adding or removing a label updates the counts after a complete
+   check. Empty credits hide the distinction.
 
-The owner status response contains only the display counts. The console uses
-its existing refresh. GitHub access runs on the operator's machine.
+Automatic recognition uses two bounded public HTTPS reads to `api.github.com`
+per check. The owner status response contains only the display counts. A failed
+check preserves the last verified counts in memory. After a restart, the first
+complete check supplies the counts again.
+
+For manual recognition, leave `BRIDGE_CONTRIBUTION_GITHUB_LOGIN` unset and run
+`node scripts/contributor-recognition.mjs <github-username>` with GitHub CLI
+from a checkout. Set `BRIDGE_CONTRIBUTION_CREDITS` to the resulting JSON and
+restart the relay to apply it. A configured GitHub login takes precedence.
 
 ## Legacy finite picker: new work versus recovery
 
