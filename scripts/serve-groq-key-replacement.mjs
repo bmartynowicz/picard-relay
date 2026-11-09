@@ -105,10 +105,11 @@ async function run(input,acknowledge){
  try{
   guardStops();
   const active=currentGroqEnrollment(),gid=active.identity.gid;
-  assert(active.webReplacementEnabled&&active.oldGate.enrollmentId===input.enrollmentId
-   &&typeof active.releaseHash==='string'&&active.releaseHash.length===64&&/^[a-f0-9]+$/.test(active.releaseHash));
-  const target='releases/'+active.releaseHash;
-  assert(fs.readlinkSync(root+'/current')===target&&fs.lstatSync(root+'/current').uid===0);
+  assert(active.webReplacementEnabled&&active.oldGate.enrollmentId===input.enrollmentId);
+  // The versioned launcher sets its release hash inside Node. The fixed
+  // adapter checks this root pointer against the actual PID and control socket.
+  const currentLink=fs.lstatSync(root+'/current'),target=fs.readlinkSync(root+'/current');
+  assert(currentLink.isSymbolicLink()&&currentLink.uid===0&&/^releases\/[a-f0-9]{64}$/.test(target));
   const adapter=createPreparedServiceAdapter({socketPath:active.controlSocket});
   const status=JSON.parse(readExistingAdmissionFile(GROQ_REPLACEMENT_STATUS,512,{...active.identity,rootOnly:true}).text);
   const at=Date.now();
