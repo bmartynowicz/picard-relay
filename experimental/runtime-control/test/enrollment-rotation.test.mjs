@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import {Readable} from 'node:stream';
 import {DatabaseSync} from 'node:sqlite';
 import {workspaceFixture} from '../../../test/fixtures/workspace-fixture.mjs';
 import {canonical,signRequest,verifyResponse} from '../src/protocol.mjs';
@@ -10,6 +11,76 @@ import {encodeInvocationError} from '../src/adapters.mjs';
 import {admissionHash} from '../src/admission-store.mjs';
 import {admissionConfigurationDigest} from '../src/admission-runtime.mjs';
 import {planGroqKeyReplacement} from '../../../scripts/stage-groq-key-replacement.mjs';
+import {parseGroqReplacementRequest,switchGroqKey} from '../../../scripts/serve-groq-key-replacement.mjs';
+import {createConsoleHandler} from '../src/oracle-service.mjs';
+
+const replacementId='00000000-0000-4000-8000-000000000001';
+const syntheticKey='gsk_SYNTHETIC_REPLACEMENT_TEST_ONLY';
+test('the key endpoint requires a recent same-origin owner session and keeps the secret out of replies',async()=>{
+ const token='A'.repeat(43),origin='https://fixture.invalid';
+ const valid={id:replacementId,key:syntheticKey,free:true};
+ let recent=false,calls=0,connected=true,unknown=false;
+ const idle={v:1,enabled:true,project:'Fixture / Default',state:'idle',id:null};
+ const handler=createConsoleHandler({enabled:true,origins:[origin],auth:{authenticate:async(t,{fresh=false}={})=>t===token&&(!fresh||recent)},
+  groqReplacement:{status:()=>({...idle,enabled:connected}),request:async input=>{calls++;assert.deepEqual(input,valid);if(unknown)throw Error(syntheticKey);return {...idle,state:'checking',id:replacementId};}}});
+ async function send({method='POST',body=JSON.stringify(valid),headers={}}={}){
+  const req=Readable.from([Buffer.from(body)]);
+  Object.assign(req,{url:'/groq/key',method,headers:{host:'fixture.invalid',origin,'sec-fetch-site':'same-origin','content-type':'application/json',cookie:'__Host-PicardSession='+token,...headers}});
+  const res={writeHead(status,headers){this.status=status;this.headers=headers;},end(text){assert.equal(text.includes(syntheticKey),false);this.body=JSON.parse(text);}};
+  assert.equal(await handler(req,res),true);
+  assert.equal(res.headers['Cache-Control'],'no-store, private');
+  return res;
+ }
+ assert.equal((await send({headers:{cookie:''}})).status,401);
+ assert.equal((await send({headers:{origin:'https://evil.invalid'}})).status,403);
+ assert.equal((await send({headers:{'sec-fetch-site':'cross-site'}})).status,403);
+ assert.equal((await send({headers:{origin:undefined}})).status,403);
+ assert.equal((await send({method:'GET'})).body.recent,false);
+ assert.equal((await send()).status,428);
+ recent=true;connected=false;
+ assert.equal((await send()).status,503);
+ connected=true;
+ for(const body of [{...valid,free:false},{...valid,command:'restart'},{...valid,key:syntheticKey+'\n'},{...valid,id:replacementId+'\n'}]){
+  assert.equal((await send({body:JSON.stringify(body)})).status,400);
+ }
+ assert.equal((await send({body:'x'.repeat(1025)})).status,413);
+ assert.equal(calls,0);
+ assert.equal((await send({method:'GET'})).body.recent,true);
+ assert.equal((await send()).status,202);
+ unknown=true;
+ assert.deepEqual((await send()).body,{error:'key_replacement_unknown'});
+ assert.equal(calls,2);
+});
+
+test('host handoff accepts only one exact enrollment, key and owner Free confirmation',()=>{
+ const body={v:1,id:replacementId,key:syntheticKey,free:true,enrollmentId:'b'.repeat(64)};
+ assert.deepEqual(parseGroqReplacementRequest(JSON.stringify(body)),body);
+ for(const patch of [{free:false},{directory:'/tmp'},{id:'../key'},{key:'not-a-key'},{enrollmentId:'b'.repeat(65)}]){
+  assert.throws(()=>parseGroqReplacementRequest(JSON.stringify({...body,...patch})),/key_replacement_preflight/);
+ }
+});
+
+test('host switch drains before activation, guards rollback and never probes the provider',async()=>{
+ const target='releases/'+'a'.repeat(64);
+ for(const mode of ['success','drain-failure','restore','stop-failure']){
+  const order=[];
+  const adapter={
+   quiesce:async()=>{order.push('drain');if(mode==='drain-failure')throw Error('not drained');},
+   start:async release=>{assert.equal(release,target);order.push('start');},
+   health:async options=>{assert.equal(options.noProviderCalls,true);order.push(options.requireProviderReady?'new health':'old health');return !options.requireProviderReady||mode==='success';},
+   stop:async()=>{order.push('stop');if(mode==='stop-failure')throw Error('not stopped');},
+  };
+  const outcome=await switchGroqKey({adapter,target,activate:()=>order.push('activate'),restore:()=>order.push('restore'),
+   stopFailedStart:()=>false,checkActive:()=>true,checkRestored:()=>true});
+  const expected={
+   success:['replaced','drain','activate','start','new health'],
+   'drain-failure':['unknown','drain'],
+   restore:['rejected','drain','activate','start','new health','stop','restore','start','old health'],
+   'stop-failure':['unknown','drain','activate','start','new health','stop'],
+  }[mode];
+  assert.deepEqual([outcome,...order],expected);
+ }
+});
 const fixture=async t=>{const f=await workspaceFixture();t.after(()=>f.close());return f;};
 const complete=async f=>{const d=await f.prepare();await f.submit(d,await f.approve(d));assert.equal((await f.dispatcher.runOnce()).status,'completed');return d;};
 function mutate(f,fn){const db=new DatabaseSync(f.dbPath);try{fn(db);}finally{db.close();}}
