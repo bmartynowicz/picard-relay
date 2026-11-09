@@ -488,15 +488,61 @@ replacement('form').addEventListener('submit',async event=>{
 });
 `;
 
+const STEALTH_STYLE=String.raw`
+[data-stealth=true]{--bg:#171b22;--side:#212630;--surface:#282e39;--line:#414a59;--accent:#b0c9e2;background:var(--bg)}
+[data-stealth=true] :is(#logo-wrap,#training-rank,#training-title,#recognition,.sidebar-foot,.nav-index,.space-scene),[data-stealth=true] nav::before,[data-stealth=true] nav::after{display:none!important}
+[data-stealth=true] :is(.brand,nav,.workspace){background:var(--bg);border-color:var(--line);box-shadow:none}
+[data-stealth=true] nav [aria-current=page]{background:var(--surface);color:var(--text);box-shadow:none}
+[data-stealth=true] .counts dd{font-family:system-ui}
+[data-stealth=true] *,[data-stealth=true] *::before,[data-stealth=true] *::after{animation:none!important;transition:none!important}
+#stealth-mode[aria-pressed=true]{background:var(--surface)}
+`;
+
+const STEALTH_CLIENT=String.raw`
+const stealthPreference='picard:stealth';
+let stealth=false,cockpitBeforeStealth=false;
+function setCockpit(enabled){
+ starfield=enabled;
+ $('console-surface').dataset.starfield=String(enabled);
+ $('logo-wrap').setAttribute('aria-pressed',String(enabled));
+ $('logo-wrap').title=enabled?'Starfield on · five clicks to switch off':'Click five times for the stars';
+ if(!enabled)resetLook();
+ renderHUD();
+}
+function setStealth(enabled){
+ if(enabled)cockpitBeforeStealth=starfield;
+ stealth=enabled;starClicks=0;
+ $('console-surface').dataset.stealth=String(enabled);
+ $('stealth-mode').setAttribute('aria-pressed',String(enabled));
+ $('brand-name').textContent=enabled?'Work Console':'Picard Relay';
+ document.title=enabled?'Work Console':'Picard Relay — Console';
+ $('cockpit-glass').setAttribute('aria-label',enabled?'Workspace':'Space view; arrow keys look around');
+ setCockpit(!enabled&&cockpitBeforeStealth);
+ motion();
+}
+$('stealth-mode').addEventListener('click',()=>{
+ setStealth(!stealth);
+ try{localStorage.setItem(stealthPreference,stealth?'1':'0');}catch{}
+});
+let savedStealth=false;
+try{savedStealth=localStorage.getItem(stealthPreference)==='1';}catch{}
+if(savedStealth)setStealth(true);
+`;
+
 export const CONSOLE_HTML=CONSOLE_SHELL_HTML
-  .replace('</style>',FEEDBACK_STYLE+'#recognition{display:block;color:var(--accent)}.groq-key-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 18px}.feedback-dialog .groq-key-confirm{display:flex;gap:8px;align-items:baseline}.feedback-dialog .groq-key-confirm input{width:auto;flex:none}</style>')
+  .replace('</style>',FEEDBACK_STYLE+STEALTH_STYLE+'#recognition{display:block;color:var(--accent)}.groq-key-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 18px}.feedback-dialog .groq-key-confirm{display:flex;gap:8px;align-items:baseline}.feedback-dialog .groq-key-confirm input{width:auto;flex:none}</style>')
+  .replace('<p>Picard Relay</p>','<p id="brand-name">Picard Relay</p>')
   .replace('id="training-rank" hidden></small>','id="training-rank" hidden></small><small id="recognition" hidden></small>')
   .replace('function clearPrivate(){','function clearPrivate(){\n showRecognition();resetGroqReplacement();')
   .replace("render(project(await request('/status')));","const data=await request('/status');render(project(data));showRecognition(typeof data.recognition==='string'?data.recognition:'');if(!keySaving)renderGroqReplacement(data.keyReplacement);")
-  .replace('<button class="logout"','<button id="feedback-open" type="button" hidden>Feedback</button><button class="logout"')
+  .replace('<button class="logout"','<button id="stealth-mode" type="button" aria-pressed="false">Stealth mode</button><button id="feedback-open" type="button" hidden>Feedback</button><button class="logout"')
   .replace('<div class="provider-activity">','<div id="replace-groq-row" class="groq-key-actions" hidden><button id="replace-groq-open" type="button">Replace key</button><span id="replace-groq-status" class="muted" role="status"></span></div><div class="provider-activity">')
   .replace('</main>',FEEDBACK_DIALOG+GROQ_REPLACEMENT_DIALOG+'</main>')
-  .replace('motion();void boot();',FEEDBACK_CLIENT+RECOGNITION_CLIENT+GROQ_REPLACEMENT_CLIENT+'\nmotion();void boot();');
+  .replace('const roll=typeof previous','const roll=!stealth&&typeof previous')
+  .replace('const reduced=preference.matches;','const reduced=stealth||preference.matches;')
+  .replace("$('motion').textContent=reduced?","$('motion').textContent=stealth?'Motion off':reduced?")
+  .replace("starfield=!starfield;hudExpanded=false;renderHUD();$('console-surface').dataset.starfield=String(starfield);if(starfield)renderPower();else resetLook();$('logo-wrap').setAttribute('aria-pressed',String(starfield));$('logo-wrap').title=starfield?'Starfield on · five clicks to switch off':'Click five times for the stars';","if(stealth)return;hudExpanded=false;setCockpit(!starfield);")
+  .replace('motion();void boot();',FEEDBACK_CLIENT+RECOGNITION_CLIENT+GROQ_REPLACEMENT_CLIENT+STEALTH_CLIENT+'\nmotion();void boot();');
 export function loadOracleConfig(e=process.env){
  if(e.BRIDGE_ENABLED!=='true')return {enabled:false};
  const secret=e.BRIDGE_HMAC_SECRET_FILE?readFileSync(e.BRIDGE_HMAC_SECRET_FILE,'utf8').trim():'';

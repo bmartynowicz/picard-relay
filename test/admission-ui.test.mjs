@@ -35,7 +35,9 @@ function harness({cataloguePatch={},savedBody='SYNTHETIC_SAVED_RESULT <img src=x
  return {els,requests,timers,get:id=>els.get(id),document,window,async click(id){await els.get(id).listeners.click();await flush();},async fire(kind,name,value){for(const fn of events[kind][name]??[])fn(value);await flush();},async back(){if(historyIndex>0){location.hash=history[--historyIndex];await this.fire('window','popstate');}},async forward(){if(historyIndex<history.length-1){location.hash=history[++historyIndex];await this.fire('window','popstate');}},lose:code=>lost=code,fail:()=>unavailable=true,recover:()=>unavailable=false,setEmpty:()=>empty=true,setLegacyReview:()=>legacyReview=true,setJob:value=>job=value,hold:promise=>hold=promise,deferRead(){let release;heldReads.push(new Promise(resolve=>release=resolve));return state=>release(json(saved(state)));}};
 }
 test('disabled owner UI is byte-identical; enabled view compiles without execution controls outside Requests',()=>{
- assert.equal(admissionConsoleHtml(CONSOLE_HTML),CONSOLE_HTML);new vm.Script(script);assert.ok(html.includes('id="nav-requests"'));assert.ok(html.includes('id="admission-approve"'));assert.equal(/localStorage|sessionStorage|document\.cookie|innerHTML|eval\(/.test(script),false);
+ assert.equal(admissionConsoleHtml(CONSOLE_HTML),CONSOLE_HTML);new vm.Script(script);assert.ok(html.includes('id="nav-requests"'));assert.ok(html.includes('id="admission-approve"'));
+ const noDisplayStorage=script.replace(/localStorage\.(?:getItem\(stealthPreference\)|setItem\(stealthPreference,stealth\?'1':'0'\))/g,'');
+ assert.doesNotMatch(noDisplayStorage,/localStorage|sessionStorage|document\.cookie|innerHTML|eval\(/);
  assert.equal([...html.matchAll(/aria-label="Picard Relay brass rank insignia"/g)].length,1);
 });
 
