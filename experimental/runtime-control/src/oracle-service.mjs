@@ -245,7 +245,7 @@ export function createContributionRecognition({login,lookup=fetchContributorCred
 }
 
 export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecentJobs,auth=null,origins=[],updates=createUpdateRequestBridge(),groqReplacement=null,recognition=''}={}){
- if(typeof html!=='string'||Buffer.byteLength(html)>155648)throw Error('console_document_invalid');
+ if(typeof html!=='string'||Buffer.byteLength(html)>159744)throw Error('console_document_invalid');
  const hash=s=>"'sha256-"+createHash('sha256').update(s).digest('base64')+"'";
  const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>hash(m[1]));
  const styles=[...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(m=>hash(m[1]));
@@ -489,17 +489,36 @@ replacement('form').addEventListener('submit',async event=>{
 `;
 
 const STEALTH_STYLE=String.raw`
-[data-stealth=true]{--bg:#171b22;--side:#212630;--surface:#282e39;--line:#414a59;--accent:#b0c9e2;background:var(--bg)}
+.hud-instruments #hud-stealth{font-size:12px;white-space:nowrap;color:var(--muted)}
+#hud-stealth kbd{margin-left:6px}
+#stealth-settings{display:grid;gap:4px;padding:8px 12px;font-size:12px;color:var(--muted)}
+#stealth-auto{width:100%;color:var(--text);background:var(--bg);border:1px solid var(--line);padding:8px}
+[data-stealth=true]{--bg:#191919;--side:#222;--surface:#2c2c2c;--line:#434343;--accent:#dededb;--text:#f2f2ef;--muted:#b8b8b5;background:var(--bg)}
 [data-stealth=true] :is(#logo-wrap,#training-rank,#training-title,#recognition,.sidebar-foot,.nav-index,.space-scene),[data-stealth=true] nav::before,[data-stealth=true] nav::after{display:none!important}
-[data-stealth=true] :is(.brand,nav,.workspace){background:var(--bg);border-color:var(--line);box-shadow:none}
-[data-stealth=true] nav [aria-current=page]{background:var(--surface);color:var(--text);box-shadow:none}
-[data-stealth=true] .counts dd{font-family:system-ui}
+[data-stealth=true] :is(.brand,nav,.console-utilities,.workspace){background:transparent;border:0;box-shadow:none}
+[data-stealth=true] .sidebar{background:var(--side);border-bottom:1px solid var(--line)}
+[data-stealth=true] .workspace{width:100%;margin:0;max-width:1120px;justify-self:start}
+[data-stealth=true] nav [aria-current=page]{background:var(--surface);color:var(--text);box-shadow:inset 2px 0 var(--accent)}
+[data-stealth=true] .counts dd{font:600 24px/1.3 system-ui}
+[data-stealth=true] .auth{border:0}
+[data-stealth=true] .refresh:hover:not(:disabled){background:#fff}
 [data-stealth=true] *,[data-stealth=true] *::before,[data-stealth=true] *::after{animation:none!important;transition:none!important}
 #stealth-mode[aria-pressed=true]{background:var(--surface)}
+@media(min-width:900px){
+ .console[data-stealth=true]{grid-template-columns:196px minmax(0,1fr);grid-template-rows:1fr}
+ [data-stealth=true] .sidebar{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;height:100svh;gap:16px;padding:20px 12px;border:0;border-right:1px solid var(--line)}
+ [data-stealth=true] nav{flex-direction:column;padding:0}
+ [data-stealth=true] nav button{justify-content:flex-start;padding-inline:12px}
+ [data-stealth=true] .console-utilities{justify-content:space-between;margin-top:auto}
+ [data-stealth=true] .console-menu{right:auto;left:0;top:auto;bottom:calc(100% + 8px)}
+}
 `;
 
 const STEALTH_CLIENT=String.raw`
 const stealthPreference='picard:stealth';
+const stealthWhenHidden=2,stealthWhenIdle=4;
+const stealthIdleMs=5*60_000;
+let stealthFlags=0,stealthTimer;
 let stealth=false,cockpitBeforeStealth=false;
 function setCockpit(enabled){
  starfield=enabled;
@@ -519,15 +538,58 @@ function setStealth(enabled){
  $('cockpit-glass').setAttribute('aria-label',enabled?'Workspace':'Space view; arrow keys look around');
  setCockpit(!enabled&&cockpitBeforeStealth);
  motion();
+ armStealthIdle();
 }
-$('stealth-mode').addEventListener('click',()=>{
+function saveStealth(){
+ try{localStorage.setItem(stealthPreference,String(stealthFlags));}catch{}
+}
+function toggleStealth(){
  setStealth(!stealth);
- try{localStorage.setItem(stealthPreference,stealth?'1':'0');}catch{}
+ stealthFlags=(stealthFlags&6)|Number(stealth);
+ saveStealth();
+}
+function armStealthIdle(){
+ clearTimeout(stealthTimer);
+ if(!stealth&&(stealthFlags&stealthWhenIdle)&&document.visibilityState!=='hidden'){
+  stealthTimer=setTimeout(()=>setStealth(true),stealthIdleMs);
+ }
+}
+function syncStealthVisibility(){
+ if(!stealth&&(stealthFlags&stealthWhenHidden)&&document.visibilityState==='hidden')setStealth(true);
+ else armStealthIdle();
+}
+$('stealth-mode').addEventListener('click',toggleStealth);
+$('hud-stealth').addEventListener('click',()=>{
+ toggleStealth();
+ $('console-tools-toggle').focus?.();
 });
-let savedStealth=false;
-try{savedStealth=localStorage.getItem(stealthPreference)==='1';}catch{}
-if(savedStealth)setStealth(true);
+$('stealth-auto').addEventListener('change',()=>{
+ stealthFlags=(stealthFlags&1)|(Number($('stealth-auto').value)&6);
+ saveStealth();
+ syncStealthVisibility();
+});
+document.addEventListener('keydown',event=>{
+ if(event.code==='KeyS'&&event.altKey&&event.shiftKey&&!event.ctrlKey&&!event.metaKey&&!event.repeat
+   &&!event.defaultPrevented&&!event.isComposing&&!event.target?.closest?.('input,select,textarea,[contenteditable]')){
+  event.preventDefault();
+  const focusHud=event.target?.id==='hud-stealth';
+  toggleStealth();
+  if(focusHud)$('console-tools-toggle').focus?.();
+ }else if(stealthFlags&stealthWhenIdle)armStealthIdle();
+});
+for(const name of ['pointerdown','wheel'])document.addEventListener(name,()=>{
+ if(stealthFlags&stealthWhenIdle)armStealthIdle();
+},{passive:true});
+try{
+ const saved=localStorage.getItem(stealthPreference);
+ if(/^[0-7]$/.test(saved))stealthFlags=Number(saved);
+}catch{}
+$('stealth-auto').value=String(stealthFlags&6);
+if(stealthFlags&1)setStealth(true);
+else syncStealthVisibility();
 `;
+
+const STEALTH_CONTROLS='<button id="stealth-mode" type="button" aria-pressed="false" aria-keyshortcuts="Alt+Shift+S">Stealth mode</button><label id="stealth-settings" for="stealth-auto">Auto stealth<select id="stealth-auto"><option value="0">Off</option><option value="2">When tab is hidden</option><option value="4">After 5 minutes idle</option><option value="6">When hidden or idle</option></select></label>';
 
 export const CONSOLE_HTML=CONSOLE_SHELL_HTML
   .replace('</style>',FEEDBACK_STYLE+STEALTH_STYLE+'#recognition{display:block;color:var(--accent)}.groq-key-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 18px}.feedback-dialog .groq-key-confirm{display:flex;gap:8px;align-items:baseline}.feedback-dialog .groq-key-confirm input{width:auto;flex:none}</style>')
@@ -535,13 +597,16 @@ export const CONSOLE_HTML=CONSOLE_SHELL_HTML
   .replace('id="training-rank" hidden></small>','id="training-rank" hidden></small><small id="recognition" hidden></small>')
   .replace('function clearPrivate(){','function clearPrivate(){\n showRecognition();resetGroqReplacement();')
   .replace("render(project(await request('/status')));","const data=await request('/status');render(project(data));showRecognition(typeof data.recognition==='string'?data.recognition:'');if(!keySaving)renderGroqReplacement(data.keyReplacement);")
-  .replace('<button class="logout"','<button id="stealth-mode" type="button" aria-pressed="false">Stealth mode</button><button id="feedback-open" type="button" hidden>Feedback</button><button class="logout"')
+  .replace('<summary aria-label="Documentation and account"','<summary id="console-tools-toggle" aria-label="Documentation and account"')
+  .replace('<button class="logout"',STEALTH_CONTROLS+'<button id="feedback-open" type="button" hidden>Feedback</button><button class="logout"')
+  .replace('<button id="hud-next"','<button id="hud-stealth" type="button" aria-keyshortcuts="Alt+Shift+S">Stealth <kbd>Alt+Shift+S</kbd></button><button id="hud-next"')
   .replace('<div class="provider-activity">','<div id="replace-groq-row" class="groq-key-actions" hidden><button id="replace-groq-open" type="button">Replace key</button><span id="replace-groq-status" class="muted" role="status"></span></div><div class="provider-activity">')
   .replace('</main>',FEEDBACK_DIALOG+GROQ_REPLACEMENT_DIALOG+'</main>')
   .replace('const roll=typeof previous','const roll=!stealth&&typeof previous')
   .replace('const reduced=preference.matches;','const reduced=stealth||preference.matches;')
   .replace("$('motion').textContent=reduced?","$('motion').textContent=stealth?'Motion off':reduced?")
   .replace("starfield=!starfield;hudExpanded=false;renderHUD();$('console-surface').dataset.starfield=String(starfield);if(starfield)renderPower();else resetLook();$('logo-wrap').setAttribute('aria-pressed',String(starfield));$('logo-wrap').title=starfield?'Starfield on · five clicks to switch off':'Click five times for the stars';","if(stealth)return;hudExpanded=false;setCockpit(!starfield);")
+  .replace("document.addEventListener('visibilitychange',()=>{motion();","document.addEventListener('visibilitychange',()=>{syncStealthVisibility();motion();")
   .replace('motion();void boot();',FEEDBACK_CLIENT+RECOGNITION_CLIENT+GROQ_REPLACEMENT_CLIENT+STEALTH_CLIENT+'\nmotion();void boot();');
 export function loadOracleConfig(e=process.env){
  if(e.BRIDGE_ENABLED!=='true')return {enabled:false};
