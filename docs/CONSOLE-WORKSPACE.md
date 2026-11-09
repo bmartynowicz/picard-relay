@@ -29,6 +29,30 @@ GitHub issue form and paste the first line as the title and the rest as the
 description. GitHub issues are public. The preview contains only your typed
 text and the feedback type. Closing it clears the draft.
 
+## Earn Kills and Captures
+
+**Kills** recognize confirmed bug reports and merged bug fixes. **Captures**
+recognize accepted feature requests. Earned counts appear beside the rank in
+the signed-in console, including in cockpit mode. Recognition is separate
+from rank progress.
+
+For maintainers and self-hosted operators:
+
+1. Apply `picard:kill` to a confirmed bug issue or a merged bug-fix PR. Apply
+   `picard:capture` to an accepted feature issue. Credit goes to the GitHub
+   author. Award one label per item and choose one record for the same
+   contribution when a report and fix share an author.
+2. From a checkout, run `node scripts/contributor-recognition.mjs <github-username>`
+   using the existing GitHub CLI. It reads the public Picard Relay repository
+   and emits the distinct credited issue and PR numbers as JSON.
+3. Set `BRIDGE_CONTRIBUTION_CREDITS` to that JSON in the relay's existing
+   administrator-managed environment and reload the relay configuration.
+   Regenerate the summary when awards change. Empty or invalid input hides
+   the distinction.
+
+The owner status response contains only the display counts. The console uses
+its existing refresh. GitHub access runs on the operator's machine.
+
 ## Legacy finite picker: new work versus recovery
 
 Reading status, browsing job metadata, refreshing and checking a saved result do not make an AI call. Approve and queue can register one exact available request for a bounded provider invocation. It is disabled for spent or unavailable authority.

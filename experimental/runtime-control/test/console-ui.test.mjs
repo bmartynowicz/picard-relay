@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"f47ee851ac47c272bed0860200098c6c073a8b9ff89ded25329c680358810ecf");
+assert.equal(createHash('sha256').update(script).digest('hex'),"cae1d99111056eaa380a77af8ade0ba56a271fc724bc131da52c21f429069f35");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(script));assert.ok(!/src=|@import|url\(/i.test(html.replace(/url\(#picard-metal-(?:face|recess)\)/g,'')));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md','https://github.com/bmartynowicz/picard-relay/issues/new']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
@@ -28,6 +28,14 @@ function harness(handler,{jobsHandler,clock=Date}={}){
 }
 const feedbackFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health));
 await flush();
+assert.equal(feedbackFlow.get('recognition').hidden,true);
+const recognitionFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,recognition:'2 Kills · 1 Capture'}));
+await flush();
+assert.equal(recognitionFlow.get('recognition').textContent,'2 Kills · 1 Capture');
+assert.equal(recognitionFlow.get('recognition').hidden,false);
+recognitionFlow.wl.pagehide();
+assert.equal(recognitionFlow.get('recognition').hidden,true);
+assert.equal(recognitionFlow.get('recognition').textContent,'');
 assert.equal(feedbackFlow.get('feedback-open').hidden,false);
 const requestsBeforeFeedback=feedbackFlow.requests.length;
 await feedbackFlow.click('feedback-open');

@@ -1,7 +1,23 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import {consoleSnapshot,CONSOLE_HTML} from '../src/oracle-service.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import {consoleSnapshot,CONSOLE_HTML,contributionRecognition,createConsoleHandler} from '../src/oracle-service.mjs';
 const now=new Date('2026-10-30T15:00:00Z'),health={serviceReady:true,resultRecoveryReady:true,providerReady:false,acceptingNewWork:false,draining:false,updateReady:true,releaseHash:'a'.repeat(64),pid:123,owner:'secret-owner',ledgerStateCounts:{completed:999},key:'SECRET'};
 test('scoped projection never exports raw health/global totals',()=>{const s=consoleSnapshot(health,[{state:'completed',count:1}],now);assert.deepEqual(s.jobs,{queued:0,claimed:0,invoking:0,completed:1,failed:0,blocked:0,cancelled:0,uncertain:0});assert.equal(s.service.providerReady,false);assert.equal(s.release.version,null);assert.equal(s.updater.state,'unknown');assert.equal(s.observedAt,now.toISOString());assert.doesNotMatch(JSON.stringify(s),/SECRET|secret-owner|999|pid|ledgerStateCounts/);});
 test('malformed counts and health stay unknown, release requires physical verification',()=>{for(const rows of [null,undefined,[{state:'completed',count:10001}],[{state:'completed',count:1},{state:'completed',count:2}],[{state:'bad',count:0}]])assert.deepEqual(consoleSnapshot(health,rows,now).jobs,{queued:null,claimed:null,invoking:null,completed:null,failed:null,blocked:null,cancelled:null,uncertain:null});assert.equal(consoleSnapshot({...health,updateReady:false},[],now).release.hash,null);assert.equal(consoleSnapshot({},[],now).service.ready,null);});
-test('integrated candidate UI has pinned self-contained bytes',()=>{assert.equal(Buffer.byteLength(CONSOLE_HTML),93549);assert.equal(createHash('sha256').update(CONSOLE_HTML).digest('hex'),'68203039fbd453118c8e3d8636a0cde472309a5b9d861ebfd14a5d66dc994b66');});
+test('integrated candidate UI has pinned self-contained bytes',()=>{assert.equal(Buffer.byteLength(CONSOLE_HTML),93406);assert.equal(createHash('sha256').update(CONSOLE_HTML).digest('hex'),'d5e7fa81833732b7a8d61bd4fffe1acec3477964840c6a82ee38d3aa73bab79a');});
 await import('./core-bundle.test.mjs');
 await import('./vm-power.test.mjs');
+
+test('recognition is opt-in, bounded, and visible only in authenticated status', async()=>{
+ const recognition=contributionRecognition('{"kills":[12,14],"captures":[16]}');
+ assert.equal(recognition,'2 Kills · 1 Capture');
+ for(const value of [undefined,'{}','{"kills":[],"captures":[]}','{"kills":[1],"captures":[1]}','{"kills":[1,1],"captures":[]}','{"kills":["1"],"captures":[]}','x'.repeat(4097)])assert.equal(contributionRecognition(value),'');
+ const handler=createConsoleHandler({enabled:true,html:CONSOLE_HTML,recognition,origins:['https://fixture.invalid'],
+  auth:{authenticate:token=>token==='a'.repeat(43)},getSnapshot:()=>({v:1})});
+ const get=async(url,cookie)=>{
+  const response={writeHead(status){this.status=status},end(body){this.body=body}};
+  assert.equal(await handler({method:'GET',url,headers:{host:'fixture.invalid',cookie}},response),true);
+  return response;
+ };
+ assert.doesNotMatch((await get('/')).body,/2 Kills|1 Capture/);
+ assert.equal((await get('/status')).status,401);
+ assert.deepEqual(JSON.parse((await get('/status','__Host-PicardSession='+'a'.repeat(43))).body),{v:1,recognition});
+});
