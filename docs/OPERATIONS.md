@@ -17,6 +17,7 @@ The signed-runtime source is `experimental/runtime-control/src/`. The root `npm 
 | `BRIDGE_CONTROL_SOCKET`, `BRIDGE_RELEASE_HASH` | Private control socket and expected physical release identity. |
 | `BRIDGE_CONSOLE_ENABLED`, `BRIDGE_CONSOLE_AUTH_DIR`, `BRIDGE_CONSOLE_ORIGINS` | Optional owner console; private auth state and exact HTTPS origins. |
 | `GROQ_ENABLED`, `GROQ_ONE_SHOT`, `GROQ_API_KEY_FILE`, `GROQ_FREE_GATE_FILE`, `GROQ_ONCE_MARKER_FILE` | Explicit provider/gate/marker binding. A key alone cannot authorize work. |
+| `GROQ_KEY_EXPIRY_FILE` | Optional, private operator record for the current admission key's documented expiry. Console display only. |
 | `BRIDGE_ADMISSION_ENABLED`, `BRIDGE_ADMISSION_CATALOGUE_FILE` | Optional finite catalogue admission. |
 | `BRIDGE_ADMISSION_LEGACY_BASELINE_FILE`, `BRIDGE_ADMISSION_LEGACY_BASELINE_SHA256` | Bound historical evidence needed for admission qualification. |
 | `BRIDGE_ADMISSION_SIGNED_BRIDGE_ENABLED` | Separate opt-in for the reviewed signed-client admission path. |
@@ -95,6 +96,40 @@ Names and layout are fixed by the enrolled host support code. The activity obser
 | Updater held or journal present | Preserve the checkpoint and diagnose its typed code/transaction phase. No blind hold/journal deletion or forced restart. |
 | New version missing | Check workflow source SHA and publication separately from fetch, verification and installation. A green workflow alone does not establish the host version. |
 | Job outside current catalogue | V1 recovers validated results across the configured owner through the workspace. Legacy picker hosts retain the catalogue restriction. Do not substitute another result. |
+
+## Replace a Groq key
+
+The signed-in **Groq → Groq key** row warns during the last seven days when the
+operator has recorded a documented expiry for the active key. If the provider
+does not give you a date, leave it unknown. An approval deadline, a finite
+catalogue deadline and the date Picard verified Free-plan evidence each have a
+different meaning.
+
+1. In the intended [Groq project](https://console.groq.com/keys), obtain the
+   replacement key and verify that the project is still on Free. Keep the key
+   in the operator's protected credential file.
+2. Prepare the key, its matching retained Free enrollment and the catalogue
+   bound to that enrollment in separate protected files. Use the established
+   host enrollment procedure and preserve the legacy baseline. Review the exact
+   binding, then drain and restart with the matching set. Keep the previous
+   configuration available for code/configuration recovery while it is valid.
+3. Check new-work readiness and open a saved historical result through the
+   signed-in console. Confirm the ledger, consumed markers and uncertainty
+   evidence are intact. A later provider request needs its own approval and
+   allowance.
+
+If a pending reservation blocks new work, preserve it and review its original
+job and enrollment evidence before attempting replacement. Replacing a key
+does not resolve an earlier reservation.
+
+If Groq gives an actual expiry, set `GROQ_KEY_EXPIRY_FILE` to an absolute path
+that the service can read under the existing private-file rules. The JSON must
+contain exactly `v` (1), `keySha256` (SHA-256 of the trimmed key, matching the
+existing Free enrollment) and `expiresAt` (canonical UTC ISO timestamp including
+milliseconds). The relay reads the record at startup. Missing, invalid or
+mismatched data displays **Expiry unknown**. The owner status response contains
+only the date. The console links to this procedure and credential changes take
+place through the operator-managed host configuration.
 
 ## Rollback and recovery
 

@@ -1,8 +1,28 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import {consoleSnapshot,CONSOLE_HTML,contributionRecognition,createConsoleHandler,createContributionRecognition} from '../src/oracle-service.mjs';
+import {recordedGroqKeyExpiry} from '../src/admission-enrollment.mjs';
 const now=new Date('2026-10-30T15:00:00Z'),health={serviceReady:true,resultRecoveryReady:true,providerReady:false,acceptingNewWork:false,draining:false,updateReady:true,releaseHash:'a'.repeat(64),pid:123,owner:'secret-owner',ledgerStateCounts:{completed:999},key:'SECRET'};
 test('scoped projection never exports raw health/global totals',()=>{const s=consoleSnapshot(health,[{state:'completed',count:1}],now);assert.deepEqual(s.jobs,{queued:0,claimed:0,invoking:0,completed:1,failed:0,blocked:0,cancelled:0,uncertain:0});assert.equal(s.service.providerReady,false);assert.equal(s.release.version,null);assert.equal(s.updater.state,'unknown');assert.equal(s.observedAt,now.toISOString());assert.doesNotMatch(JSON.stringify(s),/SECRET|secret-owner|999|pid|ledgerStateCounts/);});
 test('malformed counts and health stay unknown, release requires physical verification',()=>{for(const rows of [null,undefined,[{state:'completed',count:10001}],[{state:'completed',count:1},{state:'completed',count:2}],[{state:'bad',count:0}]])assert.deepEqual(consoleSnapshot(health,rows,now).jobs,{queued:null,claimed:null,invoking:null,completed:null,failed:null,blocked:null,cancelled:null,uncertain:null});assert.equal(consoleSnapshot({...health,updateReady:false},[],now).release.hash,null);assert.equal(consoleSnapshot({},[],now).service.ready,null);});
-test('integrated candidate UI has pinned self-contained bytes',()=>{assert.equal(Buffer.byteLength(CONSOLE_HTML),93406);assert.equal(createHash('sha256').update(CONSOLE_HTML).digest('hex'),'d5e7fa81833732b7a8d61bd4fffe1acec3477964840c6a82ee38d3aa73bab79a');});
+test('integrated candidate UI has pinned self-contained bytes',()=>{assert.equal(Buffer.byteLength(CONSOLE_HTML),94360);assert.equal(createHash('sha256').update(CONSOLE_HTML).digest('hex'),'8679e4aa5ce0be43dcda1ed974ad9fb98c05d65598723c8f81e459a2ab0ebcc2');});
+
+test('a recorded key expiry must match the active key and only the date reaches status',()=>{
+ const keySha256='b'.repeat(64),expiresAt='2026-11-03T12:00:00.000Z';
+ const record={v:1,keySha256,expiresAt};
+ const date=recordedGroqKeyExpiry(record,keySha256);
+ assert.equal(date,Date.parse(expiresAt));
+ for(const value of [null,{...record,v:2},{...record,keySha256:'c'.repeat(64)},
+  {...record,expiresAt:'2026-02-30T12:00:00.000Z'},{...record,expiresAt:'2026-11-03'},
+  {...record,grantExpiresAt:expiresAt}]) assert.equal(recordedGroqKeyExpiry(value,keySha256),null);
+ assert.equal(recordedGroqKeyExpiry(record,undefined),null);
+ const status=consoleSnapshot(health,[],now,'owner',null,date);
+ assert.equal(status.groqKeyExpiresAt,date);
+ assert.ok(!JSON.stringify(status).includes(keySha256));
+ for(const blockingCode of ['configuration_unavailable','catalogue_unavailable']){
+  assert.equal(consoleSnapshot({...health,blockingCode},[],now,'owner',null,date).groqKeyExpiresAt,null);
+ }
+ assert.equal(consoleSnapshot(health,[],now,'owner',null,null).groqKeyExpiresAt,null);
+ assert.ok(!Object.hasOwn(consoleSnapshot(health,[],now),'groqKeyExpiresAt'));
+});
 await import('./core-bundle.test.mjs');
 await import('./vm-power.test.mjs');
 
