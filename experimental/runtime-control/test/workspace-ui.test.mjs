@@ -115,10 +115,49 @@ test('a status response captured before review cannot erase the saved review or 
  await h.click('request-changes');assert.equal(h.context.workspaceTest.result.review.revision,1);held.release();await reading;assert.equal(h.context.workspaceTest.result.review.revision,1);assert.equal(h.get('training-rank').textContent,'Lieutenant');assert.match(h.get('request-review-summary').textContent,/Changes requested/);assert.equal(h.f.calls,1);
 });
 async function reviewedFixture(f){const d=await f.prepare(),proof=await f.approve(d);await f.submit(d,proof);await f.dispatcher.runOnce();const result=(await f.request('/workspace/requests/'+d.payload.eventId)).body;await f.request('/workspace/reviews/'+result.ref,{body:{expectedRevision:0,decision:'changes_requested',note:'Reviewed fixture.',resultSha256:result.result.sha256}});}
+test('the first-request walkthrough leads to an editable checklist and closes on review',async t=>{
+ const h=await harness(t,{initialHash:'#overview'}),guide=h.get('first-run-walkthrough');
+ assert.equal(guide.hidden,false);
+ assert.equal(guide.open,true);
+ assert.equal(h.get('walkthrough-replay').hidden,false);
+ await h.click('training-action');await flush();
+ const template=h.get('request-template'),title=h.get('request-title'),text=h.get('request-text');
+ template.value='checklist';template.listeners.change();
+ assert.match(text.value,/short checklist[\s\S]*Notes:/);
+ title.value='Release checklist';text.value+='Check the signed release and verify the running version.';
+ const brief=text.value;
+ await h.click('walkthrough-replay');
+ assert.equal(h.context.window.location.hash,'#overview');
+ assert.equal(guide.open,true);
+ assert.equal(h.get('training-action').textContent,'Continue request');
+ await h.click('training-action');await flush();
+ assert.equal(h.context.window.location.hash,'#requests');
+ assert.equal(title.value,'Release checklist');
+ assert.equal(text.value,brief);
+ assert.equal(h.calls.some(call=>call.method==='POST'),false);
+ await h.submit();
+ assert.equal(h.f.calls,0);
+ await h.click('request-approve');await h.f.dispatcher.runOnce();await h.click('request-check');
+ assert.equal(h.f.calls,1);
+ assert.equal(guide.open,true);
+ await h.click('request-accept');
+ assert.equal(guide.open,false);
+ assert.equal(guide.hidden,true);
+ assert.equal(h.get('training-rank').textContent,'Lieutenant');
+ assert.equal(h.f.calls,1);
+});
 test('existing reviewed work earns rank on Overview, coalesces bootstrap reads and survives a provider outage',async t=>{
  const h=await harness(t,{beforeBoot:reviewedFixture,initialHash:'#overview',configTransform:c=>({...c,ready:false,setup:{...c.setup,providerEnrollment:false}})});
  assert.equal(h.get('training-rank').textContent,'Lieutenant');assert.equal(h.get('request-advanced').hidden,false);assert.equal(h.calls.filter(c=>c.url==='/workspace/config').length,1);assert.equal(h.f.calls,1);
+ assert.equal(h.get('first-run-walkthrough').hidden,true);
+ assert.equal(h.get('first-run-walkthrough').open,false);
+ await h.click('walkthrough-replay');
+ assert.equal(h.get('first-run-walkthrough').hidden,false);
+ assert.equal(h.get('first-run-walkthrough').open,true);
+ assert.equal(h.f.calls,1);
  h.loseAuth();await h.click('request-refresh');assert.equal(h.get('training-rank').textContent,'');assert.equal(h.get('training-progress').hidden,true);assert.equal(h.get('logo-wrap').dataset.rank,undefined);
+ assert.equal(h.get('first-run-walkthrough').hidden,true);
+ assert.equal(h.get('walkthrough-replay').hidden,true);
 });
 test('earned progress survives idle status-page time without new configuration polling, then clears on logout',async t=>{
  const h=await harness(t,{initialHash:'#overview'});assert.equal(h.get('training-rank').textContent,'Ensign');const reads=h.calls.filter(c=>c.url==='/workspace/config').length,realDate=h.context.Date;

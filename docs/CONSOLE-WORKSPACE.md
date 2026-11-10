@@ -88,6 +88,16 @@ Overview includes failed jobs; Running combines claimed and invoking jobs. Groq 
 
 ## Learn the workflow and earn ranks
 
+On Overview, **Your progress** opens the first-request walkthrough until you
+review a saved answer. Choose **Create request → A checklist** to turn your own
+notes into a practical first result. Edit the brief, review the exact input,
+and approve one call when ready. Read the saved answer and accept it or request
+changes to complete the walkthrough.
+
+**Rank guide** lists the requirements and unlocks. To see the walkthrough again,
+open **… (Settings) → Replay walkthrough**. Replaying opens Progress and keeps
+any current draft.
+
 The console keeps the spinning insignia, rolling counters and charcoal/brass colors. Your progress shows the next useful action. The brass insignia has shallow 3D edges and a recessed center; Ensign adds polish and Lieutenant adds brighter facets. Two inline SVG faces and five fixed edge planes share one CSS rotation. No images, rendering loop, new timers or libraries are loaded. Pause motion, reduced motion and hidden tabs still stop the spin.
 
 | Rank | Earn it by | Interface tools |
