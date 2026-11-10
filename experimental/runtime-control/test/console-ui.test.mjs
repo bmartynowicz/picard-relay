@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"7b1580d7e227ad4654758fef1d2fdef351ad8041444508c1f8ec8ddd42993558");
+assert.equal(createHash('sha256').update(script).digest('hex'),"3dae0ab2c33aba617721adddc03deadba83ae497ef7d064c9569afe04f07be44");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:stealth|cockpit)Preference\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
@@ -36,6 +36,19 @@ await flush();
 assert.equal(feedbackFlow.get('recognition').hidden,true);
 assert.equal(feedbackFlow.get('groq-key').hidden,true);
 assert.equal(feedbackFlow.get('replace-groq-row').hidden,true);
+
+const side=(totalTokens,freshTokens,followUpTokens=0)=>({totalTokens,freshTokens,followUpTokens,followUpCount:Number(followUpTokens>0)});
+const savingsFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',runs:[
+ {id:'a',variant:'assisted',tools:['context'],model:'test',recordedAt:1,inputTokens:7900,cachedInputTokens:6900,outputTokens:100,totalTokens:8000,
+  comparison:{id:'first-example',baseline:side(12000,4000),assisted:side(10000,2500,2000)}},
+ {id:'b',variant:'assisted',tools:['context'],model:'test',recordedAt:2,inputTokens:8900,cachedInputTokens:7900,outputTokens:100,totalTokens:9000,
+  comparison:{id:'second-example',baseline:side(8000,3000),assisted:side(9000,1100)}}
+]}}));
+await flush();
+assert.equal(savingsFlow.get('codex-savings-note').textContent,'12,000 tokens on its own · 10,000 with Picard');
+const [firstSavings,secondSavings]=savingsFlow.get('codex-savings-comparisons').children;
+assert.match(firstSavings.textContent,/first-example.*Codex alone12,000 tokens.*With Picard10,000 tokens.*Includes 2,000 tokens across 1 follow-up turn/);
+assert.match(secondSavings.textContent,/second-example.*Codex alone8,000 tokens.*With Picard9,000 tokens.*12.5% more/);
 
 const displayPrefs=new Map(),displayStorage={getItem:key=>displayPrefs.get(key),setItem:(key,value)=>displayPrefs.set(key,value)};
 const displayStatus=async path=>path==='/auth/state'?ok({enrolled:true}):ok(health);
