@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {request as nativeHttpRequest} from 'node:http';
 import {fixture,syntheticLegacyBaseline} from './fixtures/admission-fixture.mjs';
-import {startOracleService,loadOracleConfig,createOwnerAuth,createBootstrapState} from '../experimental/runtime-control/src/oracle-service.mjs';
+import {startOracleService,loadOracleConfig,createOwnerAuth,createBootstrapState,CONSOLE_MAX_BYTES} from '../experimental/runtime-control/src/oracle-service.mjs';
 import {readExistingAdmissionFile,prepareAdmissionRuntime,admissionConfigurationDigest} from '../experimental/runtime-control/src/admission-runtime.mjs';
 import {createCatalogueLoader} from '../experimental/runtime-control/src/admission-catalogue.mjs';
 import {createAdmissionStore} from '../experimental/runtime-control/src/admission-store.mjs';
@@ -16,7 +16,8 @@ const adapter={kind:'groq-durable-one-shot',assistantId:'groq:openai/gpt-oss-20b
 const config=f=>({enabled:true,keyId:'fixture',secret:'SYNTHETIC_HMAC_ONLY_NEVER_A_REAL_SECRET_123',ownerId:f.catalogue.ownerId,assistantId:adapter.assistantId,allowedTaskId:f.catalogue.taskId,dbPath:f.dbPath,port:0,consoleEnabled:false,admissionEnabled:false,consoleOrigins:[]});
 function loopbackRequest(url,{method='GET',headers={},body}={}){
  const target=new URL(url);assert.equal(target.protocol,'http:');assert.equal(target.hostname,'127.0.0.1');
- return new Promise((resolve,reject)=>{const req=nativeHttpRequest(target,{method,headers},res=>{let size=0;const parts=[];res.on('data',chunk=>{size+=chunk.length;if(size>131072){reject(Error('fixture_response_too_large'));res.destroy();return;}parts.push(chunk);});res.on('error',reject);res.on('end',()=>{const bytes=Buffer.concat(parts);resolve({status:res.statusCode,text:async()=>bytes.toString('utf8'),json:async()=>JSON.parse(bytes.toString('utf8')),arrayBuffer:async()=>bytes});});});req.setTimeout(5000,()=>req.destroy(Error('fixture_http_timeout')));req.on('error',reject);req.end(body);});
+ const limit=target.pathname==='/'?CONSOLE_MAX_BYTES:131072;
+ return new Promise((resolve,reject)=>{const req=nativeHttpRequest(target,{method,headers},res=>{let size=0;const parts=[];res.on('data',chunk=>{size+=chunk.length;if(size>limit){reject(Error('fixture_response_too_large'));res.destroy();return;}parts.push(chunk);});res.on('error',reject);res.on('end',()=>{const bytes=Buffer.concat(parts);resolve({status:res.statusCode,text:async()=>bytes.toString('utf8'),json:async()=>JSON.parse(bytes.toString('utf8')),arrayBuffer:async()=>bytes});});});req.setTimeout(5000,()=>req.destroy(Error('fixture_http_timeout')));req.on('error',reject);req.end(body);});
 }
 
 test('disabled runtime preparation never reads even hostile environment properties',()=>{
