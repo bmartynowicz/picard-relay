@@ -203,15 +203,15 @@ no new libraries, external assets or timers. The walkthrough records v1.0.33;
 the latest recorded enrolled-host checks cover v1.0.34. Other installations and
 owner acceptance remain separate.
 
-Activate the insignia five times to switch between the standard console and
-the optional space cockpit. Consecutive clicks/Enter/Space activations must be
-no more than five seconds apart; another five switch it off. Two SVG planes
-move 128 round stars slowly behind the HUD. Navigation opens an opaque lower
+Select **Cockpit** beside Refresh to switch layouts. Five quick activations of
+the insignia also switch layouts. **… (Settings) → Cockpit stars** controls
+whether the 128 round stars appear behind the HUD. Navigation opens an opaque lower
 reading deck while readiness and projected activity remain visible above it.
 Click exposed space, choose Minimize panel or press Escape to retract the deck
 without clearing the draft or selected result. Clicks inside the deck preserve
 it. Pause motion and hidden tabs pause animation; reduced motion leaves a static
-scene. Cockpit/stars reset on reload. See [Owner features](OWNER-FEATURES.md) for
+scene. The browser remembers both choices across reloads. Stealth Mode hides
+the cockpit while active and restores your display choices on exit. See [Owner features](OWNER-FEATURES.md) for
 earned ranks beyond Lieutenant and implementation details. Current releases
 also project whole-VM CPU, reveal memory details on selection and support
 restrained background-only look-around. See [Flight instruments](FLIGHT-INSTRUMENTS.md).

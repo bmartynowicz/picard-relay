@@ -43,11 +43,16 @@
       "renderLoop": false
     },
     "navigation": "Centered etched instrument rail, stable shape, illuminated selected index; fixed while looking around",
+    "cockpit": {
+      "toggle": "Cockpit button or five insignia activations",
+      "maxActivationGapMs": 5000,
+      "persistence": "browser display preference"
+    },
     "starfield": {
       "default": false,
-      "toggle": "five insignia clicks or keyboard activations",
-      "maxGapMs": 5000,
-      "persistence": "current page only",
+      "toggle": "Cockpit stars in Settings",
+      "enabledWhenCockpitFirstOpened": true,
+      "persistence": "browser display preference separate from the cockpit layout",
       "navigationAffected": false,
       "contentSurface": "opaque floating panels over a transparent windshield",
       "effect": "128 irregular round SVG stars in two planes with 113s and 179s travel, different origins and a static inset frame",
