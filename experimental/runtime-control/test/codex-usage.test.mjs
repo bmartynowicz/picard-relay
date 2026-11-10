@@ -149,7 +149,7 @@ test('Codex callback projects only completed turn usage and successful Picard to
  assert.deepEqual(await readCodexExecTools(execPath,'test-thread',totals,'picard'),['compute_list']);
  assert.equal(await readCodexExecTools(execPath,'wrong-thread',totals,'picard'),null);
  assert.equal(await readCodexExecTools(execPath,'test-thread',{...totals,outputTokens:499},'picard'),null);
- const threadId='01a1c710-66ce-7c01-a561-0fd5f1e5ee3f',first='01a1c710-66ce-7c01-a561-0fd5f1e5ee40';
+ const threadId='11111111-1111-7111-8111-111111111111',first='22222222-2222-7222-8222-222222222222';
  await writeFile(path,[event('event_msg',{type:'task_complete',turn_id:first}),...entries].map(row=>JSON.stringify(row)).join('\n'));
  const followup=await readCompletedCodexUsage(path,turnId,{threadId});
  assert.deepEqual(followup,{...totals,model:'test-model',effort:'low',recordedAt:12345000,tools:['compute_ci_status'],
