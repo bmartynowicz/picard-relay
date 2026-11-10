@@ -75,6 +75,8 @@ Built for modest hardware, Picard preserves request identity, stores correlated 
 
 The v1 source adds ordinary request creation, exact-input approval, named job history, saved answer/code downloads, provenance handoff and persistent owner reviews. It reuses the durable one-call relay and existing Groq enrollment. Read the [v1 guide](docs/V1.md) and [machine-readable workspace contract](docs/workspace-contract.json).
 
+From a source checkout, use [`npm run request`](docs/V1.md#submit-from-the-command-line) to prepare, submit and retrieve requests from an enrolled owner workspace.
+
 The [earlier 27-second workspace demo](docs/images/picard-relay-interface-demo.gif)
 shows request creation and saved-result review in the older layout using synthetic
 data. For the current interface, use the [cockpit tour](docs/COCKPIT-TOUR.md).
