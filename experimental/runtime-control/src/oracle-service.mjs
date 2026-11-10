@@ -684,6 +684,9 @@ function renderCodexSavings(usage){
  const number=value=>value.toLocaleString();
  const headline=$('codex-savings-headline');
  const note=$('codex-savings-note');
+ const element=(tag,text='',className='')=>{
+  const node=document.createElement(tag);node.textContent=text;node.className=className;return node;
+ };
  const usageChange=({baseline,assisted})=>{
   const saved=baseline.totalTokens-assisted.totalTokens;
   const difference=(Math.abs(saved)*100/baseline.totalTokens).toLocaleString(undefined,{maximumFractionDigits:1});
@@ -696,32 +699,26 @@ function renderCodexSavings(usage){
   :usage?.state==='ready'?(runs.length?'Run the same task both ways to measure savings.':'Waiting for the first completed Codex run.')
   :'Connect Codex to record usage as you work.';
  for(const pair of pairs){
-  const article=document.createElement('article');
-  const heading=document.createElement('h3');heading.textContent=pair.id;article.append(heading);
-  const sides=document.createElement('div');sides.className='savings-sides';
+  const article=element('article');
+  const sides=element('div','','savings-sides');
+  article.append(element('h3',pair.id),sides,element('p',usageChange(pair),'muted'));
   for(const [label,side] of [['Codex alone',pair.baseline],['With Picard',pair.assisted]]){
-   const cell=document.createElement('div');
-   const name=document.createElement('p');name.textContent=label;
-   const total=document.createElement('strong');total.textContent=number(side.totalTokens)+' tokens';
-   const fresh=document.createElement('p');fresh.className='muted';fresh.textContent=number(side.freshTokens)+' fresh input + output';
-   cell.append(name,total,fresh);
+   const cell=element('div');
+   cell.append(element('p',label),element('strong',number(side.totalTokens)+' tokens'),
+    element('p',number(side.freshTokens)+' fresh input + output','muted'));
    if(side.followUpCount){
-    const fix=document.createElement('p');fix.className='muted';
-    fix.textContent='Includes '+number(side.followUpTokens)+' tokens across '+side.followUpCount+' follow-up '+(side.followUpCount===1?'turn':'turns');cell.append(fix);
+    const count=side.followUpCount;
+    cell.append(element('p','Includes '+number(side.followUpTokens)+' tokens across '+count+' follow-up '+(count===1?'turn':'turns'),'muted'));
    }
    sides.append(cell);
   }
-  article.append(sides);
-  const change=document.createElement('p');change.className='muted';change.textContent=usageChange(pair);article.append(change);
   comparisons.append(article);
  }
  for(const run of runs){
-  const detail=document.createElement('details');
-  const title=document.createElement('summary');
+  const detail=element('details');
   const label=run.variant==='baseline'?'Comparison baseline':run.tools.length?'With Picard':'Codex run';
-  title.textContent=label+' · '+number(run.totalTokens)+' tokens · '+new Date(run.recordedAt).toLocaleString();
-  detail.append(title);
-  const row=text=>{const p=document.createElement('p');p.className='muted';p.textContent=text;detail.append(p);};
+  detail.append(element('summary',label+' · '+number(run.totalTokens)+' tokens · '+new Date(run.recordedAt).toLocaleString()));
+  const row=text=>detail.append(element('p',text,'muted'));
   row(run.model+' · '+number(run.inputTokens)+' input ('+number(run.cachedInputTokens)+' cached) · '+number(run.outputTokens)+' output');
   if(run.tools.length)row('Picard tools used · '+run.tools.join(', '));
   if(run.comparisonId)row('Comparison · '+run.comparisonId);
