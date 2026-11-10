@@ -12,9 +12,9 @@ Keep the essentials in view. Open the detail when you need it.
 
 **[Take the cockpit tour](docs/COCKPIT-TOUR.md)** · [Watch the 15-second GIF](docs/images/picard-cockpit-walkthrough.gif) · [Video file (MP4)](docs/images/picard-cockpit-walkthrough.mp4)
 
-Recorded on the enrolled v1.0.33 relay. Activate the top-left insignia five times
-to enter the optional cockpit. Select a view to open its reading deck; click
-exposed space to retract it. The tour covers controls, ranks and current limits.
+Recorded on the enrolled v1.0.33 relay. The console now has a **Cockpit** button
+beside Refresh. Select a view to open its reading deck, or click exposed space to
+retract it. The tour covers controls, ranks and current limits.
 
 ## Choose your starting point
 

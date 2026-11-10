@@ -8,7 +8,7 @@ Snapshot: **November 8, 2026 UTC**. The owner's private task board is the operat
 | --- | --- | --- |
 | PR-FTR-009 | Cockpit navigation, expanding decks, earned ranks and brighter round stars | Installed and live-verified on v1.0.33. See the [visual tour](COCKPIT-TOUR.md) and [dated evidence](STATUS.md). Owner acceptance remains separate. |
 | PR-FTR-010 | Whole-VM power reading, load-responsive travel and background look-around | Installed and checked on v1.0.34. HUD and controls stay fixed; motion is bounded. See [Flight instruments](FLIGHT-INSTRUMENTS.md). |
-| PR-BUG-006 | Cockpit discovery and persistence | Planned. Five insignia activations currently toggle both cockpit and stars; the mode resets on reload. Make the cockpit independently selectable without coupling it to the hidden star toggle. |
+| PR-BUG-006 | Cockpit discovery and persistence | Source candidate. Visible Cockpit switch and independent stars setting persist across reload. Live verification follows deployment. |
 | PR-BUG-007 | Completed CI worker result lost during coordinator handoff | Fixed in merged PR #40; all seven groups and normal result/restart recovery verified from main. No runtime deployment required. |
 | PR-BUG-008 | Updater setup failure can leave a Ready-looking status | Open. A preflight error can remove the queue while retaining idle status. Preserve failure/unknown evidence and refuse automatic retries. |
 

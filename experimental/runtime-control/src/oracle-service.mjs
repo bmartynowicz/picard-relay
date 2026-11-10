@@ -407,7 +407,7 @@ function openFeedback(kind){
 }
 feedback('open').addEventListener('click',()=>openFeedback('feature'));
 $('console-surface').addEventListener('contextmenu',e=>{
- if(!authenticated||!starfield)return;
+ if(!authenticated||!cockpit)return;
  if(!['console-surface','cockpit-glass','hud-instruments'].some(id=>e.target===$(id)))return;
  e.preventDefault();
  openFeedback('bug');
@@ -519,6 +519,10 @@ replacement('form').addEventListener('submit',async event=>{
 `;
 
 const STEALTH_STYLE=String.raw`
+#cockpit-toggle{font-size:12px;padding-inline:8px}
+#cockpit-toggle[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}
+@media(max-width:360px){.hud-instruments{grid-template-columns:repeat(2,minmax(0,1fr))}#hud-stealth kbd{display:block;margin-left:0}}
+[data-stars=false] .space-scene{display:none!important}
 .hud-instruments #hud-stealth{font-size:12px;white-space:nowrap;color:var(--muted)}
 #hud-stealth kbd{margin-left:6px}
 #stealth-settings{display:grid;gap:4px;padding:8px 12px;font-size:12px;color:var(--muted)}
@@ -546,27 +550,53 @@ const STEALTH_STYLE=String.raw`
 
 const STEALTH_CLIENT=String.raw`
 const stealthPreference='picard:stealth';
+const cockpitPreference='picard:cockpit';
 const stealthWhenHidden=2,stealthWhenIdle=4;
 const stealthIdleMs=5*60_000;
 let stealthFlags=0,stealthTimer;
-let stealth=false,cockpitBeforeStealth=false;
-function setCockpit(enabled){
- starfield=enabled;
- $('console-surface').dataset.starfield=String(enabled);
- $('logo-wrap').setAttribute('aria-pressed',String(enabled));
- $('logo-wrap').title=enabled?'Starfield on · five clicks to switch off':'Click five times for the stars';
- if(!enabled)resetLook();
+let stealth=false,cockpitFlags=2,starfield=false;
+function syncCockpit(){
+ const hadStars=starfield,showControls=authenticated&&!stealth;
+ const starsEnabled=Boolean(cockpitFlags&2);
+ cockpit=showControls&&Boolean(cockpitFlags&1);
+ starfield=cockpit&&starsEnabled;
+ const surface=$('console-surface');
+ surface.dataset.cockpit=String(cockpit);
+ surface.dataset.starfield=String(starfield);
+ surface.dataset.stars=String(starsEnabled);
+ $('cockpit-toggle').hidden=!showControls;
+ $('stars-toggle').hidden=!showControls;
+ $('cockpit-toggle').setAttribute('aria-pressed',String(cockpit));
+ $('stars-toggle').setAttribute('aria-pressed',String(starsEnabled));
+ $('logo-wrap').setAttribute('aria-pressed',String(cockpit));
+ $('logo-wrap').title=cockpit?'Cockpit on · five clicks to switch off':'Click five times for Cockpit';
+ $('cockpit-glass').setAttribute('aria-label',starfield?'Space view; arrow keys look around':'Workspace');
+ if(hadStars&&!starfield)resetLook();
  renderHUD();
 }
+function saveCockpit(){
+ try{localStorage.setItem(cockpitPreference,String(cockpitFlags));}catch{}
+}
+function toggleCockpit(){
+ if(!authenticated||stealth)return;
+ cockpitFlags^=1;hudExpanded=activeView!=='overview';starClicks=0;
+ saveCockpit();
+ syncCockpit();
+}
+$('cockpit-toggle').addEventListener('click',toggleCockpit);
+$('stars-toggle').addEventListener('click',()=>{
+ if(!authenticated||stealth)return;
+ cockpitFlags^=2;
+ saveCockpit();
+ syncCockpit();
+});
 function setStealth(enabled){
- if(enabled)cockpitBeforeStealth=starfield;
  stealth=enabled;starClicks=0;
  $('console-surface').dataset.stealth=String(enabled);
  $('stealth-mode').setAttribute('aria-pressed',String(enabled));
  $('brand-name').textContent=enabled?'Work Console':'Picard Relay';
  document.title=enabled?'Work Console':'Picard Relay — Console';
- $('cockpit-glass').setAttribute('aria-label',enabled?'Workspace':'Space view; arrow keys look around');
- setCockpit(!enabled&&cockpitBeforeStealth);
+ syncCockpit();
  motion();
  armStealthIdle();
 }
@@ -613,10 +643,12 @@ for(const name of ['pointerdown','wheel'])document.addEventListener(name,()=>{
 try{
  const saved=localStorage.getItem(stealthPreference);
  if(/^[0-7]$/.test(saved))stealthFlags=Number(saved);
+ const display=localStorage.getItem(cockpitPreference);
+ if(/^[0-3]$/.test(display))cockpitFlags=Number(display);
 }catch{}
 $('stealth-auto').value=String(stealthFlags&6);
 if(stealthFlags&1)setStealth(true);
-else syncStealthVisibility();
+else{syncCockpit();syncStealthVisibility();}
 `;
 
 const STEALTH_CONTROLS='<button id="stealth-mode" type="button" aria-pressed="false" aria-keyshortcuts="Alt+Shift+S">Stealth mode</button><label id="stealth-settings" for="stealth-auto">Auto stealth<select id="stealth-auto"><option value="0">Off</option><option value="2">When tab is hidden</option><option value="4">After 5 minutes idle</option><option value="6">When hidden or idle</option></select></label>';
@@ -672,6 +704,12 @@ function renderCodexSavings(usage){
 `;
 
 export const CONSOLE_HTML=CONSOLE_SHELL_HTML
+  .replaceAll('starfield','cockpit')
+  .replaceAll(/data-cockpit="true"(?= \.space-(?:plane|scene))/g,'data-starfield="true"')
+  .replace('if(cockpit&&!paused','if(starfield&&!paused')
+  .replace('return cockpit&&authenticated&&!paused','return starfield&&authenticated&&!paused')
+  .replace('const previous=latest;authenticated=true;', "const previous=latest;if(!authenticated){authenticated=true;hudExpanded=preferredRoute.view!=='overview';syncCockpit();}")
+  .replace('authenticated=false;latest=null;statusFailed=false;hudExpanded=false;renderHUD();','authenticated=false;latest=null;statusFailed=false;hudExpanded=false;syncCockpit();')
   .replace('</style>',FEEDBACK_STYLE+STEALTH_STYLE+SAVINGS_STYLE+'#recognition{display:block;color:var(--accent)}.groq-key-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 18px}.feedback-dialog .groq-key-confirm{display:flex;gap:8px;align-items:baseline}.feedback-dialog .groq-key-confirm input{width:auto;flex:none}</style>')
   .replace('<div class="section-title"><h2>Recent activity',SAVINGS_PANEL+'<div class="section-title"><h2>Recent activity')
   .replace('<p>Picard Relay</p>','<p id="brand-name">Picard Relay</p>')
@@ -679,14 +717,15 @@ export const CONSOLE_HTML=CONSOLE_SHELL_HTML
   .replace('function clearPrivate(){','function clearPrivate(){\n showRecognition();resetGroqReplacement();renderCodexSavings();')
   .replace("render(project(await request('/status')));","const data=await request('/status');render(project(data));renderCodexSavings(data.codexUsage);showRecognition(typeof data.recognition==='string'?data.recognition:'');if(!keySaving)renderGroqReplacement(data.keyReplacement);")
   .replace('<summary aria-label="Documentation and account"','<summary id="console-tools-toggle" aria-label="Documentation and account"')
-  .replace('<button class="logout"',STEALTH_CONTROLS+'<button id="feedback-open" type="button" hidden>Feedback</button><button class="logout"')
+  .replace('<div id="refresh-control"','<button id="cockpit-toggle" type="button" aria-pressed="false" hidden>Cockpit</button><div id="refresh-control"')
+  .replace('<button class="logout"',STEALTH_CONTROLS+'<button id="stars-toggle" class="motion" type="button" aria-pressed="true" hidden>Cockpit stars</button><button id="feedback-open" type="button" hidden>Feedback</button><button class="logout"')
   .replace('<button id="hud-next"','<button id="hud-stealth" type="button" aria-keyshortcuts="Alt+Shift+S">Stealth <kbd>Alt+Shift+S</kbd></button><button id="hud-next"')
   .replace('<div class="provider-activity">','<div id="replace-groq-row" class="groq-key-actions" hidden><button id="replace-groq-open" type="button">Replace key</button><span id="replace-groq-status" class="muted" role="status"></span></div><div class="provider-activity">')
   .replace('</main>',FEEDBACK_DIALOG+GROQ_REPLACEMENT_DIALOG+'</main>')
   .replace('const roll=typeof previous','const roll=!stealth&&typeof previous')
   .replace('const reduced=preference.matches;','const reduced=stealth||preference.matches;')
   .replace("$('motion').textContent=reduced?","$('motion').textContent=stealth?'Motion off':reduced?")
-  .replace("starfield=!starfield;hudExpanded=false;renderHUD();$('console-surface').dataset.starfield=String(starfield);if(starfield)renderPower();else resetLook();$('logo-wrap').setAttribute('aria-pressed',String(starfield));$('logo-wrap').title=starfield?'Starfield on · five clicks to switch off':'Click five times for the stars';","if(stealth)return;hudExpanded=false;setCockpit(!starfield);")
+  .replace("cockpit=!cockpit;hudExpanded=false;renderHUD();$('console-surface').dataset.cockpit=String(cockpit);if(cockpit)renderPower();else resetLook();$('logo-wrap').setAttribute('aria-pressed',String(cockpit));$('logo-wrap').title=cockpit?'Starfield on · five clicks to switch off':'Click five times for the stars';",'toggleCockpit();')
   .replace("document.addEventListener('visibilitychange',()=>{motion();","document.addEventListener('visibilitychange',()=>{syncStealthVisibility();motion();")
   .replace('motion();void boot();',FEEDBACK_CLIENT+RECOGNITION_CLIENT+GROQ_REPLACEMENT_CLIENT+STEALTH_CLIENT+SAVINGS_CLIENT+'\nmotion();void boot();');
 export function loadOracleConfig(e=process.env){

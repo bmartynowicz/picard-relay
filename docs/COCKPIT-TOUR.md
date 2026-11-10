@@ -22,9 +22,8 @@ only what the recording shows.
 
 ## Take the controls
 
-1. **Enter the cockpit.** Sign in, then activate the top-left insignia five times.
-   Keep each activation within five seconds of the previous one. Mouse clicks,
-   Enter and Space work. Another five activations return to the standard console.
+1. **Enter the cockpit.** Sign in and select **Cockpit** beside Refresh. The
+   top-left insignia also switches views after five quick activations.
 2. **Read the essentials.** Readiness, active/completed counts, **Progress** and
    the next action stay together on the windshield. Select the counts to open
    Jobs, readiness to open System, or Progress to open Overview.
@@ -35,12 +34,13 @@ only what the recording shows.
    Escape. The deck retracts while your current draft or selected result stays
    in place. Clicking inside the deck keeps it open.
 5. **Find the utilities.** Refresh and its **Live · 15s** indicator sit at the
-   upper right. The adjacent **…** menu contains Documentation, motion controls
-   and Sign out. For a software update, open **System → Check for updates**.
+   upper right. Use **… → Cockpit stars** to show or hide stars. The menu also
+   contains Documentation, motion controls and Sign out. For a software update,
+   open **System → Check for updates**.
 
-Cockpit/stars are optional and currently reset on page reload. The ordinary
-Refresh button reads status; reload the browser page to load a newly installed
-interface. The update button requires a separately connected host updater; see
+The browser remembers Cockpit and stars separately. Refresh reads status.
+Reload the browser page to load a newly installed interface. The update button
+requires a separately connected host updater. See
 [Updating your relay](OWNER-UPDATES.md).
 
 ## Read the power gauge and look around
@@ -121,8 +121,8 @@ The current planes have independent 113-second and 179-second base loops;
 measured VM CPU changes their playback rate without restarting them. This
 implementation description is not a device-performance benchmark.
 
-The space view remains tied to the five-activation toggle and resets on reload;
-making the cockpit independently selectable is [known work](WORK-REGISTER.md#cockpit-follow-up).
+The recording shows the earlier cockpit controls. Current source has the
+visible **Cockpit** button and remembers the layout and stars separately.
 Completed counts mean saved answers, not correct or executed code. Groq status
 is a relay observation, not a live quota or billing check. See
 [limitations](LIMITATIONS.md) and the dated [deployment record](STATUS.md).

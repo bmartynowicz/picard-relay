@@ -42,8 +42,8 @@ exports are hidden; history, original answers and recovery remain available.
 
 ## Windshield HUD
 
-Activate the insignia five times to switch between the console and an optional
-space windshield. A centered horizontal control rail keeps the navigation opaque
+Select **Cockpit** beside Refresh or activate the insignia five times to switch
+to the optional windshield. A centered horizontal control rail keeps the navigation opaque
 and preserves the spinning upper-left insignia.
 The refresh control sits at the right of the same rail; documentation, motion
 and sign-out controls are grouped in its adjacent menu. Two
@@ -52,8 +52,8 @@ loops, giving a sense of forward travel. Round stroke caps replace expanding
 square pixels; 128 irregularly placed points use two restrained sizes, and both
 planes start partway through their travel so the scene is visible immediately. The two planes still
 contain only four static paths. The opaque navigation covers the
-scene. Stars remain off by
-default and persist only in the current page.
+scene. **Cockpit stars** in the **…** menu controls the scene separately from the
+HUD. The browser remembers both display choices.
 
 The compact view shows relay readiness, projected **active** and **completed**
 job counts, progress and the next useful action. These are real observed relay

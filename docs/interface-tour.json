@@ -151,7 +151,7 @@
   },
   "sourceDocumentedBehaviorNotDemonstratedInClip": [
     "v1.0.34 whole-VM power reading, bounded CPU-linked travel pace and background-only look-around",
-    "Five-activation cockpit toggle and keyboard controls",
+    "Visible Cockpit switch, separate stars preference and keyboard controls",
     "Requests composer, exact approval, result exports and local reviews",
     "Rank advancement and progressive interface unlocks",
     "Update-button installation",
@@ -192,8 +192,8 @@
   "knownWork": [
     {
       "id": "PR-BUG-006",
-      "state": "planned",
-      "summary": "Make cockpit independently selectable; current hidden toggle also enables stars and resets on reload."
+      "state": "source_candidate",
+      "summary": "Visible Cockpit switch and separate stars preference. Both are remembered in the browser."
     }
   ],
   "relatedGuides": [

@@ -36,7 +36,7 @@ function harness({cataloguePatch={},savedBody='SYNTHETIC_SAVED_RESULT <img src=x
 }
 test('disabled owner UI is byte-identical; enabled view compiles without execution controls outside Requests',()=>{
  assert.equal(admissionConsoleHtml(CONSOLE_HTML),CONSOLE_HTML);new vm.Script(script);assert.ok(html.includes('id="nav-requests"'));assert.ok(html.includes('id="admission-approve"'));
- const noDisplayStorage=script.replace(/localStorage\.(?:getItem\(stealthPreference\)|setItem\(stealthPreference,String\(stealthFlags\)\))/g,'');
+ const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:stealth|cockpit)Preference\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\))/g,'');
  assert.doesNotMatch(noDisplayStorage,/localStorage|sessionStorage|document\.cookie|innerHTML|eval\(/);
  assert.equal([...html.matchAll(/aria-label="Picard Relay brass rank insignia"/g)].length,1);
 });

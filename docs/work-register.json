@@ -407,12 +407,12 @@
       "kind": "bug",
       "severity": "P2",
       "title": "Cockpit discovery and persistence",
-      "status": "planned",
-      "behavior": "Five insignia activations currently enable cockpit and stars together. The mode resets on page reload; ordinary Refresh reads status only.",
+      "status": "source_candidate",
+      "behavior": "A visible Cockpit switch selects the HUD. The Settings menu controls stars separately. Both preferences survive reload, and the insignia shortcut still switches layouts.",
       "sourceFiles": [
         "experimental/runtime-control/src/oracle-service.mjs"
       ],
-      "remaining": "Make cockpit independently selectable without coupling it to the hidden stars toggle; no implementation claimed."
+      "remaining": "Install the signed release and verify the controls on the enrolled host."
     },
     {
       "id": "PR-FTR-009",

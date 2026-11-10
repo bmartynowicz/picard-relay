@@ -6,7 +6,7 @@ The cockpit keeps its instruments steady while space moves behind them. The cent
 
 ## Power reading
 
-Enable the optional starfield with five quick logo activations. **VM CPU** shows whole-VM utilization. Click it for CPU, VM memory, Picard RAM and the sample time. The same readings are available in System without enabling the scene. `—` means unavailable; `0%` means a measured zero.
+Select **Cockpit** beside Refresh to show the HUD. **VM CPU** shows whole-VM utilization. Click it for CPU, VM memory, Picard RAM and the sample time. The same readings are available in System. `—` means unavailable. `0%` means a measured zero.
 
 The reading covers every workload on the supporting Linux VM. It does not measure Picard alone, remaining credits or the size of the provider's free allocation. Memory uses available memory, including reclaimable cache; Picard RAM covers the relay's Node process, not all services on the host. The VM must expose normal Linux `/proc` counters. Other platforms show unknown values.
 
