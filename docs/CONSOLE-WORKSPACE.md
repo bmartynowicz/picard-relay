@@ -4,15 +4,15 @@ The authenticated console has five views when finite admission is enabled. A hos
 
 The [cockpit tour](COCKPIT-TOUR.md) includes a 15-second recording and a quick
 control guide. Navigation is centered horizontally. Open the **…** menu beside
-Refresh for **Documentation ↗**, **Stealth mode**, motion controls and Sign out.
+Refresh for **Documentation ↗**, Feedback, Replay walkthrough and Sign out.
 Documentation opens the guide index in a new tab and is available on the sign-in
 screen.
 
-Choose **Stealth mode** or press **Alt+Shift+S** for a plain Work Console with a
-neutral title, sidebar on desktop, and motion turned off. Use the same control
-to return to Picard. The cockpit HUD shows the shortcut.
+Choose **Stealth** in the display rail or press **Alt+Shift+S** for a plain Work
+Console with a neutral title, sidebar on desktop, and motion turned off. The
+shortcut is printed on the switch. Choose **Resume display** to return to your last layout.
 
-Under **… → Auto stealth**, choose when the tab is hidden, after five minutes
+Use **Auto stealth** on the display rail to enter Stealth when the tab is hidden, after five minutes
 without a click, keystroke or scroll, or both. Auto stealth starts off. Your
 browser remembers the setting. Automatic entry stays on until you toggle it or
 reload. The same job and request data remain visible.
@@ -203,8 +203,8 @@ no new libraries, external assets or timers. The walkthrough records v1.0.33;
 the latest recorded enrolled-host checks cover v1.0.34. Other installations and
 owner acceptance remain separate.
 
-Select **Cockpit** beside Refresh to switch layouts. Five quick activations of
-the insignia also switch layouts. **… (Settings) → Cockpit stars** controls
+Select **Workspace** or **Cockpit** on the display rail to switch layouts. Five
+quick activations of the insignia also switch layouts. **Stars** beneath the HUD controls
 whether the 128 round stars appear behind the HUD. Navigation opens an opaque lower
 reading deck while readiness and projected activity remain visible above it.
 Click exposed space, choose Minimize panel or press Escape to retract the deck
