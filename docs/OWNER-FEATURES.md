@@ -42,18 +42,19 @@ exports are hidden; history, original answers and recovery remain available.
 
 ## Windshield HUD
 
-Select **Cockpit** beside Refresh or activate the insignia five times to switch
+Select **Cockpit** on the display rail or activate the insignia five times to switch
 to the optional windshield. A centered horizontal control rail keeps the navigation opaque
 and preserves the spinning upper-left insignia.
-The refresh control sits at the right of the same rail; documentation, motion
-and sign-out controls are grouped in its adjacent menu. Two
+Refresh sits at the right of the navigation. Documentation and sign-out are
+in its adjacent menu. Two
 small inline SVG star planes use independent 113-second and 179-second base
 loops, giving a sense of forward travel. Round stroke caps replace expanding
 square pixels; 128 irregularly placed points use two restrained sizes, and both
 planes start partway through their travel so the scene is visible immediately. The two planes still
 contain only four static paths. The opaque navigation covers the
-scene. **Cockpit stars** in the **…** menu controls the scene separately from the
-HUD. The browser remembers both display choices.
+scene. The rail beneath the HUD groups layout, **Stars**, motion and
+**Auto stealth**. Stars can be switched off while the HUD stays visible. The
+browser remembers both display choices.
 
 The compact view shows relay readiness, projected **active** and **completed**
 job counts, progress and the next useful action. These are real observed relay
