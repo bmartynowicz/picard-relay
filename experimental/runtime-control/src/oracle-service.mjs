@@ -519,14 +519,28 @@ replacement('form').addEventListener('submit',async event=>{
 `;
 
 const STEALTH_STYLE=String.raw`
-#cockpit-toggle{font-size:12px;padding-inline:8px}
-#cockpit-toggle[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}
-@media(max-width:360px){.hud-instruments{grid-template-columns:repeat(2,minmax(0,1fr))}#hud-stealth kbd{display:block;margin-left:0}}
+.display-rail,.display-modes,.display-effects{display:flex;align-items:center;flex-wrap:wrap}
+.display-rail{gap:0 12px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.display-effects{margin-left:auto}
+.display-rail button{border:0;border-radius:0;padding:6px 9px;color:var(--muted);font-size:12px}
+.display-rail button[aria-pressed=true]{color:var(--accent);background:#ffffff08;box-shadow:inset 0 -2px currentColor}
+.display-rail kbd{margin-left:4px;padding:2px 3px;border:1px solid var(--line);font-size:9px;white-space:nowrap}
+#stealth-settings{display:flex;align-items:center;gap:6px;padding-inline:4px;color:var(--muted);font-size:12px}
+#stealth-auto{max-width:136px;min-height:44px;color:var(--text);background:var(--bg);border:1px solid var(--line)}
+[data-cockpit=true] .cockpit-dash{order:1;align-self:center;width:min(100%,840px);margin-top:auto}
+[data-cockpit=true] .display-rail{border-block:1px solid var(--line);border-top-color:#dec38744;background:var(--bg)}
+[data-stealth=true] .display-rail :is(kbd,#motion){display:none}
+@media(max-width:500px){
+ .display-modes,.display-effects{width:100%}
+ .display-modes{border-bottom:1px solid var(--line)}
+ .display-modes button{flex:1}
+ .display-effects{justify-content:space-between}
+ #stealth-settings{display:grid;gap:0}
+ #stealth-auto{max-width:112px}
+ .display-rail kbd{display:block;margin:2px 0 0}
+}
+@media(max-width:360px){.hud-instruments{grid-template-columns:repeat(2,minmax(0,1fr))}}
 [data-stars=false] .space-scene{display:none!important}
-.hud-instruments #hud-stealth{font-size:12px;white-space:nowrap;color:var(--muted)}
-#hud-stealth kbd{margin-left:6px}
-#stealth-settings{display:grid;gap:4px;padding:8px 12px;font-size:12px;color:var(--muted)}
-#stealth-auto{width:100%;color:var(--text);background:var(--bg);border:1px solid var(--line);padding:8px}
 [data-stealth=true]{--bg:#191919;--side:#222;--surface:#2c2c2c;--line:#434343;--accent:#dededb;--text:#f2f2ef;--muted:#b8b8b5;background:var(--bg)}
 [data-stealth=true] :is(#logo-wrap,#training-rank,#training-title,#recognition,.sidebar-foot,.nav-index,.space-scene),[data-stealth=true] nav::before,[data-stealth=true] nav::after{display:none!important}
 [data-stealth=true] :is(.brand,nav,.console-utilities,.workspace){background:transparent;border:0;box-shadow:none}
@@ -537,7 +551,6 @@ const STEALTH_STYLE=String.raw`
 [data-stealth=true] .auth{border:0}
 [data-stealth=true] .refresh:hover:not(:disabled){background:#fff}
 [data-stealth=true] *,[data-stealth=true] *::before,[data-stealth=true] *::after{animation:none!important;transition:none!important}
-#stealth-mode[aria-pressed=true]{background:var(--surface)}
 @media(min-width:900px){
  .console[data-stealth=true]{grid-template-columns:196px minmax(0,1fr);grid-template-rows:1fr}
  [data-stealth=true] .sidebar{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;height:100svh;gap:16px;padding:20px 12px;border:0;border-right:1px solid var(--line)}
@@ -564,8 +577,10 @@ function syncCockpit(){
  surface.dataset.cockpit=String(cockpit);
  surface.dataset.starfield=String(starfield);
  surface.dataset.stars=String(starsEnabled);
+ $('workspace-toggle').hidden=!showControls;
  $('cockpit-toggle').hidden=!showControls;
- $('stars-toggle').hidden=!showControls;
+ $('stars-toggle').hidden=!cockpit;
+ $('workspace-toggle').setAttribute('aria-pressed',String(showControls&&!cockpit));
  $('cockpit-toggle').setAttribute('aria-pressed',String(cockpit));
  $('stars-toggle').setAttribute('aria-pressed',String(starsEnabled));
  $('logo-wrap').setAttribute('aria-pressed',String(cockpit));
@@ -577,13 +592,14 @@ function syncCockpit(){
 function saveCockpit(){
  try{localStorage.setItem(cockpitPreference,String(cockpitFlags));}catch{}
 }
-function toggleCockpit(){
- if(!authenticated||stealth)return;
+function selectCockpit(enabled){
+ if(!authenticated||stealth||cockpit===enabled)return;
  cockpitFlags^=1;hudExpanded=activeView!=='overview';starClicks=0;
  saveCockpit();
  syncCockpit();
 }
-$('cockpit-toggle').addEventListener('click',toggleCockpit);
+$('workspace-toggle').addEventListener('click',()=>selectCockpit(false));
+$('cockpit-toggle').addEventListener('click',()=>selectCockpit(true));
 $('stars-toggle').addEventListener('click',()=>{
  if(!authenticated||stealth)return;
  cockpitFlags^=2;
@@ -594,6 +610,8 @@ function setStealth(enabled){
  stealth=enabled;starClicks=0;
  $('console-surface').dataset.stealth=String(enabled);
  $('stealth-mode').setAttribute('aria-pressed',String(enabled));
+ $('stealth-label').textContent=enabled?'Resume display':'Stealth';
+ if(enabled&&document.activeElement?.closest?.('.display-modes,.display-effects'))$('stealth-mode').focus?.();
  $('brand-name').textContent=enabled?'Work Console':'Picard Relay';
  document.title=enabled?'Work Console':'Picard Relay — Console';
  syncCockpit();
@@ -619,10 +637,6 @@ function syncStealthVisibility(){
  else armStealthIdle();
 }
 $('stealth-mode').addEventListener('click',toggleStealth);
-$('hud-stealth').addEventListener('click',()=>{
- toggleStealth();
- $('console-tools-toggle').focus?.();
-});
 $('stealth-auto').addEventListener('change',()=>{
  stealthFlags=(stealthFlags&1)|(Number($('stealth-auto').value)&6);
  saveStealth();
@@ -632,9 +646,7 @@ document.addEventListener('keydown',event=>{
  if(event.code==='KeyS'&&event.altKey&&event.shiftKey&&!event.ctrlKey&&!event.metaKey&&!event.repeat
    &&!event.defaultPrevented&&!event.isComposing&&!event.target?.closest?.('input,select,textarea,[contenteditable]')){
   event.preventDefault();
-  const focusHud=event.target?.id==='hud-stealth';
   toggleStealth();
-  if(focusHud)$('console-tools-toggle').focus?.();
  }else if(stealthFlags&stealthWhenIdle)armStealthIdle();
 });
 for(const name of ['pointerdown','wheel'])document.addEventListener(name,()=>{
@@ -651,7 +663,13 @@ if(stealthFlags&1)setStealth(true);
 else{syncCockpit();syncStealthVisibility();}
 `;
 
-const STEALTH_CONTROLS='<button id="stealth-mode" type="button" aria-pressed="false" aria-keyshortcuts="Alt+Shift+S">Stealth mode</button><label id="stealth-settings" for="stealth-auto">Auto stealth<select id="stealth-auto"><option value="0">Off</option><option value="2">When tab is hidden</option><option value="4">After 5 minutes idle</option><option value="6">When hidden or idle</option></select></label>';
+const MOTION_CONTROL='<button class="motion" id="motion" type="button" aria-pressed="false">Pause motion</button>';
+const DISPLAY_RAIL=`<div class="display-rail" role="group" aria-label="Display">
+<div class="display-modes"><button id="workspace-toggle" type="button" aria-pressed="false" hidden>Workspace</button>
+<button id="cockpit-toggle" type="button" aria-pressed="false" hidden>Cockpit</button>
+<button id="stealth-mode" type="button" aria-pressed="false" aria-keyshortcuts="Alt+Shift+S"><span id="stealth-label">Stealth</span><kbd aria-hidden="true">Alt+Shift+S</kbd></button></div>
+<div class="display-effects"><label id="stealth-settings" for="stealth-auto">Auto stealth<select id="stealth-auto"><option value="0">Off</option><option value="2">Tab hidden</option><option value="4">5 min idle</option><option value="6">Hidden or idle</option></select></label>
+<button id="stars-toggle" type="button" aria-pressed="true" hidden>Stars</button>${MOTION_CONTROL.replace(' class="motion"','')}</div></div>`;
 
 const SAVINGS_STYLE=String.raw`
 #codex-savings{margin:0 0 26px;padding:18px 0;border-bottom:1px solid var(--line)}
@@ -717,15 +735,18 @@ export const CONSOLE_HTML=CONSOLE_SHELL_HTML
   .replace('function clearPrivate(){','function clearPrivate(){\n showRecognition();resetGroqReplacement();renderCodexSavings();')
   .replace("render(project(await request('/status')));","const data=await request('/status');render(project(data));renderCodexSavings(data.codexUsage);showRecognition(typeof data.recognition==='string'?data.recognition:'');if(!keySaving)renderGroqReplacement(data.keyReplacement);")
   .replace('<summary aria-label="Documentation and account"','<summary id="console-tools-toggle" aria-label="Documentation and account"')
-  .replace('<div id="refresh-control"','<button id="cockpit-toggle" type="button" aria-pressed="false" hidden>Cockpit</button><div id="refresh-control"')
-  .replace('<button class="logout"',STEALTH_CONTROLS+'<button id="stars-toggle" class="motion" type="button" aria-pressed="true" hidden>Cockpit stars</button><button id="feedback-open" type="button" hidden>Feedback</button><button class="logout"')
-  .replace('<button id="hud-next"','<button id="hud-stealth" type="button" aria-keyshortcuts="Alt+Shift+S">Stealth <kbd>Alt+Shift+S</kbd></button><button id="hud-next"')
+  .replace(MOTION_CONTROL,'')
+  .replace('.motion{margin-top:auto;text-align:left;font-size:13px;color:var(--muted);padding:9px 12px;border:0}','')
+  .replace('.console-menu .motion,','')
+  .replace('<div class="hud-instruments"','<div class="cockpit-dash"><div class="hud-instruments"')
+  .replace('</div><div id="private" hidden>','</div>'+DISPLAY_RAIL+'</div><div id="private" hidden>')
+  .replace('<button class="logout"','<button id="feedback-open" type="button" hidden>Feedback</button><button class="logout"')
   .replace('<div class="provider-activity">','<div id="replace-groq-row" class="groq-key-actions" hidden><button id="replace-groq-open" type="button">Replace key</button><span id="replace-groq-status" class="muted" role="status"></span></div><div class="provider-activity">')
   .replace('</main>',FEEDBACK_DIALOG+GROQ_REPLACEMENT_DIALOG+'</main>')
   .replace('const roll=typeof previous','const roll=!stealth&&typeof previous')
   .replace('const reduced=preference.matches;','const reduced=stealth||preference.matches;')
   .replace("$('motion').textContent=reduced?","$('motion').textContent=stealth?'Motion off':reduced?")
-  .replace("cockpit=!cockpit;hudExpanded=false;renderHUD();$('console-surface').dataset.cockpit=String(cockpit);if(cockpit)renderPower();else resetLook();$('logo-wrap').setAttribute('aria-pressed',String(cockpit));$('logo-wrap').title=cockpit?'Starfield on · five clicks to switch off':'Click five times for the stars';",'toggleCockpit();')
+  .replace("cockpit=!cockpit;hudExpanded=false;renderHUD();$('console-surface').dataset.cockpit=String(cockpit);if(cockpit)renderPower();else resetLook();$('logo-wrap').setAttribute('aria-pressed',String(cockpit));$('logo-wrap').title=cockpit?'Starfield on · five clicks to switch off':'Click five times for the stars';",'selectCockpit(!cockpit);')
   .replace("document.addEventListener('visibilitychange',()=>{motion();","document.addEventListener('visibilitychange',()=>{syncStealthVisibility();motion();")
   .replace('motion();void boot();',FEEDBACK_CLIENT+RECOGNITION_CLIENT+GROQ_REPLACEMENT_CLIENT+STEALTH_CLIENT+SAVINGS_CLIENT+'\nmotion();void boot();');
 export function loadOracleConfig(e=process.env){

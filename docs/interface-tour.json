@@ -151,7 +151,7 @@
   },
   "sourceDocumentedBehaviorNotDemonstratedInClip": [
     "v1.0.34 whole-VM power reading, bounded CPU-linked travel pace and background-only look-around",
-    "Visible Cockpit switch, separate stars preference and keyboard controls",
+    "Display rail with Workspace, Cockpit and Stealth, separate stars preference and keyboard controls",
     "Requests composer, exact approval, result exports and local reviews",
     "Rank advancement and progressive interface unlocks",
     "Update-button installation",
@@ -193,7 +193,7 @@
     {
       "id": "PR-BUG-006",
       "state": "source_candidate",
-      "summary": "Visible Cockpit switch and separate stars preference. Both are remembered in the browser."
+      "summary": "One display rail groups layout, Stealth, stars and motion. The layout and stars choices are remembered in the browser."
     }
   ],
   "relatedGuides": [

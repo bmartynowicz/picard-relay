@@ -22,7 +22,7 @@ only what the recording shows.
 
 ## Take the controls
 
-1. **Enter the cockpit.** Sign in and select **Cockpit** beside Refresh. The
+1. **Enter the cockpit.** Sign in and select **Cockpit** in the display rail above Overview. The
    top-left insignia also switches views after five quick activations.
 2. **Read the essentials.** Readiness, active/completed counts, **Progress** and
    the next action stay together on the windshield. Select the counts to open
@@ -33,10 +33,10 @@ only what the recording shows.
 4. **Clear the view.** Click exposed starfield, choose **Minimize panel**, or press
    Escape. The deck retracts while your current draft or selected result stays
    in place. Clicking inside the deck keeps it open.
-5. **Find the utilities.** Refresh and its **Live · 15s** indicator sit at the
-   upper right. Use **… → Cockpit stars** to show or hide stars. The menu also
-   contains Documentation, motion controls and Sign out. For a software update,
-   open **System → Check for updates**.
+5. **Set the display.** The rail beneath the HUD holds **Workspace**, **Cockpit** and
+   **Stealth**, with **Stars**, motion and **Auto stealth** alongside them. The
+   Stealth switch shows its keyboard shortcut. **Resume display** brings back your
+   last layout. Refresh and **Live · 15s** stay at the upper right beside the account menu.
 
 The browser remembers Cockpit and stars separately. Refresh reads status.
 Reload the browser page to load a newly installed interface. The update button
@@ -121,8 +121,8 @@ The current planes have independent 113-second and 179-second base loops;
 measured VM CPU changes their playback rate without restarting them. This
 implementation description is not a device-performance benchmark.
 
-The recording shows the earlier cockpit controls. Current source has the
-visible **Cockpit** button and remembers the layout and stars separately.
+The recording shows the earlier cockpit controls. Current source groups display
+controls in one rail and remembers the layout and stars separately.
 Completed counts mean saved answers, not correct or executed code. Groq status
 is a relay observation, not a live quota or billing check. See
 [limitations](LIMITATIONS.md) and the dated [deployment record](STATUS.md).
