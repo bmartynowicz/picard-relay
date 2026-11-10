@@ -285,7 +285,8 @@ export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecen
    try{
     for await(const chunk of req){size+=chunk.length;if(size>4096)return reply(413,{error:'request_invalid'});parts.push(chunk);}
     let record;try{record=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(parts)));}catch{return reply(400,{error:'request_invalid'});}
-    const state=codexUsage.record(record);
+    const state=record&&typeof record==='object'&&Object.hasOwn(record,'followUpTo')&&!Object.hasOwn(record,'v')
+     ?codexUsage.attach(record):codexUsage.record(record);
     return reply({saved:201,duplicate:200,invalid:400,conflict:409}[state],{state});
    }catch{return reply(503,{error:'codex_usage_unavailable'});}
   }
@@ -660,8 +661,13 @@ const SAVINGS_STYLE=String.raw`
 #codex-savings-runs details{border-top:1px solid var(--line);padding:7px 0;overflow-wrap:anywhere}
 #codex-savings-runs summary{cursor:pointer;padding:4px 0;font-size:13px}
 #codex-savings-runs p{margin:4px 0 4px 14px}
+#codex-savings-comparisons article{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+#codex-savings-comparisons h3{margin:0 0 8px;font-size:14px}
+.savings-sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.savings-sides p{margin:2px 0;font-size:13px}
+.savings-sides strong{display:block;font-size:clamp(15px,3vw,20px)}
 `;
-const SAVINGS_PANEL='<section id="codex-savings" aria-labelledby="codex-savings-title"><h2 id="codex-savings-title">Savings</h2><strong id="codex-savings-headline">Savings not yet measured</strong><p class="muted" id="codex-savings-note">Connect Codex to record usage as you work.</p><div id="codex-savings-runs" aria-label="Recent Codex runs"></div></section>';
+const SAVINGS_PANEL='<section id="codex-savings" aria-labelledby="codex-savings-title"><h2 id="codex-savings-title">Savings</h2><strong id="codex-savings-headline">Savings not yet measured</strong><p class="muted" id="codex-savings-note">Connect Codex to record usage as you work.</p><div id="codex-savings-comparisons" aria-label="Codex comparisons"></div><div id="codex-savings-runs" aria-label="Recent Codex runs"></div></section>';
 const SAVINGS_CLIENT=String.raw`
 let lastCodexUsage='';
 function renderCodexSavings(usage){
@@ -669,22 +675,46 @@ function renderCodexSavings(usage){
  if(signature===lastCodexUsage)return;
  lastCodexUsage=signature;
  const list=$('codex-savings-runs');
+ const comparisons=$('codex-savings-comparisons');
  list.replaceChildren();
+ comparisons.replaceChildren();
  const runs=Array.isArray(usage?.runs)?usage.runs:[];
- const measured=runs.find(run=>run.baselineTokens>0);
+ const pairs=runs.flatMap(run=>run.comparison?[run.comparison]:[]);
+ const measured=pairs[0];
  const number=value=>value.toLocaleString();
  const headline=$('codex-savings-headline');
  const note=$('codex-savings-note');
- const usageChange=run=>{
-  const difference=(Math.abs(run.savedTokens)*100/run.baselineTokens).toLocaleString(undefined,{maximumFractionDigits:1});
-  return run.savedTokens===0?'Same total Codex tokens':difference+'% '+(run.savedTokens>0?'fewer':'more')+' total Codex tokens';
+ const usageChange=({baseline,assisted})=>{
+  const saved=baseline.totalTokens-assisted.totalTokens;
+  const difference=(Math.abs(saved)*100/baseline.totalTokens).toLocaleString(undefined,{maximumFractionDigits:1});
+  return saved===0?'Same total Codex tokens':difference+'% '+(saved>0?'fewer':'more')+' total Codex tokens';
  };
  headline.textContent=measured?usageChange(measured):'Savings not yet measured';
  note.textContent=measured
-  ?number(measured.baselineTokens)+' tokens on its own · '+number(measured.totalTokens)+' with Picard'
+  ?number(measured.baseline.totalTokens)+' tokens on its own · '+number(measured.assisted.totalTokens)+' with Picard'
   :usage?.state==='unavailable'?'Usage records are temporarily unavailable.'
   :usage?.state==='ready'?(runs.length?'Run the same task both ways to measure savings.':'Waiting for the first completed Codex run.')
   :'Connect Codex to record usage as you work.';
+ for(const pair of pairs){
+  const article=document.createElement('article');
+  const heading=document.createElement('h3');heading.textContent=pair.id;article.append(heading);
+  const sides=document.createElement('div');sides.className='savings-sides';
+  for(const [label,side] of [['Codex alone',pair.baseline],['With Picard',pair.assisted]]){
+   const cell=document.createElement('div');
+   const name=document.createElement('p');name.textContent=label;
+   const total=document.createElement('strong');total.textContent=number(side.totalTokens)+' tokens';
+   const fresh=document.createElement('p');fresh.className='muted';fresh.textContent=number(side.freshTokens)+' fresh input + output';
+   cell.append(name,total,fresh);
+   if(side.followUpCount){
+    const fix=document.createElement('p');fix.className='muted';
+    fix.textContent='Includes '+number(side.followUpTokens)+' tokens across '+side.followUpCount+' follow-up '+(side.followUpCount===1?'turn':'turns');cell.append(fix);
+   }
+   sides.append(cell);
+  }
+  article.append(sides);
+  const change=document.createElement('p');change.className='muted';change.textContent=usageChange(pair);article.append(change);
+  comparisons.append(article);
+ }
  for(const run of runs){
   const detail=document.createElement('details');
   const title=document.createElement('summary');
@@ -695,9 +725,8 @@ function renderCodexSavings(usage){
   row(run.model+' · '+number(run.inputTokens)+' input ('+number(run.cachedInputTokens)+' cached) · '+number(run.outputTokens)+' output');
   if(run.tools.length)row('Picard tools used · '+run.tools.join(', '));
   if(run.comparisonId)row('Comparison · '+run.comparisonId);
-  if(run.baselineTokens>0)
-   row('Fresh input and output · '+number(run.baselineFreshTokens)+' tokens on its own · '+number(run.totalTokens-run.cachedInputTokens)+' with Picard');
-  else if(run.variant!=='baseline')row('Savings not yet measured');
+  if(run.followUpTo)row('Follows Codex run · '+run.followUpTo);
+  else if(!run.comparison&&run.variant!=='baseline')row('Savings not yet measured');
   list.append(detail);
  }
 }
