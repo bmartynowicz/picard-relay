@@ -68,8 +68,13 @@ function openCodexUsage(db,owner){
   list(){
    return recent.all(owner).map(({record})=>{
     const run=JSON.parse(record);
-    const baseline=run.variant==='assisted'&&JSON.parse(byPair.get(owner,run.comparisonId,'baseline')?.record??'null');
-    const baselineTokens=baseline&&baseline.model===run.model&&baseline.effort===run.effort?baseline.totalTokens:null;
+    let comparisonId=run.variant==='assisted'?run.comparisonId:null;
+    if(run.variant===null&&run.tools.length&&!byPair.get(owner,run.id,'assisted'))comparisonId=run.id;
+    const baseline=comparisonId&&JSON.parse(byPair.get(owner,comparisonId,'baseline')?.record??'null');
+    // A baseline recorded after a standalone Picard run can name that run's ID.
+    // The comparison is projected at read time, keeping both saved records immutable.
+    const inOrder=run.variant==='assisted'||baseline?.recordedAt>=run.recordedAt;
+    const baselineTokens=baseline&&inOrder&&baseline.model===run.model&&baseline.effort===run.effort?baseline.totalTokens:null;
     return {...run,baselineTokens,
      baselineFreshTokens:baselineTokens===null?null:baselineTokens-baseline.cachedInputTokens,
      savedTokens:baselineTokens===null?null:baselineTokens-run.totalTokens};

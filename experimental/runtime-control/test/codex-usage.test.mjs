@@ -44,6 +44,43 @@ test('usage is immutable, persistent and compared only for matched runs',async t
  }finally{store.close();}
 });
 
+test('a later baseline can name a standalone Picard run without changing either record',t=>{
+ const store=createRelayStore({dbPath:':memory:'});
+ t.after(()=>store.close());
+ const usage=store.openCodexUsage('owner'),other=store.openCodexUsage('other');
+ const original={...assisted,comparisonId:null,variant:null};
+ const baseline={...run,recordedAt:3000,comparisonId:original.id};
+ assert.equal(usage.record(original),'saved');
+ assert.equal(other.record(baseline),'saved');
+ assert.equal(usage.list()[0].baselineTokens,null);
+ assert.equal(usage.record(baseline),'saved');
+ const [savedBaseline,savedOriginal]=usage.list();
+ assert.equal(savedBaseline.baselineTokens,null);
+ assert.equal(savedOriginal.baselineTokens,12000);
+ assert.equal(savedOriginal.baselineFreshTokens,4000);
+ assert.equal(savedOriginal.savedTokens,4000);
+ assert.equal(savedOriginal.comparisonId,null);
+ assert.equal(savedOriginal.variant,null);
+ assert.equal(usage.record(original),'duplicate');
+ assert.equal(usage.record(baseline),'duplicate');
+});
+
+test('late pairing respects model, effort, run order and existing explicit pair IDs',t=>{
+ const store=createRelayStore({dbPath:':memory:'});
+ t.after(()=>store.close());
+ const cases=[{model:'other'},{effort:'high'},{recordedAt:1999},{}];
+ for(const [i,patch] of cases.entries()){
+  const usage=store.openCodexUsage('owner-'+i);
+  const original={...assisted,comparisonId:null,variant:null};
+  const baseline={...run,recordedAt:3000,comparisonId:original.id,...patch};
+  assert.equal(usage.record(original),'saved');
+  assert.equal(usage.record(baseline),'saved');
+  if(i===cases.length-1)
+   assert.equal(usage.record({...assisted,id:'c'.repeat(64),comparisonId:original.id}),'saved');
+  assert.equal(usage.list().find(value=>value.id===original.id).baselineTokens,null);
+ }
+});
+
 test('Codex callback projects only completed turn usage and successful Picard tool names',async t=>{
  const directory=await mkdtemp(join(tmpdir(),'picard-codex-trace-'));
  t.after(()=>rm(directory,{recursive:true,force:true}));
