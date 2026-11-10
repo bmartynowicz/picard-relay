@@ -18,6 +18,16 @@ relay.example.com {
         }
         reverse_proxy 127.0.0.1:8787
     }
+    @codexusage {
+        method POST
+        path /codex/usage
+    }
+    handle @codexusage {
+        request_body {
+            max_size 4KB
+        }
+        reverse_proxy 127.0.0.1:8787
+    }
     @result {
         method GET
         path_regexp results ^/(workspace/(drafts/[a-f0-9-]{36}|requests/[a-f0-9]{64})|requests/[a-f0-9]{64})$
