@@ -102,6 +102,16 @@ The server assigns a grant and fixes the provider, output ceiling and 15-minute 
 
 The HTTP body cap is 24,576 UTF-8 bytes; combined provider input is at most 12,000 bytes. There are at most eight active jobs, 16 live uncommitted drafts, 10 POST attempts per minute, 100 review events per result and 10,000 retained drafts/jobs. Counts are storage limits, not renewed call allowances.
 
+## Codex Savings comparisons
+
+For planned comparisons, record a baseline and an assisted run with the same
+comparison ID. To compare a standalone Picard run with a later baseline, use
+the standalone run's full usage record ID as the baseline's comparison ID.
+The Codex completion recorder accepts this ID with `--comparison` and
+`--variant baseline`. Savings pairs runs within the same owner, model and
+reasoning effort. It preserves the recorded usage and any existing explicit
+comparison.
+
 ## Response quality grades
 
 In a saved result, open **Quality**, select 1 (Poor) through 5 (Excellent), optionally add a note and save. The latest score shows whether the owner or a signed client recorded it. History preserves earlier grades. Grades describe the exact saved answer text; they do not accept a result, earn rank, change provider selection or run another call.
