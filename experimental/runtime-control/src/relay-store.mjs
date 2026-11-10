@@ -22,6 +22,61 @@ export function recentJobReason(state,lastError,resultAvailable){
  if(['groq_request_rejected','groq_scope_mismatch'].includes(code))return 'request_rejected';
  return state==='failed'||state==='blocked'?'recorded_failure':'unknown';
 }
+
+const usageCount=value=>Number.isSafeInteger(value)&&value>=0&&value<=1_000_000_000;
+const usageSlug=value=>typeof value==='string'&&/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,79}$/.test(value);
+function codexUsageRecord(value){
+ const keys='cachedInputTokens,comparisonId,effort,id,inputTokens,model,outputTokens,recordedAt,tools,v,variant';
+ if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).sort().join(',')!==keys||value.v!==1
+  ||typeof value.id!=='string'||!/^[a-f0-9]{64}$/.test(value.id)
+  ||!Number.isSafeInteger(value.recordedAt)||value.recordedAt<1||value.recordedAt>8_640_000_000_000_000
+  ||!usageSlug(value.model)||!(value.effort===null||usageSlug(value.effort))
+  ||![value.inputTokens,value.cachedInputTokens,value.outputTokens].every(usageCount)
+  ||value.cachedInputTokens>value.inputTokens||value.inputTokens+value.outputTokens===0
+  ||!Array.isArray(value.tools)||value.tools.length>20||!value.tools.every(usageSlug))return null;
+ const tools=[...new Set(value.tools)].sort();
+ if(value.comparisonId===null?value.variant!==null:
+  !usageSlug(value.comparisonId)||!(value.variant==='baseline'&&!tools.length||value.variant==='assisted'&&tools.length))return null;
+ return {...value,tools,totalTokens:value.inputTokens+value.outputTokens};
+}
+
+function openCodexUsage(db,owner){
+ db.exec(`CREATE TABLE IF NOT EXISTS relay_codex_usage(
+  owner TEXT NOT NULL,id TEXT NOT NULL,recorded_at INTEGER NOT NULL,comparison_id TEXT,variant TEXT,record TEXT NOT NULL,
+  PRIMARY KEY(owner,id),UNIQUE(owner,comparison_id,variant)
+ );
+ CREATE INDEX IF NOT EXISTS relay_codex_usage_time ON relay_codex_usage(owner,recorded_at DESC,id);`);
+ const byId=db.prepare('SELECT record FROM relay_codex_usage WHERE owner=? AND id=?');
+ const byPair=db.prepare('SELECT record FROM relay_codex_usage WHERE owner=? AND comparison_id=? AND variant=?');
+ const insert=db.prepare('INSERT OR IGNORE INTO relay_codex_usage(owner,id,recorded_at,comparison_id,variant,record) VALUES(?,?,?,?,?,?)');
+ const recent=db.prepare('SELECT record FROM relay_codex_usage WHERE owner=? ORDER BY recorded_at DESC,id LIMIT 12');
+ const prune=db.prepare('DELETE FROM relay_codex_usage WHERE owner=? AND id IN (SELECT id FROM relay_codex_usage WHERE owner=? ORDER BY recorded_at DESC,id LIMIT -1 OFFSET 1000)');
+ return {
+  record(value){
+   const run=codexUsageRecord(value);
+   if(!run)return 'invalid';
+   const json=canonical(run);
+   db.exec('BEGIN IMMEDIATE');
+   try{
+    const added=insert.run(owner,run.id,run.recordedAt,run.comparisonId,run.variant,json).changes===1;
+    const status=added?'saved':byId.get(owner,run.id)?.record===json?'duplicate':'conflict';
+    if(added)prune.run(owner,owner);
+    db.exec('COMMIT');
+    return status;
+   }catch(error){db.exec('ROLLBACK');throw error;}
+  },
+  list(){
+   return recent.all(owner).map(({record})=>{
+    const run=JSON.parse(record);
+    const baseline=run.variant==='assisted'&&JSON.parse(byPair.get(owner,run.comparisonId,'baseline')?.record??'null');
+    const baselineTokens=baseline&&baseline.model===run.model&&baseline.effort===run.effort?baseline.totalTokens:null;
+    return {...run,baselineTokens,
+     baselineFreshTokens:baselineTokens===null?null:baselineTokens-baseline.cachedInputTokens,
+     savedTokens:baselineTokens===null?null:baselineTokens-run.totalTokens};
+   });
+  }
+ };
+}
 // Production ledger contains immutable work/results, not replacement Board
 // messages, questions or approvals. The Board remains their only persistence owner.
 export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
@@ -115,5 +170,5 @@ export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
   const nextCursor=rows.length>limit?Buffer.from(JSON.stringify({v:1,createdAt:last.createdAt,ref:last.ref})).toString('base64url'):null;
   const result={rows:page,nextCursor};if(Buffer.byteLength(JSON.stringify(result))>16384)deny();return result;
  }
- return {accept,claimNext,startInvocation,recordInvocationDiagnostic,renewLease,getTaskContext,appendReply,cancel,consumeNonce,get,scopedStats,recentJobs,close:()=>db.close(),getReplyByRequestId:id=>{const r=get(id);return r?.response_id?{reply_id:r.response_id}:null;},markCompleted:i=>transition(i,'completed'),markBlocked:i=>transition(i,'blocked',i.error),markFailed:i=>transition(i,'failed',i.error),stats:()=>db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs GROUP BY state').all()};
+ return {accept,claimNext,startInvocation,recordInvocationDiagnostic,renewLease,getTaskContext,appendReply,cancel,consumeNonce,get,scopedStats,recentJobs,openCodexUsage:owner=>openCodexUsage(db,owner),close:()=>db.close(),getReplyByRequestId:id=>{const r=get(id);return r?.response_id?{reply_id:r.response_id}:null;},markCompleted:i=>transition(i,'completed'),markBlocked:i=>transition(i,'blocked',i.error),markFailed:i=>transition(i,'failed',i.error),stats:()=>db.prepare('SELECT state,COUNT(*) AS count FROM relay_jobs GROUP BY state').all()};
 }

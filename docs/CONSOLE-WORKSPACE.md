@@ -19,13 +19,94 @@ reload. The same job and request data remain visible.
 
 | View | What to use it for |
 | --- | --- |
-| Overview | Check service reachability, provider/new-work availability, result recovery, scoped job counts and recent activity. Read the blocking reason and observation age. |
+| Overview | Check readiness, job counts, recent activity and recorded Codex usage in Savings. |
 | Jobs | Inspect recorded jobs. In v1, choose a named row and Open request for progress/results across the configured owner; legacy hosts retain finite-catalogue result selection. |
 | Requests | In v1, create an ordinary brief, review exact input/limits, approve one call, recover/export its answer and record a local review. Legacy hosts show the finite picker. |
 | Groq | Watch current provider availability, relay outcome totals, recent activity and observation time. Request limits and safeguards are collapsed below the live data. |
 | System | Inspect readable version, sequence, source commit, physical release fingerprint and dated updater activity. |
 
 ![Choose new work or recover a saved result](images/using-picard.svg)
+
+## Measure Codex usage
+
+**Overview → Savings** records completed Codex turns once the connection is
+enabled. Each row shows Codex's reported input, cached input and output tokens,
+and the Picard tools that completed in that turn. The latest 12 runs appear in
+Overview. Open a row for the counts and comparison details.
+
+Run the same task twice with the same model and reasoning setting. Assign both
+runs the same comparison ID, and mark one as the baseline and the other as
+assisted. A baseline must have no recorded Picard tool call and an assisted
+run must have a successful one. The headline compares total input and output
+tokens. The assisted row also compares fresh input and output, excluding
+cached input. The comparison can show lower, higher, or equal usage. Check
+both answers before drawing a conclusion about efficiency. A regular turn
+shows its observed usage and leaves savings unmeasured. Reported token counts
+are separate from the plan's remaining allowance.
+
+### Connect native Codex completion
+
+For an enrolled host, create a dedicated random 32-byte token encoded as 64
+lowercase hex characters. Put it in an owner-private file readable by the relay
+service (0600 and owned by the service account on Linux). Set
+`BRIDGE_CODEX_USAGE_TOKEN_FILE` to that file and permit the exact
+`POST /codex/usage` route in the HTTPS proxy using the
+[workspace proxy example](../deploy/Caddyfile.workspace.example).
+Restart the relay to load the setting. The token can add usage records only.
+Reading Savings uses the normal signed-in console. Each owner keeps the newest
+1,000 records in the relay's SQLite database.
+
+Put a private copy of that token on the Codex machine. On a local Codex
+installation that supports completion notifications, configure the following
+top-level `notify` value for a trusted project or a test profile. Use absolute
+paths to Node 24, the [callback](../tools/codex-usage-notify.mjs), and the token
+file. If you already use a completion callback, invoke both commands from
+your existing callback. Set `--server-name` when your Picard connection uses
+a name other than `picard`.
+
+```toml
+notify = [
+  "/absolute/path/to/node",
+  "/absolute/path/to/picard-relay/tools/codex-usage-notify.mjs",
+  "--endpoint", "https://relay.example.com/codex/usage",
+  "--token-file", "/private/path/picard-usage-token"
+]
+```
+
+Codex calls the program at the end of each turn. It projects counts locally
+from the completed turn's transcript and sends the hashed turn ID, counts,
+timestamp, model, and successful Picard tool names. Prompts, answers and tool
+arguments stay local. Delivery failures retain a small pending record beside the
+token file, or in the directory set by `--outbox`. Later completions retry
+delivery with the same ID. A collector unable to read a supported transcript
+does not invent usage. Verify notification support on your client before
+relying on automatic collection.
+
+Some Codex clients keep orchestrated tool calls in the machine-readable
+`codex exec --json` event stream. For a one-turn test in that mode, direct
+stdout to a fresh local JSONL file and add `"--exec-events", "/path/to/file.jsonl"`
+to the notification command. The callback checks the thread and token totals
+before using the tool events for attribution.
+
+### Test it locally
+
+1. Generate a disposable 64-hex-character token file and set
+   `PICARD_PREVIEW_CODEX_USAGE_TOKEN_FILE` to its absolute path. Run
+   `npm run preview:v1` with Node 24 and open the reported address at
+   `/#overview`. The preview uses isolated relay data.
+2. Use the notification configuration above for a test profile, with the
+   disposable token and `http://127.0.0.1:4391/codex/usage` as the endpoint
+   (or use the actual preview port). Complete a short Codex turn and refresh
+   Overview. A new row should appear without a file import.
+3. To test a comparison, run a repeatable task in two fresh Codex sessions.
+   Append `"--comparison", "pilot-1", "--variant", "baseline"` to the first
+   session's notification arguments. Use `"assisted"` in the second and
+   enable and use an existing Picard tool. Refresh Overview and expand the
+   assisted row. Use a new comparison ID for each new pair.
+
+The recording and authenticated read/write checks can also run without a
+Codex session with
+`node --test experimental/runtime-control/test/codex-usage.test.mjs`.
 
 ## Suggest a feature or report a bug
 
