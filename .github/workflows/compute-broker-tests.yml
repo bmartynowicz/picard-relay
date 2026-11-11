@@ -56,4 +56,4 @@ jobs:
       - name: Dispatch the exact approved CI job through Picard MCP once
         env:
           PICARD_COMPUTE_GITHUB_TOKEN: ${{ github.token }}
-        run: node experimental/compute-broker/unattended.mjs
+        run: node experimental/compute-broker/verify-live-batches.mjs
