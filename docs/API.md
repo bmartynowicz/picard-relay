@@ -140,6 +140,13 @@ saved result export to prepare the first prompt.
 node tools/codex-handoff.mjs --brief task.txt --context sources.txt --result picard.json | codex exec --sandbox read-only -
 ```
 
+Supply an acceptance checklist with `--acceptance checklist.txt` when the task
+has specific checks. The helper keeps those criteria in the first prompt for
+both the original-source and Picard-assisted paths, including a fallback.
+Use the same checklist for both sides of a Savings comparison so the first
+draft can address every check before review. The JavaScript API accepts the
+same text as `acceptanceCriteria`.
+
 The helper checks that the saved answer is complete and matches its SHA-256.
 It uses the proposal only when the prepared prompt is at least 512 bytes
 smaller and at least 25% shorter in UTF-8. It keeps the original context if

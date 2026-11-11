@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {test} from 'node:test';
+import {mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {prepareCodexHandoff} from '../tools/codex-handoff.mjs';
 
 const brief = 'Write the review checklist.';
@@ -52,4 +58,34 @@ test('incomplete, changed or rejected results cannot replace source context', ()
     assert.equal(handoff.reason, 'no_verified_replacement');
     assert(handoff.prompt.includes(sourceContext));
   }
+});
+
+test('acceptance criteria stay in the task across direct, compact and fallback handoffs', () => {
+  const acceptanceCriteria = 'Name the playback triggers and their acceptance tests.';
+  for (const input of [
+    {brief}, {brief, sourceContext}, {brief, sourceContext, savedResult: saved},
+    {brief, sourceContext: 'Short source', savedResult: saved},
+  ]) {
+    const handoff = prepareCodexHandoff({...input, acceptanceCriteria});
+    assert(handoff.prompt.startsWith(brief + '\n\nAcceptance criteria\n' + acceptanceCriteria));
+    assert.equal(handoff.prompt.split(acceptanceCriteria).length, 2);
+  }
+  assert.throws(() => prepareCodexHandoff({brief, acceptanceCriteria: null}), /Acceptance criteria/);
+  assert.throws(() => prepareCodexHandoff({brief, acceptanceCriteria: 'x'.repeat(16_001)}), /Acceptance criteria/);
+});
+
+test('the CLI includes the supplied acceptance file before the saved proposal', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'picard-handoff-'));
+  t.after(() => rm(directory, {recursive: true, force: true}));
+  const criteria = 'Include TAP, ON_VISIBLE and the clock-boundary triggers.';
+  for (const [name, contents] of Object.entries({
+    'brief.txt': brief, 'criteria.txt': criteria, 'source.txt': sourceContext, 'result.json': JSON.stringify(saved),
+  })) await writeFile(join(directory, name), contents);
+  const script = fileURLToPath(new URL('../tools/codex-handoff.mjs', import.meta.url));
+  const {stdout, stderr} = await promisify(execFile)(process.execPath, [script,
+    '--brief', join(directory, 'brief.txt'), '--acceptance', join(directory, 'criteria.txt'),
+    '--context', join(directory, 'source.txt'), '--result', join(directory, 'result.json')]);
+  assert.match(stderr, /preloaded/);
+  assert(stdout.indexOf(criteria) < stdout.indexOf('picardProposal'));
+  assert.equal(await readFile(join(directory, 'criteria.txt'), 'utf8'), criteria);
 });

@@ -7,6 +7,7 @@ import {parseArgs} from 'node:util';
 const minSavedBytes = 512;
 const maxContextBytes = 1024 * 1024;
 const maxProposalBytes = 16_000;
+const maxAcceptanceBytes = 16_000;
 const hex = /^[0-9a-f]{64}$/;
 
 function verifiedAnswer(saved) {
@@ -25,17 +26,20 @@ function withContext(brief, name, context) {
     + JSON.stringify({[name]: context});
 }
 
-export function prepareCodexHandoff({brief, sourceContext = '', savedResult = null}) {
+export function prepareCodexHandoff({brief, sourceContext = '', savedResult = null, acceptanceCriteria = ''}) {
   if (typeof brief !== 'string' || !brief.trim()) throw new Error('A task brief is required.');
+  if (typeof acceptanceCriteria !== 'string' || Buffer.byteLength(acceptanceCriteria) > maxAcceptanceBytes)
+    throw new Error('Acceptance criteria must be text at most 16,000 bytes.');
   if (typeof sourceContext !== 'string' || Buffer.byteLength(sourceContext) > maxContextBytes)
     throw new Error('Source context must be text at most 1 MiB.');
-  if (!sourceContext.trim()) return {mode: 'direct', reason: 'no_source_context', prompt: brief};
+  const task = acceptanceCriteria.trim() ? brief + '\n\nAcceptance criteria\n' + acceptanceCriteria : brief;
+  if (!sourceContext.trim()) return {mode: 'direct', reason: 'no_source_context', prompt: task};
 
-  const original = withContext(brief, 'sourceContext', sourceContext);
+  const original = withContext(task, 'sourceContext', sourceContext);
   const direct = {mode: 'direct', reason: 'no_verified_replacement', prompt: original};
   const answer = verifiedAnswer(savedResult);
   if (!answer) return direct;
-  const prepared = withContext(brief, 'picardProposal', answer);
+  const prepared = withContext(task, 'picardProposal', answer);
   const originalBytes = Buffer.byteLength(original);
   const preparedBytes = Buffer.byteLength(prepared);
   if (originalBytes - preparedBytes < minSavedBytes || preparedBytes > originalBytes * 0.75)
@@ -45,15 +49,17 @@ export function prepareCodexHandoff({brief, sourceContext = '', savedResult = nu
 
 async function main() {
   const {values} = parseArgs({options: {
-    brief: {type: 'string'}, context: {type: 'string'}, result: {type: 'string'}, help: {type: 'boolean'},
+    brief: {type: 'string'}, context: {type: 'string'}, result: {type: 'string'},
+    acceptance: {type: 'string'}, help: {type: 'boolean'},
   }});
   if (values.help) {
-    console.log('Usage: node tools/codex-handoff.mjs --brief TASK.txt [--context SOURCE.txt --result PICARD.json]');
+    console.log('Usage: node tools/codex-handoff.mjs --brief TASK.txt [--acceptance CHECKLIST.txt] [--context SOURCE.txt --result PICARD.json]');
     return;
   }
   if (!values.brief) throw new Error('Specify the task file with --brief.');
   const utf8 = new TextDecoder('utf-8', {fatal: true});
   const brief = utf8.decode(await readFile(values.brief));
+  const acceptanceCriteria = values.acceptance ? utf8.decode(await readFile(values.acceptance)) : '';
   const sourceContext = values.context ? utf8.decode(await readFile(values.context)) : '';
   let savedResult = null;
   if (values.result && sourceContext.trim()) {
@@ -64,7 +70,7 @@ async function main() {
       // The original source remains available if the export cannot be read.
     }
   }
-  const selected = prepareCodexHandoff({brief, sourceContext, savedResult});
+  const selected = prepareCodexHandoff({brief, sourceContext, savedResult, acceptanceCriteria});
   process.stderr.write('Picard handoff: ' + selected.mode + ' (' + selected.reason + ')\n');
   process.stdout.write(selected.prompt + '\n');
 }
