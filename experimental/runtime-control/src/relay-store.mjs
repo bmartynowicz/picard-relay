@@ -101,34 +101,7 @@ function openCodexUsage(db,owner){
   try{const result=write();db.exec(result==='conflict'?'ROLLBACK':'COMMIT');return result;}
   catch(error){db.exec('ROLLBACK');throw error;}
  }
- return {
-  record(value){
-   if(!value||typeof value!=='object'||Array.isArray(value))return 'invalid';
-   if(value.kind==='workflow')return workflowRecord(value);
-   if(value.kind==='picard-call')return transaction(()=>callRecord(value));
-   const {followUpTo,...fields}=value;
-   const run=codexUsageRecord(fields);
-   if(!run)return 'invalid';
-   if(followUpTo!==undefined&&(!isId(followUpTo)||followUpTo===run.id||run.variant!==null))return 'invalid';
-   const json=canonical(run);
-   return transaction(()=>{
-    const added=insert.run(owner,run.id,run.recordedAt,run.comparisonId,run.variant,json).changes===1;
-    if(!added&&byId.get(owner,run.id)?.record!==json)return 'conflict';
-    const linked=followUpTo===undefined?'duplicate':link(run,followUpTo,{allowPending:true});
-    if(linked==='conflict')return linked;
-    if(added&&prune.run(owner,owner).changes)pruneLinks.run(owner,owner);
-    return added||linked==='saved'?'saved':'duplicate';
-   });
-  },
-  attach(value){
-   if(!value||Object.keys(value).length!==2||!isId(value.id)||!isId(value.followUpTo)||value.id===value.followUpTo)return 'invalid';
-   return transaction(()=>{
-    const run=get(value.id),original=get(value.followUpTo);
-    if(!run||!original||(!original.variant&&!original.tools.length))return 'conflict';
-    return link(run,value.followUpTo);
-   });
-  },
-  list(){
+ function project(){
    const entries=recent.all(owner).map(({record,original_id})=>({run:JSON.parse(record),originalId:original_id}));
    const baselineByPair=new Map(),explicitAssisted=new Set(),followUps=new Map();
    for(const {run,originalId} of entries){
@@ -198,8 +171,62 @@ function openCodexUsage(db,owner){
      ...(originalId?{followUpTo:originalId}:{}),...(comparison?{comparison}:{})};
    });
    const activity=run=>run.comparison?Math.max(run.comparison.baseline.lastRecordedAt,run.comparison.assisted.lastRecordedAt):run.recordedAt;
-   return projected.sort((a,b)=>activity(b)-activity(a)).slice(0,12);
-  }
+   return projected.sort((a,b)=>activity(b)-activity(a)||a.id.localeCompare(b.id));
+ }
+ function overview(){
+  // Keep the recent rows and the wider rolling window on one SQLite snapshot.
+  db.exec('BEGIN');
+  try{
+   const projected=project(),eligible=[],excluded={legacy:0,incomplete:0,unpriced:0};
+   for(const row of projected){
+    const pair=row.comparison;
+    if(!pair)continue;
+    const b=pair.baseline.workflow,a=pair.assisted.workflow;
+    if(!b&&!a){excluded.legacy++;continue;}
+    if(!b?.complete||!a?.complete){excluded.incomplete++;continue;}
+    if(!Number.isFinite(b.codexCredits)||b.codexCredits<=0||!Number.isFinite(a.codexCredits)||a.codexCredits<0){excluded.unpriced++;continue;}
+    eligible.push({baseline:b.codexCredits,assisted:a.codexCredits,recordedAt:Math.max(pair.baseline.lastRecordedAt,pair.assisted.lastRecordedAt)});
+   }
+   const selected=eligible.slice(0,20),sampleCount=selected.length;
+   const sum=key=>selected.reduce((n,row)=>n+row[key],0);
+   const baselineCredits=sampleCount?sum('baseline'):null,assistedCredits=sampleCount?sum('assisted'):null;
+   const savedCredits=sampleCount?baselineCredits-assistedCredits:null;
+   const rolling={windowSize:20,sampleCount,eligibleCount:eligible.length,baselineCredits,assistedCredits,savedCredits,
+    savedPercent:sampleCount?savedCredits/baselineCredits*100:null,
+    increasedCount:selected.filter(row=>row.assisted>row.baseline).length,
+    fromRecordedAt:sampleCount?selected.at(-1).recordedAt:null,toRecordedAt:sampleCount?selected[0].recordedAt:null,excluded};
+   db.exec('COMMIT');return {runs:projected.slice(0,12),rolling};
+  }catch(error){db.exec('ROLLBACK');throw error;}
+ }
+ return {
+  record(value){
+   if(!value||typeof value!=='object'||Array.isArray(value))return 'invalid';
+   if(value.kind==='workflow')return workflowRecord(value);
+   if(value.kind==='picard-call')return transaction(()=>callRecord(value));
+   const {followUpTo,...fields}=value;
+   const run=codexUsageRecord(fields);
+   if(!run)return 'invalid';
+   if(followUpTo!==undefined&&(!isId(followUpTo)||followUpTo===run.id||run.variant!==null))return 'invalid';
+   const json=canonical(run);
+   return transaction(()=>{
+    const added=insert.run(owner,run.id,run.recordedAt,run.comparisonId,run.variant,json).changes===1;
+    if(!added&&byId.get(owner,run.id)?.record!==json)return 'conflict';
+    const linked=followUpTo===undefined?'duplicate':link(run,followUpTo,{allowPending:true});
+    if(linked==='conflict')return linked;
+    if(added&&prune.run(owner,owner).changes)pruneLinks.run(owner,owner);
+    return added||linked==='saved'?'saved':'duplicate';
+   });
+  },
+  attach(value){
+   if(!value||Object.keys(value).length!==2||!isId(value.id)||!isId(value.followUpTo)||value.id===value.followUpTo)return 'invalid';
+   return transaction(()=>{
+    const run=get(value.id),original=get(value.followUpTo);
+    if(!run||!original||(!original.variant&&!original.tools.length))return 'conflict';
+    return link(run,value.followUpTo);
+   });
+  },
+  list(){return overview().runs;},
+  overview
  };
 }
 // Production ledger contains immutable work/results, not replacement Board

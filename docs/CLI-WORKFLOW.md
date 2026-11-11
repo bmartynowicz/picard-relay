@@ -104,3 +104,13 @@ provider call or duplicate phase/root allocation leaves the workflow incomplete.
 Known usage remains visible, but no full total or full-workflow saving is claimed.
 Provider telemetry is observational; it changes no approval, one-call boundary,
 retry policy or billing authority. Human time is not measured.
+
+Overview's rolling headline uses the latest 20 complete, comparable workflows
+from retained usage history, ordered by latest recorded activity including fixes.
+It divides the difference between combined Codex credit totals by the combined
+baseline total; it does not average task percentages. Both sides must have full
+coverage and usable credit estimates with a positive baseline. Cost increases
+remain included. Legacy/incomplete/unpriced comparisons remain visible but do
+not enter the headline, and no eligible comparison means “not yet measured”.
+The sample count and combined totals accompany the estimated savings. Provider
+tokens remain separate from Codex credits; actual allowance is not measured.
