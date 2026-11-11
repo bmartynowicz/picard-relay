@@ -7,7 +7,7 @@ import {promisify} from 'node:util';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {prepareCodexHandoff} from '../tools/codex-handoff.mjs';
+import {prepareCodexHandoff, checkCodexAnswer} from '../tools/codex-handoff.mjs';
 
 const brief = 'Write the review checklist.';
 const sourceContext = 'Source details, boundaries, and expected tests. '.repeat(200);
@@ -88,4 +88,25 @@ test('the CLI includes the supplied acceptance file before the saved proposal', 
   assert.match(stderr, /preloaded/);
   assert(stdout.indexOf(criteria) < stdout.indexOf('picardProposal'));
   assert.equal(await readFile(join(directory, 'criteria.txt'), 'utf8'), criteria);
+  const checks = [{key: 'trigger', patterns: ['\\bTAP\\b', 'ON_VISIBLE'], fact: 'Include both trigger tests.'}];
+  await writeFile(join(directory, 'checks.json'), JSON.stringify(checks));
+  await writeFile(join(directory, 'answer.txt'), 'Test TAP and ON_VISIBLE.');
+  const args = [script, '--check', join(directory, 'answer.txt'), '--checks', join(directory, 'checks.json')];
+  const checked = await promisify(execFile)(process.execPath, args);
+  assert.deepEqual(JSON.parse(checked.stdout), {passed: true, missing: []});
+  await writeFile(join(directory, 'answer.txt'), 'Test TAP only.');
+  await assert.rejects(promisify(execFile)(process.execPath, args), error => {
+    assert.equal(error.code, 1);
+    assert.deepEqual(JSON.parse(error.stdout), {passed: false, missing: [{key: 'trigger', fact: checks[0].fact}]});
+    return true;
+  });
+});
+
+test('local checks report omissions and reject invalid check definitions', () => {
+  const checks = [{key: 'trigger', patterns: ['\\bTAP\\b', 'ON_VISIBLE'], fact: 'Include both trigger tests.'}];
+  assert.deepEqual(checkCodexAnswer({answer: 'tap, on_visible', checks}), {passed: true, missing: []});
+  assert.deepEqual(checkCodexAnswer({answer: 'TAP', checks}), {passed: false, missing: [{key: 'trigger', fact: checks[0].fact}]});
+  assert.throws(() => checkCodexAnswer({answer: null, checks}), /answer/);
+  for (const invalid of [[], null, [{key: 'trigger', patterns: [], fact: ''}], [{...checks[0], patterns: [null]}]])
+    assert.throws(() => checkCodexAnswer({answer: 'TAP', checks: invalid}), /checks/);
 });

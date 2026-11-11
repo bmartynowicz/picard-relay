@@ -47,17 +47,42 @@ export function prepareCodexHandoff({brief, sourceContext = '', savedResult = nu
   return {mode: 'preloaded', reason: 'smaller_verified_context', prompt: prepared, originalBytes, preparedBytes};
 }
 
+export function checkCodexAnswer({answer, checks}) {
+  if (typeof answer !== 'string' || Buffer.byteLength(answer) > maxContextBytes)
+    throw new Error('The answer must be text at most 1 MiB.');
+  if (!Array.isArray(checks) || !checks.length || checks.length > 64 || checks.some(check =>
+    !check || typeof check.key !== 'string' || !check.key.trim() || check.key.length > 100
+    || typeof check.fact !== 'string' || check.fact.length > 2000
+    || !Array.isArray(check.patterns) || !check.patterns.length || check.patterns.length > 16
+    || check.patterns.some(pattern => typeof pattern !== 'string' || !pattern || pattern.length > 512)))
+    throw new Error('Supply at most 64 named checks with facts and bounded regular expression patterns.');
+  const missing = checks.filter(check => !check.patterns.every(pattern => new RegExp(pattern, 'i').test(answer)))
+    .map(({key, fact}) => ({key, fact}));
+  return {passed: missing.length === 0, missing};
+}
+
 async function main() {
   const {values} = parseArgs({options: {
     brief: {type: 'string'}, context: {type: 'string'}, result: {type: 'string'},
-    acceptance: {type: 'string'}, help: {type: 'boolean'},
+    acceptance: {type: 'string'}, check: {type: 'string'}, checks: {type: 'string'}, help: {type: 'boolean'},
   }});
   if (values.help) {
     console.log('Usage: node tools/codex-handoff.mjs --brief TASK.txt [--acceptance CHECKLIST.txt] [--context SOURCE.txt --result PICARD.json]');
+    console.log('Check an answer locally: node tools/codex-handoff.mjs --check ANSWER.txt --checks CHECKS.json');
+    return;
+  }
+  const utf8 = new TextDecoder('utf-8', {fatal: true});
+  if (values.check || values.checks) {
+    if (!values.check || !values.checks || values.brief || values.context || values.result || values.acceptance)
+      throw new Error('Use --check and --checks together to validate an answer.');
+    const answer = utf8.decode(await readFile(values.check));
+    const checks = JSON.parse(utf8.decode(await readFile(values.checks)));
+    const result = checkCodexAnswer({answer, checks});
+    console.log(JSON.stringify(result));
+    process.exitCode = result.passed ? 0 : 1;
     return;
   }
   if (!values.brief) throw new Error('Specify the task file with --brief.');
-  const utf8 = new TextDecoder('utf-8', {fatal: true});
   const brief = utf8.decode(await readFile(values.brief));
   const acceptanceCriteria = values.acceptance ? utf8.decode(await readFile(values.acceptance)) : '';
   const sourceContext = values.context ? utf8.decode(await readFile(values.context)) : '';
