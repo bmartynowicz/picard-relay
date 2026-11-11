@@ -32,6 +32,14 @@ test('a verified smaller proposal replaces context in the first prompt', () => {
   assert(!handoff.prompt.includes(sourceContext));
 });
 
+test('an existing chat can retain its source prefix without another copy or proposal', () => {
+  const acceptanceCriteria = 'Preserve the evidence identifiers.';
+  const handoff = prepareCodexHandoff({brief, sourceContext, savedResult: saved, acceptanceCriteria, sourceAlreadyInContext: true});
+  assert.deepEqual(handoff, {mode: 'direct', reason: 'source_already_in_context',
+    prompt: brief + '\n\nAcceptance criteria\n' + acceptanceCriteria});
+  assert.throws(() => prepareCodexHandoff({brief, sourceAlreadyInContext: 'true'}), /boolean/);
+});
+
 test('a small reduction or an oversized proposal keeps the original source', () => {
   const context = 'Short source context.';
   const handoff = prepareCodexHandoff({brief, sourceContext: context, savedResult: saved});
@@ -88,6 +96,10 @@ test('the CLI includes the supplied acceptance file before the saved proposal', 
   assert.match(stderr, /preloaded/);
   assert(stdout.indexOf(criteria) < stdout.indexOf('picardProposal'));
   assert.equal(await readFile(join(directory, 'criteria.txt'), 'utf8'), criteria);
+  const continued = await promisify(execFile)(process.execPath, [script,
+    '--brief', join(directory, 'brief.txt'), '--acceptance', join(directory, 'criteria.txt'), '--source-in-context']);
+  assert.match(continued.stderr, /source_already_in_context/);
+  assert.equal(continued.stdout.trim(), brief + '\n\nAcceptance criteria\n' + criteria);
   const checks = [{key: 'trigger', patterns: ['\\bTAP\\b', 'ON_VISIBLE'], fact: 'Include both trigger tests.'}];
   await writeFile(join(directory, 'checks.json'), JSON.stringify(checks));
   await writeFile(join(directory, 'answer.txt'), 'Test TAP and ON_VISIBLE.');

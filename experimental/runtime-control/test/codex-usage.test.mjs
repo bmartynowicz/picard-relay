@@ -107,9 +107,30 @@ test('comparison totals include linked turns on either side without rewriting us
  assert.equal(measured.totalTokens,8000);
  assert.equal(measured.baselineTokens,12000);
  assert.deepEqual(measured.comparison,{
-  id:'sample',baseline:{totalTokens:12350,freshTokens:4150,followUpTokens:350,followUpCount:1,lastRecordedAt:3000},
-  assisted:{totalTokens:8800,freshTokens:2900,followUpTokens:800,followUpCount:2,lastRecordedAt:4000}
+  id:'sample',baseline:{totalTokens:12350,inputTokens:10300,cachedInputTokens:8200,outputTokens:2050,standardCredits:null,freshTokens:4150,followUpTokens:350,followUpCount:1,lastRecordedAt:3000},
+  assisted:{totalTokens:8800,inputTokens:8200,cachedInputTokens:5900,outputTokens:600,standardCredits:null,freshTokens:2900,followUpTokens:800,followUpCount:2,lastRecordedAt:4000}
  });
+});
+
+test('Standard credit estimates expose a cache regression and count corrections on both sides', t=>{
+ const store=createRelayStore({dbPath:':memory:'});t.after(()=>store.close());
+ const usage=store.openCodexUsage('owner');
+ const baseline={...run,model:'gpt-6.1-sol',inputTokens:17352,cachedInputTokens:12288,outputTokens:985};
+ const withPicard={...assisted,model:'gpt-6.1-sol',inputTokens:16500,cachedInputTokens:7168,outputTokens:921};
+ usage.record(baseline);usage.record(withPicard);
+ let pair=usage.list().find(row=>row.id===withPicard.id).comparison;
+ assert.equal(pair.baseline.standardCredits,.53017);
+ assert.equal(pair.assisted.standardCredits,.71477);
+ assert(pair.assisted.totalTokens<pair.baseline.totalTokens);
+ assert(pair.assisted.standardCredits>pair.baseline.standardCredits);
+ for(const [id,original] of [['c',baseline],['d',withPicard]])usage.record({...original,id:id.repeat(64),recordedAt:3000,
+  comparisonId:null,variant:null,tools:[],inputTokens:100,cachedInputTokens:40,outputTokens:20,followUpTo:original.id});
+ pair=usage.list().find(row=>row.id===withPicard.id).comparison;
+ assert(Math.abs(pair.baseline.standardCredits-(.53017+.0081))<1e-12);
+ assert(Math.abs(pair.assisted.standardCredits-(.71477+.0081))<1e-12);
+ assert.equal(pair.assisted.followUpCount,1);
+ usage.record({...withPicard,id:'e'.repeat(64),recordedAt:4000,comparisonId:null,variant:null,model:'unknown-model',followUpTo:withPicard.id});
+ assert.equal(usage.list().find(row=>row.id===withPicard.id).comparison.assisted.standardCredits,null);
 });
 
 test('Codex callback projects only completed turn usage and successful Picard tool names',async t=>{

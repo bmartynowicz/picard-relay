@@ -701,6 +701,8 @@ function renderCodexSavings(usage){
  const pairs=runs.flatMap(run=>run.comparison?[run.comparison]:[]);
  const measured=pairs[0];
  const number=value=>value.toLocaleString();
+ const credits=value=>value.toLocaleString(undefined,{minimumFractionDigits:4,maximumFractionDigits:4});
+ const hasCredits=pair=>[pair.baseline.standardCredits,pair.assisted.standardCredits].every(value=>typeof value==='number'&&Number.isFinite(value));
  const headline=$('codex-savings-headline');
  const note=$('codex-savings-note');
  const element=(tag,text='',className='')=>{
@@ -711,7 +713,13 @@ function renderCodexSavings(usage){
   const difference=(Math.abs(saved)*100/baseline.totalTokens).toLocaleString(undefined,{maximumFractionDigits:1});
   return saved===0?'Same total Codex tokens':difference+'% '+(saved>0?'fewer':'more')+' total Codex tokens';
  };
- headline.textContent=measured?usageChange(measured):'Savings not yet measured';
+ const creditChange=pair=>{
+  const saved=pair.baseline.standardCredits-pair.assisted.standardCredits;
+  if(pair.baseline.standardCredits===0)return 'Estimated Standard credits: compare totals below';
+  const difference=(Math.abs(saved)*100/pair.baseline.standardCredits).toLocaleString(undefined,{maximumFractionDigits:1});
+  return saved===0?'Same estimated Standard credits':difference+'% '+(saved>0?'fewer':'more')+' estimated Standard credits';
+ };
+ headline.textContent=measured?(hasCredits(measured)?creditChange(measured):usageChange(measured)):'Savings not yet measured';
  note.textContent=measured
   ?number(measured.baseline.totalTokens)+' tokens on its own · '+number(measured.assisted.totalTokens)+' with Picard'
   :usage?.state==='unavailable'?'Usage records are temporarily unavailable.'
@@ -720,16 +728,25 @@ function renderCodexSavings(usage){
  for(const pair of pairs){
   const article=element('article');
   const sides=element('div','','savings-sides');
-  article.append(element('h3',pair.id),sides,element('p',usageChange(pair),'muted'));
+  article.append(element('h3',pair.id),sides,element('p',hasCredits(pair)?creditChange(pair):'Credit estimate unavailable','muted'),element('p',usageChange(pair),'muted'));
   for(const [label,side] of [['Codex alone',pair.baseline],['With Picard',pair.assisted]]){
    const cell=element('div');
    cell.append(element('p',label),element('strong',number(side.totalTokens)+' tokens'),
     element('p',number(side.freshTokens)+' fresh input + output','muted'));
+   if(typeof side.standardCredits==='number')cell.append(element('p',credits(side.standardCredits)+' estimated Standard credits'));
+   if(Number.isSafeInteger(side.cachedInputTokens))cell.append(element('p',number(side.inputTokens-side.cachedInputTokens)+' uncached input · '+number(side.cachedInputTokens)+' cached · '+number(side.outputTokens)+' output','muted'));
    if(side.followUpCount){
     const count=side.followUpCount;
     cell.append(element('p','Includes '+number(side.followUpTokens)+' tokens across '+count+' follow-up '+(count===1?'turn':'turns'),'muted'));
-   }
+   }else if(side.followUpCount===0)cell.append(element('p','Follow-up fixes: 0 turns · 0 tokens','muted'));
    sides.append(cell);
+  }
+  if(hasCredits(pair)){
+   const cacheDelta=pair.assisted.cachedInputTokens-pair.baseline.cachedInputTokens;
+   article.append(element('p',cacheDelta?'Cache reuse: '+number(Math.abs(cacheDelta))+' '+(cacheDelta>0?'more':'fewer')+' cached input tokens with Picard. Different cache reuse affects the credit comparison.':'Same cached input on both sides.','muted'));
+   const basis=element('details');
+   basis.append(element('summary','How credits are estimated'),element('p','Estimate uses GPT-6.1 Sol Standard rates dated 11 Nov 2026: 50 uncached / 2.5 cached / 250 output credits per million tokens. Includes linked fixes; excludes Picard provider usage. Speed, billing and included subscription allowance are not measured.','muted'));
+   article.append(basis);
   }
   comparisons.append(article);
  }
