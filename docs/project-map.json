@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-08",
+  "updatedAt": "2026-11-11",
   "project": "Picard Relay",
   "summary": "Self-hosted Node.js and SQLite delivery layer for exact approved AI requests, durable one-shot invocation and saved-result recovery.",
   "documentationIndex": "docs/README.md",
@@ -102,6 +102,14 @@
   },
   "components": [
     {
+      "path": "tools/workspace-mcp.mjs",
+      "role": "local read-only owner-workspace MCP stdio adapter; existing authenticated HTTPS GETs, outside signed runtime"
+    },
+    {
+      "path": "tools/workspace-readonly.mjs",
+      "role": "fixed-origin GET-only workspace client with protected owner sessions, bounded data and saved-answer integrity checks"
+    },
+    {
       "path": "experimental/runtime-control/src/oracle-service.mjs",
       "role": "service, configuration, owner auth, typed status, base console"
     },
@@ -198,6 +206,8 @@
     "npm run docs:check"
   ],
   "guides": [
+    "docs/WORKSPACE-MCP.md",
+    "docs/CLI-OWNER-SESSION.md",
     "docs/QUICKSTART.md",
     "docs/CONSOLE-WORKSPACE.md",
     "docs/COCKPIT-TOUR.md",
