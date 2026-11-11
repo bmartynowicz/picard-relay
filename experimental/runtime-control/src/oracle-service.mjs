@@ -682,6 +682,7 @@ const SAVINGS_STYLE=String.raw`
 #codex-savings-runs p{margin:4px 0 4px 14px}
 #codex-savings-comparisons article{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
 #codex-savings-comparisons h3{margin:0 0 8px;font-size:14px}
+#codex-savings-comparisons summary{min-height:44px;padding:12px 0;cursor:pointer}
 .savings-sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .savings-sides p{margin:2px 0;font-size:13px}
 .savings-sides strong{display:block;font-size:clamp(15px,3vw,20px)}
@@ -722,7 +723,7 @@ function renderCodexSavings(usage){
   const difference=(Math.abs(saved)*100/pair.baseline.standardCredits).toLocaleString(undefined,{maximumFractionDigits:1});
   return saved===0?'Same estimated Standard credits':difference+'% '+(saved>0?'fewer':'more')+' estimated Standard credits';
  };
- headline.textContent=measured?(scoped(measured)?full(measured)?'Full workflow · '+(hasCredits(fullCredits(measured))?creditChange(fullCredits(measured)):'Compare provider totals below'):'Full workflow not yet measured':(hasCredits(measured)?creditChange(measured):usageChange(measured))):'Savings not yet measured';
+ headline.textContent=measured?(scoped(measured)?full(measured)?'Full workflow · '+(hasCredits(fullCredits(measured))?creditChange(fullCredits(measured)).replace('Standard credits','Codex credits'):'Compare provider totals below'):'Full workflow not yet measured':(hasCredits(measured)?creditChange(measured):usageChange(measured))):'Savings not yet measured';
  note.textContent=measured
   ?full(measured)?number(measured.baseline.workflow.totalTokens)+' total reported tokens on its own · '+number(measured.assisted.workflow.totalTokens)+' with Picard (all providers)':scoped(measured)?'Some workflow usage is missing. Known usage is shown below.':number(measured.baseline.totalTokens)+' finishing + fix tokens on its own · '+number(measured.assisted.totalTokens)+' with Picard. Preparation and provider usage were not recorded.'
   :usage?.state==='unavailable'?'Usage records are temporarily unavailable.'
@@ -744,8 +745,8 @@ function renderCodexSavings(usage){
     cell.append(element('p',label),element('strong',w.complete?number(w.totalTokens)+' tokens across providers':number(w.knownTokens)+' known tokens · incomplete'));
     cell.append(element('p',number(w.codexTokens)+' Codex tokens · '+(typeof w.codexCredits==='number'?credits(w.codexCredits)+' estimated Standard credits':'credit estimate unavailable')));
     breakdown.append(element('summary','Usage breakdown'),
-     element('p','Preparation: '+number(w.preparationTokens)+' Codex tokens across '+w.preparationCount+' turns'),
-     element('p','Picard: '+w.picardCalls+' calls · '+(w.picardTokens===null?'usage unavailable':number(w.picardTokens)+' provider tokens')),
+     element('p','Preparation: '+number(w.preparationTokens)+' Codex tokens across '+w.preparationCount+' recorded '+(w.preparationCount===1?'step':'steps')),
+     element('p','Picard: '+w.picardCalls+(w.picardCalls===1?' call':' calls')+' · '+(w.picardTokens===null?'usage unavailable':number(w.picardTokens)+' provider tokens')),
      element('p','Finishing: '+number(w.finishingTokens)+' Codex tokens'),
      element('p','Fixes: '+number(w.followUpTokens)+' Codex tokens across '+w.followUpCount+' turns'),
      element('p','Provider billed cost unavailable. Codex credits apply only to Codex. Subscription allowance and human time are not measured.','muted'));

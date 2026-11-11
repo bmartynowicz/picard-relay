@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"c694fc8f8dea4efc192eefb1d6c6aba672ac70b2ee1a8b5f87098c25b081d51a");
+assert.equal(createHash('sha256').update(script).digest('hex'),"82328d0d67592b637a2315cdc84371a51620eb72c4f63853a9a99efd445ee40b");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:(?:stealth|cockpit)Preference|'picard:windshield-readout')\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\)|setItem\('picard:windshield-readout',hidden\?'hidden':'shown'\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
@@ -73,10 +73,10 @@ const wholeFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(
  {id:'whole',variant:'assisted',tools:['prepare_context'],model:'gpt-6.1-sol',recordedAt:3,inputTokens:10000,cachedInputTokens:0,outputTokens:1000,totalTokens:11000,
   comparison:{id:'whole-example',baseline:{...side(12000,12000),workflow:{...w,picardCalls:0,picardTokens:0,totalTokens:14000,codexTokens:14000,codexCredits:.8}},assisted:{...side(11000,11000),workflow:w}}}
 ]}}));await flush();
-assert.equal(wholeFlow.get('codex-savings-headline').textContent,'Full workflow · 25% fewer estimated Standard credits');
+assert.equal(wholeFlow.get('codex-savings-headline').textContent,'Full workflow · 25% fewer estimated Codex credits');
 const wholeCard=wholeFlow.get('codex-savings-comparisons').textContent;
 assert.match(wholeCard,/15,000 tokens across providers/);assert.match(wholeCard,/Preparation: 2,000 Codex tokens/);
-assert.match(wholeCard,/Picard: 1 calls · 2,000 provider tokens/);assert.match(wholeCard,/Fixes: 1,000 Codex tokens/);
+assert.match(wholeCard,/Picard: 1 call · 2,000 provider tokens/);assert.match(wholeCard,/Fixes: 1,000 Codex tokens/);
 assert.match(wholeCard,/Provider billed cost unavailable/);
 
 const displayPrefs=new Map(),displayStorage={getItem:key=>displayPrefs.get(key),setItem:(key,value)=>displayPrefs.set(key,value)};
