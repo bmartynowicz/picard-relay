@@ -42,18 +42,18 @@ exports are hidden; history, original answers and recovery remain available.
 
 ## Windshield HUD
 
-Select **Cockpit** beside Refresh or activate the insignia five times to switch
+Select **Cockpit view** above the Workspace or activate the insignia five times to switch
 to the optional windshield. A centered horizontal control rail keeps the navigation opaque
 and preserves the spinning upper-left insignia.
-The refresh control sits at the right of the same rail; documentation, motion
-and sign-out controls are grouped in its adjacent menu. Two
+Refresh sits at the right of the navigation. Documentation and sign-out are
+in its adjacent menu. Two
 small inline SVG star planes use independent 113-second and 179-second base
 loops, giving a sense of forward travel. Round stroke caps replace expanding
 square pixels; 128 irregularly placed points use two restrained sizes, and both
 planes start partway through their travel so the scene is visible immediately. The two planes still
 contain only four static paths. The opaque navigation covers the
-scene. **Cockpit stars** in the **…** menu controls the scene separately from the
-HUD. The browser remembers both display choices.
+scene. The curved rail integrates layout, **Stars**, motion, **Stealth** and **Auto**. Stars can be switched off while the HUD stays visible. The
+browser remembers both display choices.
 
 The compact view shows relay readiness, projected **active** and **completed**
 job counts, progress and the next useful action. These are real observed relay
@@ -62,14 +62,23 @@ observations show unknown counts. Clicking the counts opens Jobs; clicking
 readiness opens System. The next action continues an unfinished request or the
 current onboarding step.
 
-Navigation expands a centered lower reading deck: up to 560px for Groq/System,
-800px for Overview and 960px for Jobs/Requests, bounded by the viewport. The
-readouts remain anchored above it. Narrow layouts use one column and a scrollable
-deck. **Minimize panel**, Escape or clicking open starfield restores the
-windshield without clearing the draft, selected result or job context. Focus
-returns to an instrument. Counts use a static text glow; they add no animation.
-Clicks on controls or inside the deck do not retract it. Navigation is horizontal
-at every size, using a second header row on smaller screens.
+Navigation expands a translucent panel from its control: up to 560px for
+Groq/System, 660px for Overview and 760px for Jobs/Requests, bounded by the
+available windshield. Short content stays compact; long content scrolls inside.
+Controls follow the glass curve and meet the viewport bottom. On narrow screens
+they form upright, tappable rows.
+
+The old panel folds back before the next opens, including VM CPU and Auto.
+Click the same control, Close, exposed space or Escape to retract it without
+clearing the draft or result. Focus returns to its control. Reduced motion or
+Pause skips the fold. Sign-out and Stealth cancel pending openings.
+
+A fresh, loaded history supplies the windshield readout: uncertain work first,
+then active work or the latest saved result. Selecting a result expands its
+answer across the windshield. × hides the readout across reloads; **Show windshield
+readout** in the account menu restores it. Opening panels submits no work.
+One resize observer fits the curve after layout changes, with no new polling
+timers, frame loops, dependencies or server endpoints.
 
 The [flight instrument refinement](FLIGHT-INSTRUMENTS.md) adds a VM CPU reading,
 an etched navigation rail and background-only look-around. Measured whole-VM CPU

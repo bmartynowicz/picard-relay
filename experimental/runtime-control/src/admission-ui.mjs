@@ -57,6 +57,7 @@ export function workspaceConsoleHtml(base){
  replace(' showGroq(data);'," showGroq(data);$('walkthrough-replay').hidden=false;if(!workConfigAttempted)void workLoadConfig().catch(()=>{});else renderTraining();");
  replace('</style>',WORKSPACE_STYLE+'\n</style>');
  replace('motion();void boot();',WORKSPACE_SCRIPT()+'\nmotion();void boot();');
+ base=base.replace('renderWorkspaceResult(workResult);}workNotice(workFresh?', 'renderWorkspaceResult(workResult);revealWindshieldResult(ref);}workNotice(workFresh?');
  return base;
 }
 

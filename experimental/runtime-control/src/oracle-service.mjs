@@ -258,7 +258,7 @@ function codexUsageTokenHash(path){
  }finally{closeSync(fd);}
 }
 
-export const CONSOLE_MAX_BYTES=166912;
+export const CONSOLE_MAX_BYTES=208896;
 export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecentJobs,auth=null,origins=[],updates=createUpdateRequestBridge(),groqReplacement=null,recognition='',codexUsage=null,codexUsageKey=null}={}){
  if(typeof html!=='string'||Buffer.byteLength(html)>CONSOLE_MAX_BYTES)throw Error('console_document_invalid');
  const hash=s=>"'sha256-"+createHash('sha256').update(s).digest('base64')+"'";
@@ -521,14 +521,28 @@ replacement('form').addEventListener('submit',async event=>{
 `;
 
 const STEALTH_STYLE=String.raw`
-#cockpit-toggle{font-size:12px;padding-inline:8px}
-#cockpit-toggle[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}
-@media(max-width:360px){.hud-instruments{grid-template-columns:repeat(2,minmax(0,1fr))}#hud-stealth kbd{display:block;margin-left:0}}
+.display-rail,.display-modes,.display-effects{display:flex;align-items:center;flex-wrap:wrap}
+.display-rail{gap:0 12px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.display-effects{margin-left:auto}
+.display-rail button{border:0;border-radius:0;padding:6px 9px;color:var(--muted);font-size:12px}
+.display-rail button[aria-pressed=true]{color:var(--accent);background:#ffffff08;box-shadow:inset 0 -2px currentColor}
+.display-rail kbd{margin-left:4px;padding:2px 3px;border:1px solid var(--line);font-size:9px;white-space:nowrap}
+#stealth-settings{display:flex;align-items:center;gap:6px;padding-inline:4px;color:var(--muted);font-size:12px}
+#stealth-auto{max-width:136px;min-height:44px;color:var(--text);background:var(--bg);border:1px solid var(--line)}
+[data-cockpit=true] .cockpit-dash{order:1;align-self:center;width:min(100%,840px);margin-top:auto}
+[data-cockpit=true] .display-rail{border-block:1px solid var(--line);border-top-color:#dec38744;background:var(--bg)}
+[data-stealth=true] .display-rail :is(kbd,#motion){display:none}
+@media(max-width:500px){
+ .display-modes,.display-effects{width:100%}
+ .display-modes{border-bottom:1px solid var(--line)}
+ .display-modes button{flex:1}
+ .display-effects{justify-content:space-between}
+ #stealth-settings{display:grid;gap:0}
+ #stealth-auto{max-width:112px}
+ .display-rail kbd{display:block;margin:2px 0 0}
+}
+@media(max-width:360px){.hud-instruments{grid-template-columns:repeat(2,minmax(0,1fr))}}
 [data-stars=false] .space-scene{display:none!important}
-.hud-instruments #hud-stealth{font-size:12px;white-space:nowrap;color:var(--muted)}
-#hud-stealth kbd{margin-left:6px}
-#stealth-settings{display:grid;gap:4px;padding:8px 12px;font-size:12px;color:var(--muted)}
-#stealth-auto{width:100%;color:var(--text);background:var(--bg);border:1px solid var(--line);padding:8px}
 [data-stealth=true]{--bg:#191919;--side:#222;--surface:#2c2c2c;--line:#434343;--accent:#dededb;--text:#f2f2ef;--muted:#b8b8b5;background:var(--bg)}
 [data-stealth=true] :is(#logo-wrap,#training-rank,#training-title,#recognition,.sidebar-foot,.nav-index,.space-scene),[data-stealth=true] nav::before,[data-stealth=true] nav::after{display:none!important}
 [data-stealth=true] :is(.brand,nav,.console-utilities,.workspace){background:transparent;border:0;box-shadow:none}
@@ -539,7 +553,6 @@ const STEALTH_STYLE=String.raw`
 [data-stealth=true] .auth{border:0}
 [data-stealth=true] .refresh:hover:not(:disabled){background:#fff}
 [data-stealth=true] *,[data-stealth=true] *::before,[data-stealth=true] *::after{animation:none!important;transition:none!important}
-#stealth-mode[aria-pressed=true]{background:var(--surface)}
 @media(min-width:900px){
  .console[data-stealth=true]{grid-template-columns:196px minmax(0,1fr);grid-template-rows:1fr}
  [data-stealth=true] .sidebar{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;height:100svh;gap:16px;padding:20px 12px;border:0;border-right:1px solid var(--line)}
@@ -566,8 +579,10 @@ function syncCockpit(){
  surface.dataset.cockpit=String(cockpit);
  surface.dataset.starfield=String(starfield);
  surface.dataset.stars=String(starsEnabled);
+ $('workspace-toggle').hidden=!showControls;
  $('cockpit-toggle').hidden=!showControls;
- $('stars-toggle').hidden=!showControls;
+ $('stars-toggle').hidden=!cockpit;
+ $('workspace-toggle').setAttribute('aria-pressed',String(showControls&&!cockpit));
  $('cockpit-toggle').setAttribute('aria-pressed',String(cockpit));
  $('stars-toggle').setAttribute('aria-pressed',String(starsEnabled));
  $('logo-wrap').setAttribute('aria-pressed',String(cockpit));
@@ -579,13 +594,14 @@ function syncCockpit(){
 function saveCockpit(){
  try{localStorage.setItem(cockpitPreference,String(cockpitFlags));}catch{}
 }
-function toggleCockpit(){
- if(!authenticated||stealth)return;
+function selectCockpit(enabled){
+ if(!authenticated||stealth||cockpit===enabled)return;
  cockpitFlags^=1;hudExpanded=activeView!=='overview';starClicks=0;
  saveCockpit();
  syncCockpit();
 }
-$('cockpit-toggle').addEventListener('click',toggleCockpit);
+$('workspace-toggle').addEventListener('click',()=>selectCockpit(false));
+$('cockpit-toggle').addEventListener('click',()=>selectCockpit(true));
 $('stars-toggle').addEventListener('click',()=>{
  if(!authenticated||stealth)return;
  cockpitFlags^=2;
@@ -596,6 +612,8 @@ function setStealth(enabled){
  stealth=enabled;starClicks=0;
  $('console-surface').dataset.stealth=String(enabled);
  $('stealth-mode').setAttribute('aria-pressed',String(enabled));
+ $('stealth-label').textContent=enabled?'Resume display':'Stealth';
+ if(enabled&&document.activeElement?.closest?.('.display-modes,.display-effects'))$('stealth-mode').focus?.();
  $('brand-name').textContent=enabled?'Work Console':'Picard Relay';
  document.title=enabled?'Work Console':'Picard Relay — Console';
  syncCockpit();
@@ -621,10 +639,6 @@ function syncStealthVisibility(){
  else armStealthIdle();
 }
 $('stealth-mode').addEventListener('click',toggleStealth);
-$('hud-stealth').addEventListener('click',()=>{
- toggleStealth();
- $('console-tools-toggle').focus?.();
-});
 $('stealth-auto').addEventListener('change',()=>{
  stealthFlags=(stealthFlags&1)|(Number($('stealth-auto').value)&6);
  saveStealth();
@@ -634,9 +648,7 @@ document.addEventListener('keydown',event=>{
  if(event.code==='KeyS'&&event.altKey&&event.shiftKey&&!event.ctrlKey&&!event.metaKey&&!event.repeat
    &&!event.defaultPrevented&&!event.isComposing&&!event.target?.closest?.('input,select,textarea,[contenteditable]')){
   event.preventDefault();
-  const focusHud=event.target?.id==='hud-stealth';
   toggleStealth();
-  if(focusHud)$('console-tools-toggle').focus?.();
  }else if(stealthFlags&stealthWhenIdle)armStealthIdle();
 });
 for(const name of ['pointerdown','wheel'])document.addEventListener(name,()=>{
@@ -653,7 +665,13 @@ if(stealthFlags&1)setStealth(true);
 else{syncCockpit();syncStealthVisibility();}
 `;
 
-const STEALTH_CONTROLS='<button id="stealth-mode" type="button" aria-pressed="false" aria-keyshortcuts="Alt+Shift+S">Stealth mode</button><label id="stealth-settings" for="stealth-auto">Auto stealth<select id="stealth-auto"><option value="0">Off</option><option value="2">When tab is hidden</option><option value="4">After 5 minutes idle</option><option value="6">When hidden or idle</option></select></label>';
+const MOTION_CONTROL='<button class="motion" id="motion" type="button" aria-pressed="false">Pause motion</button>';
+const DISPLAY_RAIL=`<div class="display-rail" role="group" aria-label="Display">
+<div class="display-modes"><button id="workspace-toggle" type="button" aria-pressed="false" hidden>Workspace</button>
+<button id="cockpit-toggle" type="button" aria-pressed="false" hidden>Cockpit</button>
+<button id="stealth-mode" type="button" aria-pressed="false" aria-keyshortcuts="Alt+Shift+S"><span id="stealth-label">Stealth</span><kbd aria-hidden="true">Alt+Shift+S</kbd></button></div>
+<div class="display-effects"><label id="stealth-settings" for="stealth-auto">Auto stealth<select id="stealth-auto"><option value="0">Off</option><option value="2">Tab hidden</option><option value="4">5 min idle</option><option value="6">Hidden or idle</option></select></label>
+<button id="stars-toggle" type="button" aria-pressed="true" hidden>Stars</button>${MOTION_CONTROL.replace(' class="motion"','')}</div></div>`;
 
 const SAVINGS_STYLE=String.raw`
 #codex-savings{margin:0 0 26px;padding:18px 0;border-bottom:1px solid var(--line)}
@@ -730,7 +748,7 @@ function renderCodexSavings(usage){
 }
 `;
 
-export const CONSOLE_HTML=CONSOLE_SHELL_HTML
+const CONSOLE_BASE_HTML=CONSOLE_SHELL_HTML
   .replaceAll('starfield','cockpit')
   .replaceAll(/data-cockpit="true"(?= \.space-(?:plane|scene))/g,'data-starfield="true"')
   .replace('if(cockpit&&!paused','if(starfield&&!paused')
@@ -744,17 +762,865 @@ export const CONSOLE_HTML=CONSOLE_SHELL_HTML
   .replace('function clearPrivate(){','function clearPrivate(){\n showRecognition();resetGroqReplacement();renderCodexSavings();')
   .replace("render(project(await request('/status')));","const data=await request('/status');render(project(data));renderCodexSavings(data.codexUsage);showRecognition(typeof data.recognition==='string'?data.recognition:'');if(!keySaving)renderGroqReplacement(data.keyReplacement);")
   .replace('<summary aria-label="Documentation and account"','<summary id="console-tools-toggle" aria-label="Documentation and account"')
-  .replace('<div id="refresh-control"','<button id="cockpit-toggle" type="button" aria-pressed="false" hidden>Cockpit</button><div id="refresh-control"')
-  .replace('<button class="logout"',STEALTH_CONTROLS+'<button id="stars-toggle" class="motion" type="button" aria-pressed="true" hidden>Cockpit stars</button><button id="feedback-open" type="button" hidden>Feedback</button><button class="logout"')
-  .replace('<button id="hud-next"','<button id="hud-stealth" type="button" aria-keyshortcuts="Alt+Shift+S">Stealth <kbd>Alt+Shift+S</kbd></button><button id="hud-next"')
+  .replace(MOTION_CONTROL,'')
+  .replace('.motion{margin-top:auto;text-align:left;font-size:13px;color:var(--muted);padding:9px 12px;border:0}','')
+  .replace('.console-menu .motion,','')
+  .replace('<div class="hud-instruments"','<div class="cockpit-dash"><div class="hud-instruments"')
+  .replace('</div><div id="private" hidden>','</div>'+DISPLAY_RAIL+'</div><div id="private" hidden>')
+  .replace('<button class="logout"','<button id="feedback-open" type="button" hidden>Feedback</button><button class="logout"')
   .replace('<div class="provider-activity">','<div id="replace-groq-row" class="groq-key-actions" hidden><button id="replace-groq-open" type="button">Replace key</button><span id="replace-groq-status" class="muted" role="status"></span></div><div class="provider-activity">')
   .replace('</main>',FEEDBACK_DIALOG+GROQ_REPLACEMENT_DIALOG+'</main>')
   .replace('const roll=typeof previous','const roll=!stealth&&typeof previous')
   .replace('const reduced=preference.matches;','const reduced=stealth||preference.matches;')
   .replace("$('motion').textContent=reduced?","$('motion').textContent=stealth?'Motion off':reduced?")
-  .replace("cockpit=!cockpit;hudExpanded=false;renderHUD();$('console-surface').dataset.cockpit=String(cockpit);if(cockpit)renderPower();else resetLook();$('logo-wrap').setAttribute('aria-pressed',String(cockpit));$('logo-wrap').title=cockpit?'Starfield on · five clicks to switch off':'Click five times for the stars';",'toggleCockpit();')
+  .replace("cockpit=!cockpit;hudExpanded=false;renderHUD();$('console-surface').dataset.cockpit=String(cockpit);if(cockpit)renderPower();else resetLook();$('logo-wrap').setAttribute('aria-pressed',String(cockpit));$('logo-wrap').title=cockpit?'Starfield on · five clicks to switch off':'Click five times for the stars';",'selectCockpit(!cockpit);')
   .replace("document.addEventListener('visibilitychange',()=>{motion();","document.addEventListener('visibilitychange',()=>{syncStealthVisibility();motion();")
   .replace('motion();void boot();',FEEDBACK_CLIENT+RECOGNITION_CLIENT+GROQ_REPLACEMENT_CLIENT+STEALTH_CLIENT+SAVINGS_CLIENT+'\nmotion();void boot();');
+
+// Compose the cockpit in the existing runtime artifact. No extra files or browser dependencies.
+const COCKPIT_DECK_STYLE=String.raw`.folding-glass {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+.folding-side { display: flex; align-items: center; flex-wrap: wrap; }
+.folding-side button {
+  min-height: 44px;
+  padding: 0 11px;
+  border: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.folding-side button[aria-pressed=true] { color: var(--accent); box-shadow: inset 0 -2px var(--accent); }
+.folding-side kbd { margin-left: 7px; border: 1px solid var(--line); padding: 2px 4px; font-size: 10px; }
+.auto-instrument { position: relative; }
+#stealth-auto-toggle[aria-expanded=true] span { display: inline-block; rotate: 90deg; }
+.folding-arc { display: none; }
+#stealth-settings {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  top: 100%;
+  display: grid;
+  min-width: 160px;
+  gap: 6px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+#stealth-auto { max-width: none; }
+.folding-crown { display: flex; justify-content: center; }
+.folding-crown button {
+  min-width: min(232px, 100%);
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 18px 18px;
+  color: var(--accent);
+  background: #11191e;
+  font-size: 14px;
+  font-weight: 600;
+}
+.folding-crown button:hover:not(:disabled) { color: var(--text); background: var(--side); }
+.folding-shell { padding-top: 0; }
+[data-cockpit=false] #workspace-toggle,
+[data-stealth=true] #stealth-mode kbd, [data-stealth=true] #motion { display: none; }
+body:has(.console[data-cockpit=true]) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+.console[data-cockpit=true] {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+[data-cockpit=true] {
+  --panel-glass: rgb(17 24 31 / .76);
+  --panel-muted: #c3ced4;
+}
+[data-cockpit=true] .sidebar { background: #12191d; border-bottom: 1px solid var(--line); }
+.console[data-cockpit=true] .workspace {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.windshield-track { display: none; }
+[data-cockpit=true] .windshield-track {
+  display: block;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  pointer-events: none;
+}
+#windshield-readout {
+  position: absolute;
+  top: 64%;
+  left: 50%;
+  translate: -50% -50%;
+  display: flex;
+  align-items: center;
+  width: min(342px, calc(100% - 36px));
+  background: linear-gradient(90deg, #0b141d00, #0b141daa 18% 82%, #0b141d00);
+}
+#windshield-work {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 8px 17px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  pointer-events: auto;
+}
+#windshield-readout::before,
+#windshield-readout::after {
+  content: "";
+  position: absolute;
+  inset-block: 7px;
+  width: 9px;
+  border-block: 1px solid #dec38766;
+  pointer-events: none;
+}
+#windshield-readout::before { left: 0; border-left: 1px solid #dec38766; }
+#windshield-readout::after { right: 0; border-right: 1px solid #dec38766; }
+#windshield-dismiss {
+  flex: 0 0 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid #dec38736;
+  border-radius: 0;
+  background: transparent;
+  color: var(--panel-muted);
+  font-size: 18px;
+  pointer-events: auto;
+}
+#windshield-readout button:is(:hover,:focus-visible) { background-color: #dec3870b; }
+#windshield-state {
+  grid-column: 1;
+  color: var(--panel-muted);
+  font: 11px/1.5 ui-monospace, Consolas, monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+#windshield-work[data-kind=active] #windshield-state { color: var(--good); }
+#windshield-work[data-kind=attention] #windshield-state { color: var(--warn); }
+#windshield-title {
+  grid-column: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 17px;
+  font-weight: 550;
+}
+.windshield-arrow {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  color: var(--accent);
+  font-size: 24px;
+  text-align: right;
+}
+[data-cockpit=true][data-hud-expanded=true] #windshield-readout,
+[data-cockpit=true] .workspace:has(:is(#power-details,#stealth-settings):not([hidden])) #windshield-readout {
+  visibility: hidden;
+}
+@media(max-width:700px) and (max-height:640px) {
+  [data-cockpit=true] .windshield-track { display: none; }
+}
+[data-cockpit=true] .cockpit-dash {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  width: 100%;
+  max-width: none;
+  order: 1;
+  margin-top: auto;
+  border-radius: 50% 50% 0 0 / 16px 16px 0 0;
+  border-top: 1px solid #dec38758;
+  background: linear-gradient(180deg, #294254d4, #14212cc4);
+}
+.folding-arc-edge, .folding-arc-track {
+  fill: none;
+  stroke: #dbc28d;
+  vector-effect: non-scaling-stroke;
+  opacity: .42;
+}
+.folding-arc-track { opacity: .14; }
+[data-cockpit=true] .hud-instruments { padding: 18px 12px 5px; gap: clamp(8px, 2vw, 26px); }
+.folding-job-readouts { display: flex; align-items: center; gap: 6px; }
+.hud-instruments .folding-job-readouts button { text-align: center; }
+.hud-instruments :is(.folding-job-readouts button, #power-toggle)[aria-expanded=true] {
+  background: #dec38714;
+  box-shadow: inset 0 -2px #dec3879e;
+}
+.folding-job-readouts small { display: block; margin-top: 4px; font-size: 10px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+#power-toggle { display: flex; flex-direction: column-reverse; gap: 3px; align-items: center; }
+[data-cockpit=true] .power-details {
+  bottom: calc(100% + 4px);
+  border: 1px solid #dec38766;
+  border-radius: 9px 9px 3px 9px;
+  background: var(--panel-glass);
+  --muted: var(--panel-muted);
+  transform-origin: calc(100% - 51px) calc(100% + 4px);
+}
+[data-cockpit=true] .power-details .metadata {
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto);
+  column-gap: 12px;
+}
+[data-cockpit=true] .power-details dd { text-align: right; }
+[data-cockpit=true] .power-details::after {
+  content: "";
+  position: absolute;
+  right: 51px;
+  top: 100%;
+  height: 5px;
+  border-left: 1px solid var(--accent);
+  pointer-events: none;
+}
+#hud-ready[data-attention=true] { color: var(--warn); animation: deck-attention 420ms ease-out; }
+#hud-ready[data-attention=true] strong { color: var(--warn); }
+#hud-ready[data-attention=true]::before { border-color: var(--warn); }
+@keyframes deck-attention { from { background: #e5a66328; } }
+[data-cockpit=true] .folding-glass { padding-inline: 24px; border: 0; }
+[data-cockpit=true] .folding-side {
+  margin-bottom: 4px;
+}
+[data-cockpit=true] .folding-side button {
+  background: transparent;
+}
+[data-cockpit=true] .folding-side button:hover:not(:disabled) {
+  background: #dec38714;
+}
+[data-cockpit=true] #stealth-settings {
+  top: auto;
+  bottom: calc(100% + 4px);
+  background: var(--panel-glass);
+  --muted: var(--panel-muted);
+  transform-origin: calc(100% - 24px) calc(100% + 4px);
+}
+[data-cockpit=true] .folding-shell {
+  position: fixed;
+  z-index: 2;
+  left: var(--deck-left);
+  width: var(--deck-width);
+  border: 1px solid #6e624b;
+  border-radius: 10px;
+  background: var(--panel-glass);
+  --muted: var(--panel-muted);
+  box-shadow: 0 10px 30px #0004, inset 0 1px #ffffff0a;
+}
+[data-cockpit=true][data-hud-expanded=false] .folding-shell:not([data-retracting]) { display: none; }
+[data-cockpit=true] [data-retracting] { pointer-events: none; }
+[data-cockpit=true] .folding-shell[data-from=nav] {
+  top: var(--deck-edge);
+  transform-origin: var(--deck-pivot) calc(0px - var(--deck-link));
+}
+[data-cockpit=true] .folding-shell[data-from=hud] {
+  bottom: var(--deck-edge);
+  transform-origin: var(--deck-pivot) calc(100% + var(--deck-link));
+}
+[data-cockpit=true] .folding-shell[data-from=windshield] {
+  top: var(--deck-edge);
+  transform-origin: var(--deck-pivot) var(--deck-pivot-y);
+}
+[data-cockpit=true] .folding-shell::before {
+  content: "";
+  position: absolute;
+  left: var(--deck-pivot);
+  height: var(--deck-link);
+  border-left: 1px solid #dec38796;
+  pointer-events: none;
+}
+[data-cockpit=true] .folding-shell[data-from=nav]::before { bottom: 100%; }
+[data-cockpit=true] .folding-shell[data-from=hud]::before { top: 100%; }
+[data-cockpit=true] .folding-shell[data-from=windshield]::before { display: none; }
+[data-cockpit=true] [data-deck-active] { box-shadow: inset 0 -2px #dec387a0; }
+[data-cockpit=true] .cockpit-dash:has(:is(#power-details,#stealth-settings):not([hidden])) { z-index: 3; }
+[data-cockpit=true] .folding-crown {
+  order: 2;
+  border-top: 1px solid #dec38766;
+  background: #101820;
+}
+[data-cockpit=true] .folding-crown button {
+  min-width: min(232px, calc(100% - 108px));
+  margin-top: -1px;
+  border-color: #8d7954;
+  border-bottom: 2px solid var(--accent);
+  box-shadow: inset 0 2px #0008;
+}
+.console[data-cockpit=true] .folding-shell #private {
+  display: block;
+  max-width: none;
+  width: 100%;
+  min-height: 0;
+  max-height: var(--deck-height);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 16px 42px 20px 20px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.console[data-cockpit=true] .folding-shell[data-retracting] #private { display: block; }
+[data-cockpit=true] .folding-shell #hud-close {
+  position: absolute;
+  z-index: 1;
+  top: 6px;
+  right: 6px;
+  min-width: 34px;
+  min-height: 34px;
+  margin: 0;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+[data-cockpit=true] .folding-shell .jobs-workspace:has(#job-details:not([hidden])) {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 26%);
+}
+[data-cockpit=true] .folding-shell .job-inspector:has(#job-details[hidden]) { display: none; }
+[data-cockpit=true] .folding-shell .job-row { min-height: 48px; padding-block: 9px; }
+[data-cockpit=true] .folding-shell .job-state { text-transform: capitalize; }
+[data-cockpit=true] .folding-shell [data-state=completed] .job-state {
+  justify-self: start;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #263a30;
+  color: #e0eddf;
+}
+@media(min-width:820px) {
+  [data-cockpit=true] .cockpit-dash {
+    --hud-tracks: two;
+    min-height: 166px;
+    background: none;
+    border: 0;
+  }
+  [data-cockpit=true] .folding-arc {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+  }
+  [data-cockpit=true] [data-arc-control] {
+    translate: 0 var(--arc-shift, 0px);
+  }
+  [data-cockpit=true] :is(button[data-arc-control], [data-arc-control] > button) {
+    rotate: var(--arc-angle, 0deg);
+    transform-origin: center;
+  }
+}
+@media(min-width:820px) and (max-width:1099px) {
+  [data-cockpit=true] .folding-glass {
+    justify-content: center;
+    column-gap: clamp(32px, 8vw, 100px);
+  }
+}
+@media(min-width:701px) {
+  [data-cockpit=true] .brand p { font-size: 20px; }
+  [data-cockpit=true] nav button { font-size: 15px; }
+  [data-cockpit=true] .folding-shell :is(.job-columns,.job-row) {
+    grid-template-columns: minmax(0,1fr) 130px minmax(180px,29%);
+  }
+  [data-cockpit=true] .folding-shell .job-time { text-align: left; }
+  [data-cockpit=true] .folding-shell .job-ref { font: 500 15px/1.4 system-ui,sans-serif; }
+}
+@media(min-width:1100px) {
+  [data-cockpit=true] .cockpit-dash {
+    --hud-tracks: one;
+    display: grid;
+    grid-template-columns: minmax(max-content,1fr) minmax(0,auto) minmax(max-content,1fr);
+    grid-template-areas: "display readouts stealth";
+    align-items: end;
+    min-height: 144px;
+    padding-inline: clamp(12px, 2.5vw, 40px);
+  }
+  [data-cockpit=true] .folding-glass { display: contents; }
+  [data-cockpit=true] .hud-instruments {
+    grid-area: readouts;
+    margin: 0;
+    flex-wrap: nowrap;
+    padding: 0 10px;
+    gap: clamp(2px, 1.25vw, 24px);
+  }
+  [data-cockpit=true] .folding-side {
+    position: relative;
+    grid-area: display;
+    justify-self: start;
+    align-self: end;
+    margin: 0;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    padding-inline: 6px;
+  }
+  [data-cockpit=true] .folding-side + .folding-side {
+    grid-area: stealth;
+    justify-self: end;
+  }
+}
+@media(min-width:1100px) and (max-width:1279px) {
+  [data-cockpit=true] .cockpit-dash { padding-inline: 12px; }
+  [data-cockpit=true] .folding-side { padding-inline: 0; }
+  [data-cockpit=true] .folding-side button { padding-inline: 7px; }
+  [data-cockpit=true] .hud-instruments { gap: 8px; padding-inline: 4px; }
+  [data-cockpit=true] .hud-instruments button { padding-inline: 8px; }
+  [data-cockpit=true] .hud-instruments #hud-ready { padding-left: 16px; }
+  [data-cockpit=true] .hud-instruments #hud-progress { padding-left: 12px; }
+  [data-cockpit=true] .hud-instruments #hud-next { padding-inline: 14px; max-width: 126px; }
+  [data-cockpit=true] .power-instrument #power-toggle { min-width: 86px; }
+  [data-cockpit=true] .folding-job-readouts { gap: 2px; }
+}
+[data-cockpit=true] .folding-side:has(#stealth-settings:not([hidden])) { z-index: 2; }
+.console[data-cockpit=true] .footer {
+  position: absolute;
+  z-index: 2;
+  right: 10px;
+  bottom: 0;
+  margin: 0;
+}
+[data-motion=off] #hud-ready { animation: none; }
+@media(max-width:700px) {
+  [data-cockpit=true] .hud-instruments { padding: 10px 14px 4px; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px 8px; }
+  [data-cockpit=true] .folding-glass { padding: 0 8px; gap: 0; }
+  .folding-glass .folding-side:last-child { margin-left: auto; }
+  .folding-side #motion:disabled { display: none; }
+  .folding-side button { padding-inline: 7px; }
+  .folding-side kbd { display: block; margin: 1px 0 0; }
+  .console[data-cockpit=true] .folding-shell #private { padding: 12px 50px 16px 14px; }
+  [data-cockpit=true] .folding-shell #hud-close { min-width: 44px; min-height: 44px; }
+  [data-cockpit=true] .folding-shell .jobs-workspace:has(#job-details:not([hidden])) { grid-template-columns: minmax(0,1fr); }
+}
+@media(prefers-reduced-motion:reduce) {
+  #hud-ready { animation: none !important; }
+}
+`;
+const COCKPIT_DECK_CLIENT=String.raw`
+function deckAnchor(view){
+ return deckOpener?.offsetWidth?deckOpener:$('nav-'+view);
+}
+function activateDeckControl(opener,show){
+ const current=openInstrument?.opener??openDeck?.opener;
+ if(current===opener){
+  minimizeHUD();
+  return;
+ }
+ const open=()=>{
+  if(!opener.offsetWidth||opener.disabled)return;
+  show();
+ };
+ if(current)minimizeHUD(false);
+ if(canAnimateDeck()&&retractingDeck&&retractingDeck.opener!==opener){
+  retractingDeck.next=open;
+  return;
+ }
+ open();
+}
+function activateWorkspaceControl(opener,show){
+ activateDeckControl(opener,()=>{deckOpener=opener;show();});
+}
+function openDeckView(view,opener){
+ activateWorkspaceControl(opener,()=>showView(view));
+}
+function deckAttention(){
+ const age=Date.now()-Date.parse(latest?.observedAt);
+ if(!authenticated||statusFailed||!(age>=-5000&&age<60000))return '';
+ if(latest.jobs.uncertain>0)return 'attention';
+ return latest.service.acceptingNewWork===false?'system':'';
+}
+function openJobReadout(filter,opener){
+ activateWorkspaceControl(opener,()=>{
+  const field=$('jobs-filter');
+  showView('jobs',false);
+  if(field.value!==filter){
+   field.value=filter;
+   field.dispatchEvent(new Event('change'));
+  }
+ });
+}
+function windshieldWork(){
+ if(!cockpit||!authenticated||statusFailed||windshieldReadoutHidden)return null;
+ const age=Date.now()-Date.parse(latestJobs?.observedAt);
+ if(!(age>=-5000&&age<60000))return null;
+ const attention=jobRows.find(row=>row.state==='uncertain');
+ if(attention)return {row:attention,kind:'attention',label:'Needs attention'};
+ const active=jobRows.find(row=>row.state==='invoking'||row.state==='claimed')??
+  jobRows.find(row=>row.state==='queued');
+ if(active)return {row:active,kind:'active',label:active.state==='queued'?'Queued':'In flight'};
+ const result=jobRows.find(row=>row.state==='completed'&&row.resultAvailable);
+ return result?{row:result,kind:'result',label:'Latest saved result'}:null;
+}
+function paintWindshield(){
+ const button=$('windshield-work');
+ $('windshield-restore').hidden=!cockpit||!authenticated||!windshieldReadoutHidden;
+ const pinned=cockpit&&authenticated&&button.hasAttribute('data-deck-active');
+ button.setAttribute('aria-expanded',String(pinned));
+ if(pinned)return;
+ delete button.dataset.revealResult;
+ const work=windshieldWork();
+ $('windshield-readout').hidden=!work;
+ button.dataset.kind=work?.kind??'';
+ button.dataset.ref=work?.row.ref??'';
+ button.setAttribute('aria-controls',work?.kind==='result'&&typeof workNavigate==='function'?'view-requests':'view-jobs');
+ $('windshield-state').textContent=work?.label??'';
+ $('windshield-title').textContent=work?(work.row.title||work.row.ref.slice(0,12)):'';
+}
+function setWindshieldReadoutHidden(hidden){
+ windshieldReadoutHidden=hidden;
+ try{localStorage.setItem('picard:windshield-readout',hidden?'hidden':'shown');}catch{}
+ paintWindshield();
+}
+function openWindshieldWork(opener){
+ const {kind,ref}=opener.dataset;
+ if(!ref||(kind==='result'&&typeof workBusy!=='undefined'&&workBusy))return;
+ activateWorkspaceControl(opener,()=>{
+  if(kind==='result'&&typeof workNavigate==='function'){
+   opener.dataset.revealResult=ref;
+   workNavigate(ref);
+   showView('requests');
+  }else{
+   selectedRef=ref;
+   showView('jobs',false);
+   paintJobs();
+   $('detail-ref').focus?.({preventScroll:true});
+  }
+ });
+}
+function revealWindshieldResult(ref){
+ const opener=$('windshield-work');
+ if(opener.dataset.revealResult!==ref)return;
+ delete opener.dataset.revealResult;
+ const reveal=()=>{
+  const result=$('request-result');
+  if(openDeck?.opener!==opener||workRef!==ref||result.hidden)return;
+  const scroller=$('private');
+  scroller.scrollTop+=result.getBoundingClientRect().top-scroller.getBoundingClientRect().top-14;
+  result.tabIndex=-1;
+  result.focus({preventScroll:true});
+ };
+ if(deckAnimation)deckAnimation.finished.then(reveal,()=>{});
+ else reveal();
+}
+function updateFoldingDeck(model){
+ const handle=$('cockpit-toggle'),panel=$('private'),indicator=$('hud-ready');
+ handle.hidden=!authenticated||stealth;
+ panel.inert=cockpit&&!model.panelVisible;
+ handle.setAttribute('aria-expanded',String(model.panelVisible));
+ const openJobs=model.panelVisible&&activeView==='jobs';
+ const filter=$('jobs-filter').value;
+ $('fold-active').setAttribute('aria-expanded',String(openJobs&&filter==='active'));
+ $('fold-completed').setAttribute('aria-expanded',String(openJobs&&filter==='completed'));
+ const name=$('nav-'+activeView).textContent.trim().replace(/^\d+\s*/, '');
+ handle.textContent=!cockpit?'Cockpit view':(model.panelVisible?'Close ':'Show ')+name;
+ const attention=deckAttention();
+ indicator.dataset.attention=String(Boolean(attention));
+ if(attention==='attention')$('hud-health').textContent='Review uncertain jobs';
+ updateDeckPanel(model);
+ paintWindshield();
+}
+$('cockpit-toggle').addEventListener('click',()=>{
+ if(!cockpit){
+  selectCockpit(true);
+  hudExpanded=false;
+  renderHUD();
+ }else if(hudExpanded){minimizeHUD();return;}
+ else activateWorkspaceControl($('cockpit-toggle'),()=>{hudExpanded=true;renderHUD();});
+});
+$('fold-active').addEventListener('click',e=>openJobReadout('active',e.currentTarget));
+$('fold-completed').addEventListener('click',e=>openJobReadout('completed',e.currentTarget));
+$('windshield-work').addEventListener('click',e=>openWindshieldWork(e.currentTarget));
+$('windshield-dismiss').addEventListener('click',()=>{
+ setWindshieldReadoutHidden(true);
+ $('console-tools-toggle').focus({preventScroll:true});
+});
+$('windshield-restore').addEventListener('click',()=>{
+ setWindshieldReadoutHidden(false);
+ $('console-tools').open=false;
+ const button=$('windshield-work');
+ const target=button.offsetWidth&&getComputedStyle(button).visibility==='visible'?button:$('console-tools-toggle');
+ target.focus({preventScroll:true});
+});
+$('jobs-filter').addEventListener('change',renderHUD);
+
+const deckDash=document.querySelector('.cockpit-dash');
+const deckShell=document.querySelector('.folding-shell');
+const deckSidebar=document.querySelector('.sidebar');
+const foldedDeck={transform:'scale(.18,.06)',opacity:.35};
+const foldedInstrument={transform:'scale(.65,.2)',opacity:.35};
+function canAnimateDeck(){
+ return cockpit&&!preference.matches&&$('console-surface').dataset.motion!=='off';
+}
+function cancelDeckAnimation(){
+ const retraction=retractingDeck;
+ deckAnimation?.cancel();
+ deckAnimation=null;
+ retractingDeck=null;
+ retraction?.panel.removeAttribute('data-retracting');
+ retraction?.hide?.();
+}
+function expandDeckPanel(panel,folded,duration){
+ if(canAnimateDeck()){
+  deckAnimation=panel.animate([folded,{transform:'none',opacity:1}],{
+   duration,easing:'cubic-bezier(.2,.8,.25,1)'
+  });
+ }
+}
+function hideInstrument({panel,opener}){
+ panel.hidden=true;
+ panel.inert=false;
+ opener.setAttribute('aria-expanded','false');
+}
+function showInstrument(opener,panel){
+ cancelDeckAnimation();
+ openInstrument={opener,panel,inCockpit:cockpit};
+ panel.hidden=false;
+ opener.setAttribute('aria-expanded','true');
+ expandDeckPanel(panel,foldedInstrument,150);
+}
+function minimizeHUD(restoreFocus=true){
+ const opener=openInstrument?.opener??(cockpit&&hudExpanded?deckAnchor(activeView):null);
+ if(!opener){
+  if(retractingDeck)retractingDeck.next=null;
+  return;
+ }
+ if(openInstrument){
+  const instrument=openInstrument;
+  openInstrument=null;
+  instrument.panel.inert=true;
+  opener.setAttribute('aria-expanded','false');
+  retractDeckPanel(opener,instrument.panel,foldedInstrument,()=>hideInstrument(instrument));
+ }else{
+  if(openDeck)retractDeckPanel(opener,deckShell,foldedDeck);
+  hudExpanded=false;
+  renderHUD();
+ }
+ if(restoreFocus)(opener.offsetWidth?opener:deckAnchor(activeView)).focus?.({preventScroll:true});
+}
+function retractDeckPanel(opener,panel,folded,hide){
+ if(!canAnimateDeck()){hide?.();return;}
+ const visible=getComputedStyle(panel);
+ const start={transform:visible.transform,opacity:visible.opacity};
+ cancelDeckAnimation();
+ const retraction={opener,panel,hide,next:null};
+ retractingDeck=retraction;
+ panel.setAttribute('data-retracting','');
+ const animation=panel.animate([start,{...folded,opacity:0}],{
+  duration:145,easing:'cubic-bezier(.4,0,.8,.4)',fill:'forwards'
+ });
+ deckAnimation=animation;
+ animation.onfinish=()=>{
+  if(deckAnimation!==animation)return;
+  cancelDeckAnimation();
+  if(cockpit&&authenticated)retraction.next?.();
+ };
+}
+for(const [openerId,panelId] of [['power-toggle','power-details'],['stealth-auto-toggle','stealth-settings']]){
+ const opener=$(openerId);
+ opener.addEventListener('click',()=>activateDeckControl(opener,()=>showInstrument(opener,$(panelId))));
+}
+$('power-close').addEventListener('click',()=>minimizeHUD());
+function isDeckBackdrop(target){
+ return target===$('console-surface')||target===$('cockpit-glass')||
+  target===deckDash||target===$('hud-instruments')||
+  target.matches?.('.folding-glass,.folding-side,.folding-crown,.footer');
+}
+function positionDeckPanel(){
+ if(!openDeck)return;
+ const navOpener=$('nav-'+openDeck.view);
+ if(!openDeck.opener.offsetWidth&&openDeck.opener!==navOpener){
+  openDeck.opener.removeAttribute('data-deck-active');
+  deckOpener=openDeck.opener=navOpener;
+  deckOpener.setAttribute('data-deck-active','');
+ }
+ const source=openDeck.opener.getBoundingClientRect();
+ const viewport=document.documentElement;
+ const gutter=viewport.clientWidth<700?8:16;
+ const width=Math.min(openDeck.maxWidth,viewport.clientWidth-gutter*2);
+ const center=source.left+source.width/2;
+ const left=Math.max(gutter,Math.min(center-width/2,viewport.clientWidth-width-gutter));
+ const fromWindshield=openDeck.opener===$('windshield-work');
+ const fromHud=deckDash.contains(openDeck.opener)||openDeck.opener===$('cockpit-toggle');
+ const skyTop=Math.max(8,deckSidebar.getBoundingClientRect().bottom);
+ const skyBottom=Math.min(viewport.clientHeight-8,deckDash.getBoundingClientRect().top-8);
+ const edge=fromWindshield?skyTop+Math.max(8,(skyBottom-skyTop)*.12):
+  fromHud?Math.min(skyBottom,source.top-8):Math.max(skyTop+8,source.bottom+8);
+ const space=fromHud?edge-skyTop-8:skyBottom-edge;
+ const height=Math.max(0,Math.min(space,viewport.clientHeight*.45,(skyBottom-skyTop)*.78));
+ deckShell.dataset.from=fromWindshield?'windshield':fromHud?'hud':'nav';
+ deckShell.style.setProperty('--deck-left',left+'px');
+ deckShell.style.setProperty('--deck-width',width+'px');
+ deckShell.style.setProperty('--deck-edge',(fromHud?viewport.clientHeight-edge:edge)+'px');
+ deckShell.style.setProperty('--deck-height',height+'px');
+ deckShell.style.setProperty('--deck-pivot',(center-left)+'px');
+ deckShell.style.setProperty('--deck-pivot-y',(source.top+source.height/2-edge)+'px');
+ deckShell.style.setProperty('--deck-link',Math.max(0,fromHud?source.top-edge:edge-source.bottom)+'px');
+}
+function updateDeckPanel(model){
+ if(!model.trayVisible){
+  if(openInstrument&&(openInstrument.inCockpit||!authenticated||stealth)){
+   hideInstrument(openInstrument);
+   openInstrument=null;
+  }
+  if(deckAnimation)cancelDeckAnimation();
+ }
+ const opener=model.panelVisible?deckAnchor(model.view):null;
+ if(!opener){
+  if(!openDeck)return;
+  openDeck.opener.removeAttribute('data-deck-active');
+  openDeck=null;
+  if(!retractingDeck)cancelDeckAnimation();
+  return;
+ }
+ if(openDeck?.opener===opener&&openDeck?.view===model.view)return;
+ if(openInstrument){
+  hideInstrument(openInstrument);
+  openInstrument=null;
+ }
+ openDeck?.opener.removeAttribute('data-deck-active');
+ cancelDeckAnimation();
+ openDeck={opener,view:model.view,maxWidth:model.maxWidth};
+ opener.setAttribute('data-deck-active','');
+ positionDeckPanel();
+ expandDeckPanel(deckShell,foldedDeck,170);
+}
+window.addEventListener('resize',positionDeckPanel);
+window.addEventListener('scroll',positionDeckPanel,{passive:true});
+const deckArc=deckDash.querySelector('.folding-arc');
+const arcControls=[...deckDash.querySelectorAll('.folding-side > button,.auto-instrument,.hud-instruments > button,.folding-job-readouts > button,.power-instrument')];
+for(const control of arcControls)control.setAttribute('data-arc-control','');
+
+// The glass and the control centers use the same quadratic curve. Layout
+// updates when the instruments resize or appear, including a deck state change.
+function fitDeckArc(){
+ if(!deckArc.getClientRects().length)return;
+ const dash=deckDash.getBoundingClientRect();
+ const stacked=getComputedStyle(deckDash).getPropertyValue('--hud-tracks').trim()==='two';
+ const bow=stacked?Math.min(28,dash.width*.035):Math.min(60,dash.width*.044);
+ const edge=y=>'M0 '+(y+bow)+' Q'+(dash.width/2)+' '+(y-bow)+' '+dash.width+' '+(y+bow);
+ const placements=arcControls.filter(control=>control.offsetWidth).map(control=>{
+  const box=control.getBoundingClientRect();
+  const x=2*(box.left+box.width/2-dash.left)/dash.width-1;
+  const side=stacked&&control.closest('.folding-side');
+  const y=(side?114:51)+bow*x*x;
+  const oldShift=Number.parseFloat(control.style.getPropertyValue('--arc-shift'))||0;
+  const shift=y-(box.top+box.height/2-dash.top-oldShift);
+  const angle=Math.atan(4*bow*x/dash.width)*180/Math.PI;
+  return {control,shift,angle};
+ });
+ deckArc.setAttribute('viewBox','0 0 '+dash.width+' '+dash.height);
+ deckArc.querySelector('.folding-arc-face').setAttribute('d',edge(5)+' V'+dash.height+' H0 Z');
+ deckArc.querySelector('.folding-arc-edge').setAttribute('d',edge(5));
+ deckArc.querySelector('.folding-arc-track').setAttribute('d',stacked?edge(94):'');
+ for(const {control,shift,angle} of placements){
+  control.style.setProperty('--arc-shift',shift.toFixed(2)+'px');
+  control.style.setProperty('--arc-angle',angle.toFixed(2)+'deg');
+ }
+}
+const deckArcObserver=new ResizeObserver(()=>{fitDeckArc();positionDeckPanel();});
+deckArcObserver.observe(deckDash);
+deckArcObserver.observe(deckSidebar);
+for(const control of arcControls)deckArcObserver.observe(control);
+`;
+const glassArc='<svg class="folding-arc" aria-hidden="true" viewBox="0 0 1 1" preserveAspectRatio="none">'+
+ '<defs><linearGradient id="folding-arc-fill" x2="0%" y2="100%"><stop stop-color="#294254" stop-opacity=".83"/><stop offset="1" stop-color="#14212c" stop-opacity=".77"/></linearGradient></defs>'+
+ '<path class="folding-arc-face" fill="url(#folding-arc-fill)"/>'+
+ '<path class="folding-arc-edge"/><path class="folding-arc-track"/>'+
+ '</svg>';
+
+function substitute(source,needle,replacement){
+ if(!source.includes(needle))throw Error('Cockpit document anchor missing: '+needle);
+ return source.replace(needle,replacement);
+}
+function button(source,id){
+ const markup=source.match(new RegExp('<button id="'+id+'"[^>]*>[\\s\\S]*?</button>'))?.[0];
+ if(!markup)throw Error('Cockpit document button missing: '+id);
+ return markup;
+}
+export function cockpitConsoleHtml(html){
+ const start=html.indexOf('<div class="display-rail"');
+ const end=html.indexOf('<div id="private" hidden>',start);
+ if(start<0||end<0)throw Error('Cockpit document needs the display rail');
+ const rail=html.slice(start,end);
+ const auto=rail.match(/<label id="stealth-settings"[\s\S]*?<\/label>/)?.[0];
+ if(!auto)throw Error('Cockpit document needs the automatic Stealth control');
+ const left=['workspace-toggle','stars-toggle','motion'].map(id=>button(rail,id)).join('');
+ const stealth=button(rail,'stealth-mode');
+ const glass=glassArc+'<div class="folding-glass" role="group" aria-label="Windshield">'+
+   '<div class="folding-side">'+left+'</div><div class="folding-side">'+
+   stealth+'<div class="auto-instrument"><button id="stealth-auto-toggle" type="button" aria-expanded="false" aria-controls="stealth-settings">'+
+   '<span aria-hidden="true">▸</span> Auto</button>'+auto.replace('<label ','<label hidden ')+'</div></div></div></div>';
+ const close=button(html,'hud-close');
+ const projection='<div class="windshield-track"><div id="windshield-readout" hidden>'+
+   '<button id="windshield-work" type="button" aria-controls="view-jobs" aria-expanded="false">'+
+   '<span id="windshield-state"></span><span id="windshield-title"></span><span class="windshield-arrow" aria-hidden="true">›</span></button>'+
+   '<button id="windshield-dismiss" type="button" aria-label="Dismiss windshield readout" title="Dismiss windshield readout">×</button></div></div>';
+ const deck='<div class="folding-crown">'+
+   '<button id="cockpit-toggle" type="button" aria-controls="private" aria-expanded="false" hidden>Cockpit view</button></div>'+
+   '<div class="folding-shell">'+close.replace('Minimize panel ↙','×').replace('type="button"','type="button" aria-label="Close panel"');
+ let page=html.slice(0,start)+glass+deck+html.slice(end);
+ page=substitute(page,'<div class="cockpit-dash">',projection+'<div class="cockpit-dash">');
+ page=substitute(page,'<button id="feedback-open"',
+   '<button id="windshield-restore" type="button" hidden>Show windshield readout</button><button id="feedback-open"');
+ page=substitute(page,'</div><footer class="footer">','</div></div><footer class="footer">');
+ page=substitute(page,'<div id="private" hidden>'+close,'<div id="private" hidden>');
+ page=substitute(page,'</style>',COCKPIT_DECK_STYLE+'</style>');
+ const jobs=button(page,'hud-open-jobs');
+ page=substitute(page,jobs,'<div id="hud-open-jobs" class="folding-job-readouts" role="group">'+
+   '<button id="fold-active" type="button" aria-controls="view-jobs" aria-expanded="false"><b id="hud-active" class="hud-numeral">—</b><small>Active</small></button>'+
+   '<button id="fold-completed" type="button" aria-controls="view-jobs" aria-expanded="false"><b id="hud-done" class="hud-numeral">—</b><small>Completed</small></button></div>');
+ page=substitute(page,"$('hud-open-jobs').addEventListener('click',()=>showView('jobs'));",'');
+ page=substitute(page,"$('hud-ready').addEventListener('click',()=>showView('system'));",
+   "$('hud-ready').addEventListener('click',e=>deckAttention()==='attention'?openJobReadout('attention',e.currentTarget):openDeckView('system',e.currentTarget));");
+ page=substitute(page,"$('hud-progress').addEventListener('click',()=>showView('overview'));",
+   "$('hud-progress').addEventListener('click',e=>openDeckView('overview',e.currentTarget));");
+ page=substitute(page,"$('hud-next').addEventListener('click',()=>{if(typeof trainingAction==='function')trainingAction();});",
+   "$('hud-next').addEventListener('click',e=>activateWorkspaceControl(e.currentTarget,()=>{if(typeof trainingAction==='function')trainingAction();}));");
+ page=substitute(page,"for(const view of views)$('nav-'+view).addEventListener('click',()=>showView(view));",
+   "for(const view of views)$('nav-'+view).addEventListener('click',e=>openDeckView(view,e.currentTarget));");
+ page=substitute(page,"function restoreRoute(){preferredRoute=readRoute();","function restoreRoute(){deckOpener=null;preferredRoute=readRoute();");
+ page=substitute(page,"function minimizeHUD(){hudExpanded=false;renderHUD();$('hud-ready').focus?.();}",'');
+ page=substitute(page,'function paintJobs(){','function paintJobs(){\n paintWindshield();');
+ page=substitute(page,'let stealth=false,cockpitFlags=2,starfield=false;',
+   'let stealth=false,cockpitFlags=2,starfield=false;let windshieldReadoutHidden=false,deckOpener=null,openDeck=null,openInstrument=null,deckAnimation=null,retractingDeck=null;');
+ page=substitute(page,'const display=localStorage.getItem(cockpitPreference);',
+   "const display=localStorage.getItem(cockpitPreference);windshieldReadoutHidden=localStorage.getItem('picard:windshield-readout')==='hidden';");
+ page=substitute(page,"$('power-toggle').addEventListener('click',()=>{const open=$('power-details').hidden;$('power-details').hidden=!open;$('power-toggle').setAttribute('aria-expanded',String(open));});",'');
+ page=substitute(page,"$('power-close').addEventListener('click',()=>{$('power-details').hidden=true;$('power-toggle').setAttribute('aria-expanded','false');$('power-toggle').focus?.();});",'');
+ page=substitute(page,"if(e.target!==$('console-surface')&&e.target!==$('cockpit-glass')&&e.target!==$('hud-instruments'))return;$('console-tools').open=false;$('power-details').hidden=true;$('power-toggle').setAttribute('aria-expanded','false');if(cockpit&&authenticated&&hudExpanded)minimizeHUD();",
+   "if(!isDeckBackdrop(e.target))return;$('console-tools').open=false;minimizeHUD();");
+ page=substitute(page,"if(e.key==='Escape'){if($('feedback-dialog').open)return;if(!$('power-details').hidden){$('power-details').hidden=true;$('power-toggle').setAttribute('aria-expanded','false');$('power-toggle').focus?.();}else if(cockpit&&hudExpanded)minimizeHUD();}",
+   "if(e.key==='Escape'&&!$('feedback-dialog').open&&!$('replace-groq-dialog')?.open)minimizeHUD();");
+ page=substitute(page,"closest?.('.display-modes,.display-effects')","closest?.('.folding-side,.folding-crown')");
+ page=substitute(page,"$('cockpit-toggle').addEventListener('click',()=>selectCockpit(true));",'');
+ page=substitute(page,"if(!authenticated){$('hud-next').hidden=true;$('hud-next').disabled=true;}\n}",
+   "if(!authenticated){$('hud-next').hidden=true;$('hud-next').disabled=true;}\n updateFoldingDeck(model);\n}");
+ page=substitute(page,'motion();void boot();',COCKPIT_DECK_CLIENT+'\nmotion();void boot();');
+
+ return page;
+}
+
+export const CONSOLE_HTML=cockpitConsoleHtml(CONSOLE_BASE_HTML);
+
 export function loadOracleConfig(e=process.env){
  if(e.BRIDGE_ENABLED!=='true')return {enabled:false};
  const secret=e.BRIDGE_HMAC_SECRET_FILE?readFileSync(e.BRIDGE_HMAC_SECRET_FILE,'utf8').trim():'';

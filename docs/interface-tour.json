@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-08",
+  "updatedAt": "2026-11-11",
   "title": "Your relay. Your cockpit.",
   "summary": "Optional space cockpit for bounded AI work: readiness and activity remain visible while task-specific reading decks open on demand.",
   "textEquivalent": "docs/COCKPIT-TOUR.md",
@@ -125,12 +125,12 @@
         "Space"
       ],
       "defaultEnabled": false,
-      "persistsAfterReload": false
+      "persistsAfterReload": true
     },
     "openDeck": "Select Overview, Jobs, Requests, Groq or System in the horizontal navigation.",
     "retractDeck": [
       "Click exposed starfield",
-      "Minimize panel",
+      "Close panel or the same source control",
       "Escape"
     ],
     "retractPreserves": [
@@ -144,14 +144,22 @@
       "Progress": "Overview",
       "primaryAction": "Current onboarding or request step"
     },
-    "utilities": "Upper-right ellipsis menu: Documentation, motion and Sign out.",
+    "utilities": "Upper-right ellipsis menu: Documentation, Feedback, Replay walkthrough, Show windshield readout when dismissed, and Sign out.",
     "statusRefresh": "Refresh button; existing 15000 ms read-only visible-tab cadence. Does not reload interface source.",
     "softwareUpdate": "System / Check for updates; separately enrolled host updater required.",
-    "activeReadoutDefinition": "Current source uses queued + invoking from a fresh scoped status observation; completed is saved responses."
+    "activeReadoutDefinition": "Current source uses queued + invoking from a fresh scoped status observation; completed is saved responses.",
+    "currentCockpit": {
+      "layout": "curved controls docked to viewport bottom",
+      "panels": "translucent, sized to content and available windshield",
+      "handoff": "old panel retracts before next opens, including VM CPU and Auto",
+      "windshieldReadout": "fresh uncertain/active work, then latest saved result; dismiss and restore; saved answers expand across windshield",
+      "motion": "145ms retract, 150ms instrument expansion, 170ms main expansion; skipped when paused or reduced motion",
+      "scope": "current source; historical recording above is unchanged"
+    }
   },
   "sourceDocumentedBehaviorNotDemonstratedInClip": [
     "v1.0.34 whole-VM power reading, bounded CPU-linked travel pace and background-only look-around",
-    "Visible Cockpit switch, separate stars preference and keyboard controls",
+    "Curved instrument rail, Cockpit view handle, separate stars preference and keyboard controls",
     "Requests composer, exact approval, result exports and local reviews",
     "Rank advancement and progressive interface unlocks",
     "Update-button installation",
@@ -193,7 +201,7 @@
     {
       "id": "PR-BUG-006",
       "state": "source_candidate",
-      "summary": "Visible Cockpit switch and separate stars preference. Both are remembered in the browser."
+      "summary": "Curved instruments group layout, Stealth, stars and motion. Layout, stars and windshield readout dismissal are remembered in the browser."
     }
   ],
   "relatedGuides": [

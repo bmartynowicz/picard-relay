@@ -3,17 +3,17 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"8931e4205d76a1c34c68e3bdc634a88f184989678b2f9b14555153a36e71a551");
+assert.equal(createHash('sha256').update(script).digest('hex'),"48c9553b93736f3d52467d231b40e33cf870c8cd4e389286e57a8f5069851da1");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
-const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:stealth|cockpit)Preference\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\))/g,'');
+const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:(?:stealth|cockpit)Preference|'picard:windshield-readout')\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\)|setItem\('picard:windshield-readout',hidden\?'hidden':'shown'\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
-assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(noDisplayStorage));assert.ok(!/src=|@import|url\(/i.test(html.replace(/url\(#picard-metal-(?:face|recess)\)/g,'')));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md','https://github.com/bmartynowicz/picard-relay/blob/main/docs/OPERATIONS.md#replace-a-groq-key','https://github.com/bmartynowicz/picard-relay/issues/new','https://console.groq.com/keys']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
+assert.ok(!/localStorage|sessionStorage|document\.cookie|innerHTML|setInterval/.test(noDisplayStorage));assert.ok(!/src=|@import|url\(/i.test(html.replace(/url\(#(?:picard-metal-(?:face|recess)|folding-arc-fill)\)/g,'')));assert.deepEqual([...html.matchAll(/href="([^"]+)"/g)].map(match=>match[1]),['https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md','https://github.com/bmartynowicz/picard-relay/blob/main/docs/OPERATIONS.md#replace-a-groq-key','https://github.com/bmartynowicz/picard-relay/issues/new','https://console.groq.com/keys']);assert.match(html,/<a id="documentation"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*referrerpolicy="no-referrer"/);assert.ok(html.includes('<div id="private" hidden>'));assert.ok(html.includes('prefers-reduced-motion'));assert.ok(!html.includes('NCC-1701'));
 for(const id of ['setup-code','new-password','confirm-password','login-password','replace-groq-secret'])assert.match(html,new RegExp('id="'+id+'" type="password"'));
 const health={v:1,observedAt:'2026-10-30T16:00:00Z',service:{ready:true,providerReady:false,resultRecoveryReady:true,acceptingNewWork:false,draining:false},jobs:{queued:0,invoking:0,completed:2,uncertain:0},release:{hash:'a'.repeat(64),version:null},updater:{state:'unknown'}};
 const ok=body=>({ok:true,status:200,json:async()=>body}),bad=(status,error)=>({ok:false,status,json:async()=>({error})});
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
-function harness(handler,{jobsHandler,clock=Date,storage}={}){
- const animations=[];const element=()=>({_text:'',get textContent(){return this._text+this.children.map(n=>n.textContent).join('')},set textContent(v){this._text=String(v);this.children=[]},children:[],value:'',className:'',hidden:true,disabled:false,dataset:{},listeners:{},attrs:{},classList:{items:new Set(),toggle(n,v){v?this.items.add(n):this.items.delete(n)}},setAttribute(n,v){this.attrs[n]=v},addEventListener(n,fn){this.listeners[n]=fn},append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this._text='';this.children=nodes},animate(frames,options){const a={frames,options,cancelled:false,cancel(){this.cancelled=true;this.oncancel?.()}};animations.push(a);return a}});
+function harness(handler,{jobsHandler,clock=Date,storage,manualAnimations=false}={}){
+ const animations=[];const element=()=>({_text:'',get textContent(){return this._text+this.children.map(n=>n.textContent).join('')},set textContent(v){this._text=String(v);this.children=[]},children:[],value:'',className:'',hidden:true,disabled:false,dataset:{},listeners:{},attrs:{},dispatchEvent(e){this.listeners[e.type]?.(e)},offsetWidth:100,removeAttribute(n){delete this.attrs[n]},hasAttribute(n){return n in this.attrs},focus(){},classList:{items:new Set(),toggle(n,v){v?this.items.add(n):this.items.delete(n)}},setAttribute(n,v){this.attrs[n]=v},addEventListener(n,fn){const old=this.listeners[n];this.listeners[n]=old?(...args)=>{old(...args);return fn(...args)}:fn},append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this._text='';this.children=nodes},animate(frames,options){const a={frames,options,finished:Promise.resolve(),cancelled:false,cancel(){this.cancelled=true;this.oncancel?.()}};animations.push(a);if(!manualAnimations&&options.duration===145)queueMicrotask(()=>a.onfinish?.());return a}});
  const els=new Map([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,element()]));
  const copied=[];
  for(const id of ['feedback-dialog','replace-groq-dialog']){
@@ -24,12 +24,13 @@ function harness(handler,{jobsHandler,clock=Date,storage}={}){
  const starAnimations=['space-plane-0','space-plane-1'].map(id=>{const a={playbackRate:1,currentTime:1234,changes:[],updatePlaybackRate(rate){this.playbackRate=rate;this.changes.push(rate);}};els.get(id).getAnimations=()=>[a];return a;});
  for(const el of els.values()){el.style={values:new Map(),setProperty(name,value){this.values.set(name,value)}};el.getBoundingClientRect=()=>({left:0,top:0,width:1200,height:800});}
  const dl={},wl={},ml={},pref={matches:false,addEventListener:(n,fn)=>ml[n]=fn};
- const document={visibilityState:'visible',getElementById:id=>{assert.ok(els.has(id));return els.get(id)},createElement:()=>element(),addEventListener:(n,fn)=>dl[n]=fn};
+ const deck=element(),shell=element(),sidebar=element(),arc=element();for(const el of [deck,shell,sidebar,arc]){el.style={setProperty(){},getPropertyValue(){return ''}};el.getBoundingClientRect=()=>({left:0,top:0,width:1200,height:100,bottom:100});}deck.querySelector=()=>arc;deck.querySelectorAll=()=>[];deck.contains=()=>false;arc.getClientRects=()=>[];
+ const document={querySelector:selector=>({'.cockpit-dash':deck,'.folding-shell':shell,'.sidebar':sidebar}[selector]),documentElement:{clientWidth:1200,clientHeight:800},visibilityState:'visible',getElementById:id=>{assert.ok(els.has(id));return els.get(id)},createElement:()=>element(),addEventListener:(n,fn)=>dl[n]=fn};
  const window={matchMedia:()=>pref,addEventListener:(n,fn)=>wl[n]=fn};
  const navigator={clipboard:{writeText:async text=>{copied.push(text);}}};
  let count=0;const requests=[],timers=new Map();
- vm.runInNewContext(script,{document,window,navigator,localStorage:storage,TextEncoder,AbortController,crypto:{randomUUID:()=>replacementId},Date:clock,queueMicrotask,setTimeout:fn=>{timers.set(++count,fn);return count},clearTimeout:id=>timers.delete(id),fetch:async(path,options)=>{assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.ok(['/auth/state','/auth/setup','/auth/login','/auth/logout','/status','/updates','/groq/key'].includes(path)||path==='/jobs'||path.startsWith('/jobs?cursor='));if(options.method==='POST')assert.equal(options.headers['Content-Type'],'application/json');requests.push({path,options});return path.startsWith('/jobs')?(jobsHandler?jobsHandler(path,options):ok({v:1,rows:[],nextCursor:null,observedAt:health.observedAt})):handler(path,options)}});
- return {get:id=>els.get(id),els,requests,timers,wl,dl,ml,pref,document,animations,starAnimations,copied,async submit(id){await els.get(id).listeners.submit({preventDefault(){}})},async click(id){await els.get(id).listeners.click()}};
+ vm.runInNewContext(script.replace('motion();void boot();','window.cockpitTest={get deck(){return openDeck},get instrument(){return openInstrument},get retracting(){return retractingDeck}};motion();void boot();'),{Event,ResizeObserver:class{observe(){}},getComputedStyle:()=>({getPropertyValue:()=>''}),document,window,navigator,localStorage:storage,TextEncoder,AbortController,crypto:{randomUUID:()=>replacementId},Date:clock,queueMicrotask,setTimeout:fn=>{timers.set(++count,fn);return count},clearTimeout:id=>timers.delete(id),fetch:async(path,options)=>{assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.ok(['/auth/state','/auth/setup','/auth/login','/auth/logout','/status','/updates','/groq/key'].includes(path)||path==='/jobs'||path.startsWith('/jobs?cursor='));if(options.method==='POST')assert.equal(options.headers['Content-Type'],'application/json');requests.push({path,options});return path.startsWith('/jobs')?(jobsHandler?jobsHandler(path,options):ok({v:1,rows:[],nextCursor:null,observedAt:health.observedAt})):handler(path,options)}});
+ return {get:id=>els.get(id),get deckState(){return window.cockpitTest},els,requests,timers,wl,dl,ml,pref,document,animations,starAnimations,copied,async submit(id){await els.get(id).listeners.submit({preventDefault(){}})},async click(id){await els.get(id).listeners.click({currentTarget:els.get(id)})}};
 }
 const feedbackFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health));
 await flush();
@@ -79,7 +80,7 @@ await flush();
 assert.equal(resumedFlight.get('cockpit-toggle').attrs['aria-pressed'],'true');
 assert.equal(resumedFlight.get('stars-toggle').attrs['aria-pressed'],'false');
 assert.equal(resumedFlight.get('hud-instruments').hidden,false);
-await resumedFlight.click('cockpit-toggle');
+await resumedFlight.click('workspace-toggle');
 assert.equal(resumedFlight.get('hud-instruments').hidden,true);
 await resumedFlight.click('stars-toggle');
 assert.equal(resumedFlight.get('hud-instruments').hidden,true);
@@ -457,11 +458,11 @@ for(const view of ['__proto__','constructor','toString','unknown',null,1,{toStri
 for(const flag of ['enabled','authenticated','expanded'])for(const value of [false,1,'true',null,undefined]){const result=hudFunction({enabled:true,authenticated:true,expanded:true,[flag]:value});assert.equal(result.panelVisible,false);if(flag!=='expanded')assert.equal(result.trayVisible,false);}
 const hud=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health));await flush();
 for(let i=0;i<5;i++)await hud.click('logo-wrap');assert.equal(hud.get('hud-instruments').hidden,false);assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');
-const hudReads=hud.requests.length;await hud.click('hud-open-jobs');assert.equal(hud.get('console-surface').dataset.hudExpanded,'true');assert.equal(hud.get('private').dataset.width,'760');assert.equal(hud.get('view-jobs').hidden,false);
+const hudReads=hud.requests.length;await hud.click('fold-active');assert.equal(hud.get('console-surface').dataset.hudExpanded,'true');assert.equal(hud.get('private').dataset.width,'760');assert.equal(hud.get('view-jobs').hidden,false);
 const glassClick=target=>hud.get('console-surface').listeners.click({target});
 for(const id of ['nav-jobs','private','hud-open-jobs','refresh','logout']){glassClick(hud.get(id));assert.equal(hud.get('console-surface').dataset.hudExpanded,'true');}
 hud.get('console-tools').open=true;glassClick(hud.get('cockpit-glass'));assert.equal(hud.get('console-tools').open,false);assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');assert.equal(hud.get('view-jobs').hidden,false);assert.equal(hud.requests.length,hudReads);
-await hud.click('hud-open-jobs');glassClick(hud.get('hud-instruments'));assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');await hud.click('hud-open-jobs');
+await hud.click('fold-active');glassClick(hud.get('hud-instruments'));assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');await hud.click('fold-active');
 await hud.click('hud-close');assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');assert.equal(hud.requests.length,hudReads);await hud.click('hud-progress');assert.equal(hud.get('private').dataset.width,'660');hud.wl.keydown({key:'Escape'});assert.equal(hud.get('console-surface').dataset.hudExpanded,'false');
 await hud.click('logout');assert.equal(hud.get('hud-instruments').hidden,true);assert.equal(hud.get('hud-health').textContent,'Not checked');assert.equal(hud.get('hud-active').textContent,'—');assert.equal(hud.get('hud-done').textContent,'—');
 console.log('PASS windshield HUD: generated/reviewed state helper, exact booleans/view whitelist, compact instruments, fitting panels, minimize/Escape without network and private clearing.');
@@ -481,7 +482,7 @@ await flush();for(let i=0;i<5;i++)await power.click('logo-wrap');
 assert.equal(power.get('power-value').textContent,'100%');assert.equal(power.get('system-memory').textContent,'50%');assert.equal(power.get('power-relay').textContent,'24 MB');
 for(const a of power.starAnimations){assert.equal(a.playbackRate,1.3);assert.equal(a.currentTime,1234);}
 const powerReads=power.requests.length;await power.click('power-toggle');assert.equal(power.get('power-details').hidden,false);assert.equal(power.get('power-toggle').attrs['aria-expanded'],'true');
-power.wl.keydown({key:'Escape'});assert.equal(power.get('power-details').hidden,true);assert.equal(power.requests.length,powerReads);
+power.wl.keydown({key:'Escape'});await flush();assert.equal(power.get('power-details').hidden,true);assert.equal(power.requests.length,powerReads);
 const look=power.get('console-surface').listeners.pointermove,scene=power.get('space-scene');
 look({target:power.get('cockpit-glass'),pointerType:'mouse',clientX:1200,clientY:800});
 assert.equal(scene.style.values.get('--look-x'),'-14.00px');assert.equal(scene.style.values.get('--look-y'),'-10.00px');
@@ -512,4 +513,61 @@ for(const [resources,cpu,mem]of [
  const h=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,observedAt:new Date(powerAt).toISOString(),resources}),{clock:PowerClock});await flush();
  assert.equal(h.get('power-value').textContent,cpu);assert.equal(h.get('power-memory').textContent,mem);assert.doesNotMatch([...h.els.values()].map(e=>e.textContent).join(' '),/PRIVATE/);
 }
-console.log('PASS resource projection: invalid/array/stale/future readings are unknown; memory remains independent of CPU; inline CSP content has canonical line endings.');
+
+// Exercise the shipped coordinator with manually finished animations. This
+// catches overlap and stale completion callbacks without asserting CSS strings.
+const panelStorage={getItem:key=>key==='picard:cockpit'?'3':null,setItem(){}};
+const readyPanels=()=>harness(displayStatus,{storage:panelStorage,manualAnimations:true});
+const openerFor={main:'nav-jobs',cpu:'power-toggle',auto:'stealth-auto-toggle'};
+const currentPanel=h=>h.deckState.instrument?.opener??h.deckState.deck?.opener;
+for(const [from,to] of [['main','cpu'],['cpu','main'],['main','auto'],['auto','main'],['cpu','auto'],['auto','cpu']]){
+ const h=readyPanels();await flush();
+ await h.click(openerFor[from]);
+ assert.equal(currentPanel(h),h.get(openerFor[from]));
+ await h.click(openerFor[to]);
+ const fold=h.animations.at(-1);
+ assert.equal(fold.options.duration,145);
+ assert.equal(currentPanel(h),undefined,'old logical panel closes before next: '+from+' to '+to);
+ assert.equal(h.deckState.retracting.opener,h.get(openerFor[from]));
+ fold.onfinish();
+ assert.equal(currentPanel(h),h.get(openerFor[to]));
+ assert.equal(h.deckState.retracting,null);
+ assert.equal(h.requests.filter(r=>r.options.method==='POST').length,0);
+}
+{
+ const h=readyPanels();await flush();await h.click('nav-jobs');
+ await h.click('power-toggle');const old=h.animations.at(-1);
+ await h.click('stealth-auto-toggle');old.onfinish();
+ assert.equal(currentPanel(h),h.get('stealth-auto-toggle'),'latest pending click wins');
+ await h.click('nav-system');const cancelled=h.animations.at(-1);
+ h.get('console-surface').listeners.click({target:h.get('cockpit-glass')});
+ cancelled.onfinish();assert.equal(currentPanel(h),undefined,'backdrop cancels queued opening');
+ await h.click('nav-jobs');await h.click('nav-jobs');const stale=h.animations.at(-1);
+ await h.click('nav-jobs');stale.onfinish();
+ assert.equal(currentPanel(h),h.get('nav-jobs'),'reopening same source ignores stale fold');
+ await h.click('power-toggle');const privateFold=h.animations.at(-1);
+ await h.click('stealth-mode');privateFold.onfinish();
+ assert.equal(currentPanel(h),undefined);assert.equal(h.deckState.retracting,null);
+ assert.equal(h.get('power-details').hidden,true);
+}
+{
+ const h=readyPanels();await flush();await h.click('power-toggle');
+ await h.click('stealth-auto-toggle');const fold=h.animations.at(-1);
+ await h.click('logout');fold.onfinish();
+ assert.equal(currentPanel(h),undefined,'auth loss cancels pending transitions');
+ assert.equal(h.get('power-details').hidden,true);
+ assert.equal(h.get('stealth-settings').hidden,true);
+ assert.equal(h.get('windshield-readout').hidden,true);
+}
+{
+ const prefs=new Map([['picard:cockpit','3']]),storage={getItem:k=>prefs.get(k),setItem:(k,v)=>prefs.set(k,v)};
+ const reading=()=>harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,observedAt:new Date().toISOString()}),{storage,jobsHandler:async()=>ok({...page([completedJob]),observedAt:new Date().toISOString()})});
+ const h=reading();await flush();assert.equal(h.get('windshield-readout').hidden,false);
+ await h.click('windshield-dismiss');assert.equal(h.get('windshield-readout').hidden,true);
+ const reloaded=reading();await flush();assert.equal(reloaded.get('windshield-readout').hidden,true);
+ assert.equal(reloaded.get('windshield-restore').hidden,false);
+ await reloaded.click('windshield-restore');assert.equal(reloaded.get('windshield-readout').hidden,false);
+ assert.equal(prefs.get('picard:windshield-readout'),'shown');
+ assert.equal(reloaded.requests.filter(r=>r.options.method==='POST').length,0);
+}
+console.log('PASS cockpit coordination: all six handoffs, deferred opening, latest click wins, same-source reopen, backdrop/Stealth/auth cancellation, no request writes, remembered readout dismissal and restore.');
