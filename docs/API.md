@@ -112,6 +112,24 @@ The Codex completion recorder accepts this ID with `--comparison` and
 reasoning effort. It preserves the recorded usage and any existing explicit
 comparison.
 
+Start each side of a comparison in its own Codex chat. Later completed turns
+in that chat count toward that side automatically when recorded with the
+updated notifier. Keep unrelated work in a separate chat. Savings shows each
+side's full token total, fresh input plus output, and the follow-up subtotal.
+The original records remain available as individual turns.
+
+To attach an already recorded correction from another chat, use the two full
+usage record IDs. The dedicated usage token authorizes the link for its owner.
+An exact retry is safe. A turn can count toward only one original run.
+
+```sh
+node tools/codex-usage-notify.mjs --endpoint "$SAVINGS_ENDPOINT" --token-file "$SAVINGS_TOKEN_FILE" \
+  --attach "$FIX_RUN_ID" --follow-up-to "$ORIGINAL_RUN_ID"
+```
+
+Install the server update before replacing the completion notifier. The
+comparison records still accept usage from earlier notifiers.
+
 ### Prepare context before starting Codex
 
 For a self-contained brief, send the brief directly to Codex. When an existing

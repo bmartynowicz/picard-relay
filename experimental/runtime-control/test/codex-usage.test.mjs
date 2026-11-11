@@ -81,6 +81,37 @@ test('late pairing respects model, effort, run order and existing explicit pair 
  }
 });
 
+test('comparison totals include linked turns on either side without rewriting usage',t=>{
+ const store=createRelayStore({dbPath:':memory:'});
+ t.after(()=>store.close());
+ const usage=store.openCodexUsage('owner'),other=store.openCodexUsage('other');
+ const fix={...run,id:'c'.repeat(64),recordedAt:3000,comparisonId:null,variant:null,
+  inputTokens:300,cachedInputTokens:200,outputTokens:50};
+ const manual={...fix,id:'d'.repeat(64),recordedAt:4000,inputTokens:400};
+ const baselineFix={...fix,id:'e'.repeat(64),followUpTo:run.id};
+ assert.equal(usage.record({...fix,followUpTo:assisted.id}),'saved');
+ assert.equal(usage.record({...fix,followUpTo:assisted.id}),'duplicate');
+ assert.equal(usage.record(manual),'saved');
+ assert.equal(usage.record(baselineFix),'saved');
+ assert.equal(usage.record(assisted),'saved');
+ assert.equal(usage.record(run),'saved');
+ assert.equal(usage.attach({id:manual.id,followUpTo:manual.id}),'invalid');
+ assert.equal(other.attach({id:manual.id,followUpTo:assisted.id}),'conflict');
+ assert.equal(usage.attach({id:manual.id,followUpTo:assisted.id}),'saved');
+ assert.equal(usage.attach({id:manual.id,followUpTo:assisted.id}),'duplicate');
+ assert.equal(usage.attach({id:manual.id,followUpTo:run.id}),'conflict');
+ assert.equal(usage.record({...fix,followUpTo:run.id}),'conflict');
+ assert.equal(usage.record(fix),'duplicate');
+ assert.equal(usage.record(assisted),'duplicate');
+ const measured=usage.list().find(row=>row.id===assisted.id);
+ assert.equal(measured.totalTokens,8000);
+ assert.equal(measured.baselineTokens,12000);
+ assert.deepEqual(measured.comparison,{
+  id:'sample',baseline:{totalTokens:12350,freshTokens:4150,followUpTokens:350,followUpCount:1,lastRecordedAt:3000},
+  assisted:{totalTokens:8800,freshTokens:2900,followUpTokens:800,followUpCount:2,lastRecordedAt:4000}
+ });
+});
+
 test('Codex callback projects only completed turn usage and successful Picard tool names',async t=>{
  const directory=await mkdtemp(join(tmpdir(),'picard-codex-trace-'));
  t.after(()=>rm(directory,{recursive:true,force:true}));
@@ -118,6 +149,11 @@ test('Codex callback projects only completed turn usage and successful Picard to
  assert.deepEqual(await readCodexExecTools(execPath,'test-thread',totals,'picard'),['compute_list']);
  assert.equal(await readCodexExecTools(execPath,'wrong-thread',totals,'picard'),null);
  assert.equal(await readCodexExecTools(execPath,'test-thread',{...totals,outputTokens:499},'picard'),null);
+ const threadId='11111111-1111-7111-8111-111111111111',first='22222222-2222-7222-8222-222222222222';
+ await writeFile(path,[event('event_msg',{type:'task_complete',turn_id:first}),...entries].map(row=>JSON.stringify(row)).join('\n'));
+ const followup=await readCompletedCodexUsage(path,turnId,{threadId});
+ assert.deepEqual(followup,{...totals,model:'test-model',effort:'low',recordedAt:12345000,tools:['compute_ci_status'],
+  followUpTo:createHash('sha256').update(threadId+'\n'+first).digest('hex')});
 });
 
 test('native writes require the dedicated token and only the console owner can read runs',async t=>{
@@ -142,9 +178,9 @@ test('native writes require the dedicated token and only the console owner can r
   req.on('error',reject);
   req.end(body);
  });
- const push=(authorization,extra)=>send('/codex/usage',{
+ const push=(authorization,extra,body=run)=>send('/codex/usage',{
   method:'POST',headers:{'content-type':'application/json',authorization,...extra}
- },JSON.stringify(run));
+ },JSON.stringify(body));
  assert.equal((await push('Bearer '+'0'.repeat(64))).status,401);
  assert.equal((await push('Bearer '+token,{origin})).status,403);
  assert.equal((await push('Bearer '+token)).status,201);
@@ -155,4 +191,13 @@ test('native writes require the dedicated token and only the console owner can r
  const response=await read({cookie:'__Host-PicardSession='+session});
  assert.equal(response.status,200);
  assert.equal(response.data.codexUsage.runs[0].totalTokens,12000);
+ const fix={...run,id:'c'.repeat(64),comparisonId:null,variant:null,recordedAt:3000,inputTokens:30,cachedInputTokens:15,outputTokens:10};
+ const link={id:fix.id,followUpTo:assisted.id};
+ assert.equal((await push('Bearer '+token,{},assisted)).status,201);
+ assert.equal((await push('Bearer '+token,{},fix)).status,201);
+ assert.equal((await push('Bearer '+'0'.repeat(64),{},link)).status,401);
+ assert.equal((await push('Bearer '+token,{},link)).status,201);
+ assert.equal((await push('Bearer '+token,{},link)).status,200);
+ const updated=await read({cookie:'__Host-PicardSession='+session});
+ assert.equal(updated.data.codexUsage.runs.find(row=>row.id===assisted.id).comparison.assisted.totalTokens,8040);
 });

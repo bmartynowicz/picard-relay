@@ -11,16 +11,19 @@ import {parseArgs} from 'node:util';
 
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const slug=/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,79}$/;
+const usageId=/^[a-f0-9]{64}$/;
 const metrics=['input_tokens','cached_input_tokens','output_tokens'];
 const validUsage=usage=>usage&&metrics.every(key=>Number.isSafeInteger(usage[key])&&usage[key]>=0);
+const recordId=(thread,turn)=>createHash('sha256').update(thread+'\n'+turn).digest('hex');
 
-export async function readCompletedCodexUsage(path,turnId,{serverName='picard'}={}){
+export async function readCompletedCodexUsage(path,turnId,{serverName='picard',threadId}={}){
  const size=(await stat(path)).size;
  if(size>64*1024*1024)throw Error('transcript_too_large');
  const stream=createReadStream(path,{encoding:'utf8'});
  const lines=createInterface({input:stream,crlfDelay:Infinity});
  const zeros=Object.fromEntries(metrics.map(key=>[key,0]));
  let active=false,completeAt=null,model=null,effort=null,before=zeros,latest=null,previous=zeros;
+ let firstCompletedTurn=null;
  const calls=new Map(),tools=new Set();
  try{
   for await(const line of lines){
@@ -37,6 +40,8 @@ export async function readCompletedCodexUsage(path,turnId,{serverName='picard'}=
     }else if(active&&p.type==='task_complete'&&p.turn_id===turnId){
      completeAt=Number.isSafeInteger(p.completed_at)?p.completed_at*1000:Date.parse(event.timestamp);
      break;
+    }else if(!active&&p.type==='task_complete'&&uuid.test(p.turn_id??'')){
+     firstCompletedTurn??=p.turn_id;
     }else if(active&&p.type==='mcp_tool_call_end'&&p.invocation?.server===serverName
       &&slug.test(p.invocation?.tool??'')&&p.result?.Ok&&p.result.Ok.isError!==true&&p.result.Ok.is_error!==true){
      tools.add(p.invocation.tool);
@@ -61,7 +66,8 @@ export async function readCompletedCodexUsage(path,turnId,{serverName='picard'}=
  if(!latest||!model||!Number.isSafeInteger(completeAt)||completeAt<1)return null;
  const [inputTokens,cachedInputTokens,outputTokens]=metrics.map(key=>latest[key]-before[key]);
  if(inputTokens<0||cachedInputTokens<0||cachedInputTokens>inputTokens||outputTokens<0||inputTokens+outputTokens===0)return null;
- return {model,effort,recordedAt:completeAt,inputTokens,cachedInputTokens,outputTokens,tools:[...tools].sort().slice(0,20)};
+ return {model,effort,recordedAt:completeAt,inputTokens,cachedInputTokens,outputTokens,tools:[...tools].sort().slice(0,20),
+  ...(uuid.test(threadId??'')&&firstCompletedTurn?{followUpTo:recordId(threadId,firstCompletedTurn)}:{})};
 }
 
 async function transcriptPath(root,threadId){
@@ -125,23 +131,34 @@ async function flush(outbox,endpoint,token,latestFile){
 async function main(){
  const {values,positionals}=parseArgs({allowPositionals:true,options:{
   endpoint:{type:'string'},'token-file':{type:'string'},'codex-home':{type:'string'},outbox:{type:'string'},
-  'server-name':{type:'string',default:'picard'},'exec-events':{type:'string'},comparison:{type:'string'},variant:{type:'string'}
+  'server-name':{type:'string',default:'picard'},'exec-events':{type:'string'},comparison:{type:'string'},variant:{type:'string'},
+  attach:{type:'string'},'follow-up-to':{type:'string'}
  }});
+ const attaching=values.attach!==undefined||values['follow-up-to']!==undefined;
  const notice=JSON.parse(positionals[0]??'null');
- if(notice?.type!=='agent-turn-complete')return;
- const thread=notice['thread-id'],turn=notice['turn-id'];
- if(!uuid.test(thread??'')||!uuid.test(turn??'')||!slug.test(values['server-name']))throw Error('invalid_codex_notification');
+ if(!attaching&&notice?.type!=='agent-turn-complete')return;
  const endpoint=endpointFor(values.endpoint);
  const tokenFile=resolve(values['token-file']);
  const token=(await readFile(tokenFile,'utf8')).trimEnd();
- if(!/^[a-f0-9]{64}$/.test(token))throw Error('invalid_usage_token');
+ if(!usageId.test(token))throw Error('invalid_usage_token');
+ if(attaching){
+  const id=values.attach,followUpTo=values['follow-up-to'];
+  if(positionals.length||!usageId.test(id??'')||!usageId.test(followUpTo??'')||id===followUpTo)throw Error('invalid_usage_link');
+  const response=await fetch(endpoint,{method:'POST',redirect:'error',signal:AbortSignal.timeout(4000),
+   headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({id,followUpTo})});
+  await response.body?.cancel();
+  if(!response.ok)throw Error('usage_link_rejected');
+  return;
+ }
+ const thread=notice['thread-id'],turn=notice['turn-id'];
+ if(!uuid.test(thread??'')||!uuid.test(turn??'')||!slug.test(values['server-name']))throw Error('invalid_codex_notification');
  if((values.comparison!==undefined||values.variant!==undefined)&&(!slug.test(values.comparison??'')||!['baseline','assisted'].includes(values.variant)))
   throw Error('invalid_comparison');
  const path=await transcriptPath(values['codex-home']??process.env.CODEX_HOME??join(homedir(),'.codex'),thread);
  let usage,execTools;
  for(const wait of [0,250,500,1000]){
   if(wait)await delay(wait);
-  usage=await readCompletedCodexUsage(path,turn,{serverName:values['server-name']});
+  usage=await readCompletedCodexUsage(path,turn,{serverName:values['server-name'],threadId:thread});
   if(usage&&values['exec-events'])execTools=await readCodexExecTools(values['exec-events'],thread,usage,values['server-name']).catch(()=>null);
   if(usage&&(!values['exec-events']||execTools))break;
  }
@@ -149,8 +166,10 @@ async function main(){
  if(execTools)usage.tools=[...new Set([...usage.tools,...execTools])].sort().slice(0,20);
  const matches=(!values['exec-events']||execTools!==null&&execTools!==undefined)
   &&(values.variant==='baseline'?!usage.tools.length:values.variant==='assisted'&&usage.tools.length>0);
- const id=createHash('sha256').update(thread+'\n'+turn).digest('hex');
- const record={v:1,id,...usage,comparisonId:matches?values.comparison:null,variant:matches?values.variant:null};
+ const id=recordId(thread,turn);
+ const {followUpTo,...counts}=usage;
+ const record={v:1,id,...counts,comparisonId:matches?values.comparison:null,variant:matches?values.variant:null,
+  ...(!matches&&followUpTo?{followUpTo}:{})};
  const outbox=resolve(values.outbox??join(dirname(tokenFile),'codex-usage-pending'));
  await mkdir(outbox,{recursive:true,mode:0o700});
  const filename=id+'.json',pending=join(outbox,filename),temporary=join(outbox,id+'-'+randomUUID()+'.tmp');

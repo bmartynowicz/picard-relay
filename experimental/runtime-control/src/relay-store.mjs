@@ -45,40 +45,96 @@ function openCodexUsage(db,owner){
   owner TEXT NOT NULL,id TEXT NOT NULL,recorded_at INTEGER NOT NULL,comparison_id TEXT,variant TEXT,record TEXT NOT NULL,
   PRIMARY KEY(owner,id),UNIQUE(owner,comparison_id,variant)
  );
- CREATE INDEX IF NOT EXISTS relay_codex_usage_time ON relay_codex_usage(owner,recorded_at DESC,id);`);
+ CREATE INDEX IF NOT EXISTS relay_codex_usage_time ON relay_codex_usage(owner,recorded_at DESC,id);
+ CREATE TABLE IF NOT EXISTS relay_codex_followups(
+  owner TEXT NOT NULL,id TEXT NOT NULL,original_id TEXT NOT NULL,PRIMARY KEY(owner,id)
+ );
+ CREATE INDEX IF NOT EXISTS relay_codex_followups_original ON relay_codex_followups(owner,original_id);`);
  const byId=db.prepare('SELECT record FROM relay_codex_usage WHERE owner=? AND id=?');
- const byPair=db.prepare('SELECT record FROM relay_codex_usage WHERE owner=? AND comparison_id=? AND variant=?');
  const insert=db.prepare('INSERT OR IGNORE INTO relay_codex_usage(owner,id,recorded_at,comparison_id,variant,record) VALUES(?,?,?,?,?,?)');
- const recent=db.prepare('SELECT record FROM relay_codex_usage WHERE owner=? ORDER BY recorded_at DESC,id LIMIT 12');
+ const recent=db.prepare(`SELECT record,original_id FROM relay_codex_usage AS runs
+  LEFT JOIN relay_codex_followups AS fixes ON fixes.owner=runs.owner AND fixes.id=runs.id
+  WHERE runs.owner=? ORDER BY recorded_at DESC,runs.id LIMIT 1000`);
+ const followUp=db.prepare('SELECT original_id FROM relay_codex_followups WHERE owner=? AND id=?');
+ const hasFollowUps=db.prepare('SELECT 1 FROM relay_codex_followups WHERE owner=? AND original_id=? LIMIT 1');
+ const insertFollowUp=db.prepare('INSERT INTO relay_codex_followups(owner,id,original_id) VALUES(?,?,?)');
  const prune=db.prepare('DELETE FROM relay_codex_usage WHERE owner=? AND id IN (SELECT id FROM relay_codex_usage WHERE owner=? ORDER BY recorded_at DESC,id LIMIT -1 OFFSET 1000)');
+ const pruneLinks=db.prepare('DELETE FROM relay_codex_followups WHERE owner=? AND id NOT IN (SELECT id FROM relay_codex_usage WHERE owner=?)');
+ const get=id=>JSON.parse(byId.get(owner,id)?.record??'null');
+ const isId=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
+ function link(run,originalId,{allowPending=false}={}){
+  const existing=followUp.get(owner,run.id);
+  if(existing)return existing.original_id===originalId?'duplicate':'conflict';
+  const original=get(originalId);
+  if(run.variant!==null||hasFollowUps.get(owner,run.id)||followUp.get(owner,originalId)
+    ||(!original&&!allowPending)||(original&&run.recordedAt<original.recordedAt))return 'conflict';
+  insertFollowUp.run(owner,run.id,originalId);
+  return 'saved';
+ }
+ function transaction(write){
+  db.exec('BEGIN IMMEDIATE');
+  try{const result=write();db.exec(result==='conflict'?'ROLLBACK':'COMMIT');return result;}
+  catch(error){db.exec('ROLLBACK');throw error;}
+ }
  return {
   record(value){
-   const run=codexUsageRecord(value);
+   if(!value||typeof value!=='object'||Array.isArray(value))return 'invalid';
+   const {followUpTo,...fields}=value;
+   const run=codexUsageRecord(fields);
    if(!run)return 'invalid';
+   if(followUpTo!==undefined&&(!isId(followUpTo)||followUpTo===run.id||run.variant!==null))return 'invalid';
    const json=canonical(run);
-   db.exec('BEGIN IMMEDIATE');
-   try{
+   return transaction(()=>{
     const added=insert.run(owner,run.id,run.recordedAt,run.comparisonId,run.variant,json).changes===1;
-    const status=added?'saved':byId.get(owner,run.id)?.record===json?'duplicate':'conflict';
-    if(added)prune.run(owner,owner);
-    db.exec('COMMIT');
-    return status;
-   }catch(error){db.exec('ROLLBACK');throw error;}
+    if(!added&&byId.get(owner,run.id)?.record!==json)return 'conflict';
+    const linked=followUpTo===undefined?'duplicate':link(run,followUpTo,{allowPending:true});
+    if(linked==='conflict')return linked;
+    if(added&&prune.run(owner,owner).changes)pruneLinks.run(owner,owner);
+    return added||linked==='saved'?'saved':'duplicate';
+   });
+  },
+  attach(value){
+   if(!value||Object.keys(value).length!==2||!isId(value.id)||!isId(value.followUpTo)||value.id===value.followUpTo)return 'invalid';
+   return transaction(()=>{
+    const run=get(value.id),original=get(value.followUpTo);
+    if(!run||!original||(!original.variant&&!original.tools.length))return 'conflict';
+    return link(run,value.followUpTo);
+   });
   },
   list(){
-   return recent.all(owner).map(({record})=>{
-    const run=JSON.parse(record);
+   const entries=recent.all(owner).map(({record,original_id})=>({run:JSON.parse(record),originalId:original_id}));
+   const baselineByPair=new Map(),explicitAssisted=new Set(),followUps=new Map();
+   for(const {run,originalId} of entries){
+    if(run.variant==='baseline')baselineByPair.set(run.comparisonId,run);
+    if(run.variant==='assisted')explicitAssisted.add(run.comparisonId);
+    if(originalId){
+     if(!followUps.has(originalId))followUps.set(originalId,[]);
+     followUps.get(originalId).push(run);
+    }
+   }
+   const totals=run=>{
+    const fixes=(followUps.get(run.id)??[]).filter(fix=>fix.recordedAt>=run.recordedAt);
+    const followUpTokens=fixes.reduce((sum,fix)=>sum+fix.totalTokens,0);
+    return {totalTokens:run.totalTokens+followUpTokens,
+     freshTokens:run.totalTokens-run.cachedInputTokens+fixes.reduce((sum,fix)=>sum+fix.totalTokens-fix.cachedInputTokens,0),
+     followUpTokens,followUpCount:fixes.length,lastRecordedAt:fixes[0]?.recordedAt??run.recordedAt};
+   };
+   const projected=entries.map(({run,originalId})=>{
     let comparisonId=run.variant==='assisted'?run.comparisonId:null;
-    if(run.variant===null&&run.tools.length&&!byPair.get(owner,run.id,'assisted'))comparisonId=run.id;
-    const baseline=comparisonId&&JSON.parse(byPair.get(owner,comparisonId,'baseline')?.record??'null');
+    if(run.variant===null&&!originalId&&run.tools.length&&!explicitAssisted.has(run.id))comparisonId=run.id;
+    const baseline=comparisonId&&baselineByPair.get(comparisonId);
     // A baseline recorded after a standalone Picard run can name that run's ID.
     // The comparison is projected at read time, keeping both saved records immutable.
     const inOrder=run.variant==='assisted'||baseline?.recordedAt>=run.recordedAt;
     const baselineTokens=baseline&&inOrder&&baseline.model===run.model&&baseline.effort===run.effort?baseline.totalTokens:null;
+    const comparison=baselineTokens===null?null:{id:comparisonId,baseline:totals(baseline),assisted:totals(run)};
     return {...run,baselineTokens,
      baselineFreshTokens:baselineTokens===null?null:baselineTokens-baseline.cachedInputTokens,
-     savedTokens:baselineTokens===null?null:baselineTokens-run.totalTokens};
+     savedTokens:baselineTokens===null?null:baselineTokens-run.totalTokens,
+     ...(originalId?{followUpTo:originalId}:{}),...(comparison?{comparison}:{})};
    });
+   const activity=run=>run.comparison?Math.max(run.comparison.baseline.lastRecordedAt,run.comparison.assisted.lastRecordedAt):run.recordedAt;
+   return projected.sort((a,b)=>activity(b)-activity(a)).slice(0,12);
   }
  };
 }
