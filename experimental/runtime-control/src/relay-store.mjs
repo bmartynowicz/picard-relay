@@ -115,7 +115,15 @@ function openCodexUsage(db,owner){
    const totals=run=>{
     const fixes=(followUps.get(run.id)??[]).filter(fix=>fix.recordedAt>=run.recordedAt);
     const followUpTokens=fixes.reduce((sum,fix)=>sum+fix.totalTokens,0);
-    return {totalTokens:run.totalTokens+followUpTokens,
+    const all=[run,...fixes];
+    const inputTokens=all.reduce((sum,row)=>sum+row.inputTokens,0);
+    const cachedInputTokens=all.reduce((sum,row)=>sum+row.cachedInputTokens,0);
+    const outputTokens=all.reduce((sum,row)=>sum+row.outputTokens,0);
+    // Dated Standard-rate estimate, not billed credits or included allowance.
+    // Unknown models in any correction make the whole-side estimate unavailable.
+    const standardCredits=all.every(row=>row.model==='gpt-6.1-sol')
+     ?((inputTokens-cachedInputTokens)*50+cachedInputTokens*2.5+outputTokens*250)/1_000_000:null;
+    return {totalTokens:run.totalTokens+followUpTokens,inputTokens,cachedInputTokens,outputTokens,standardCredits,
      freshTokens:run.totalTokens-run.cachedInputTokens+fixes.reduce((sum,fix)=>sum+fix.totalTokens-fix.cachedInputTokens,0),
      followUpTokens,followUpCount:fixes.length,lastRecordedAt:fixes[0]?.recordedAt??run.recordedAt};
    };

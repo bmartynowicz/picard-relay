@@ -26,13 +26,17 @@ function withContext(brief, name, context) {
     + JSON.stringify({[name]: context});
 }
 
-export function prepareCodexHandoff({brief, sourceContext = '', savedResult = null, acceptanceCriteria = ''}) {
+export function prepareCodexHandoff({brief, sourceContext = '', savedResult = null, acceptanceCriteria = '', sourceAlreadyInContext = false}) {
   if (typeof brief !== 'string' || !brief.trim()) throw new Error('A task brief is required.');
   if (typeof acceptanceCriteria !== 'string' || Buffer.byteLength(acceptanceCriteria) > maxAcceptanceBytes)
     throw new Error('Acceptance criteria must be text at most 16,000 bytes.');
   if (typeof sourceContext !== 'string' || Buffer.byteLength(sourceContext) > maxContextBytes)
     throw new Error('Source context must be text at most 1 MiB.');
+  if (typeof sourceAlreadyInContext !== 'boolean') throw new Error('Source context presence must be a boolean.');
   const task = acceptanceCriteria.trim() ? brief + '\n\nAcceptance criteria\n' + acceptanceCriteria : brief;
+  // Continue the existing chat without replaying source text or replacing a warm prefix.
+  // The caller must know that the exact sources remain available in that chat.
+  if (sourceAlreadyInContext) return {mode: 'direct', reason: 'source_already_in_context', prompt: task};
   if (!sourceContext.trim()) return {mode: 'direct', reason: 'no_source_context', prompt: task};
 
   const original = withContext(task, 'sourceContext', sourceContext);
@@ -65,15 +69,17 @@ async function main() {
   const {values} = parseArgs({options: {
     brief: {type: 'string'}, context: {type: 'string'}, result: {type: 'string'},
     acceptance: {type: 'string'}, check: {type: 'string'}, checks: {type: 'string'}, help: {type: 'boolean'},
+    'source-in-context': {type: 'boolean'},
   }});
   if (values.help) {
     console.log('Usage: node tools/codex-handoff.mjs --brief TASK.txt [--acceptance CHECKLIST.txt] [--context SOURCE.txt --result PICARD.json]');
     console.log('Check an answer locally: node tools/codex-handoff.mjs --check ANSWER.txt --checks CHECKS.json');
+    console.log('Continue a chat that already holds the exact sources: add --source-in-context and send to that chat.');
     return;
   }
   const utf8 = new TextDecoder('utf-8', {fatal: true});
   if (values.check || values.checks) {
-    if (!values.check || !values.checks || values.brief || values.context || values.result || values.acceptance)
+    if (!values.check || !values.checks || values.brief || values.context || values.result || values.acceptance || values['source-in-context'])
       throw new Error('Use --check and --checks together to validate an answer.');
     const answer = utf8.decode(await readFile(values.check));
     const checks = JSON.parse(utf8.decode(await readFile(values.checks)));
@@ -95,7 +101,8 @@ async function main() {
       // The original source remains available if the export cannot be read.
     }
   }
-  const selected = prepareCodexHandoff({brief, sourceContext, savedResult, acceptanceCriteria});
+  const selected = prepareCodexHandoff({brief, sourceContext, savedResult, acceptanceCriteria,
+    sourceAlreadyInContext: values['source-in-context'] ?? false});
   process.stderr.write('Picard handoff: ' + selected.mode + ' (' + selected.reason + ')\n');
   process.stdout.write(selected.prompt + '\n');
 }

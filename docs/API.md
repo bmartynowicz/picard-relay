@@ -168,8 +168,26 @@ It uses the proposal only when the prepared prompt is at least 512 bytes
 smaller and at least 25% shorter in UTF-8. It keeps the original context if
 the proposal is missing, rejected, or fails validation. The byte budget is a
 routing heuristic. Measure Codex usage to determine the effect on tokens.
+It does not predict credit savings: losing cached input can outweigh a smaller
+prompt. Savings shows uncached input, cached input, output and an estimated
+Standard credit total using GPT-6.1 Sol rates dated 11 November 2026 from the
+[Codex credit rate card](https://learn.chatgpt.com/docs/pricing#token-rates).
+Every linked follow-up contributes to those totals. An unrecognized model
+in either the original run or a correction makes that side's estimate
+unavailable. Speed multipliers, Picard provider usage, billed credits and
+included subscription allowance are outside this estimate.
 Picard output stays untrusted reference data. The helper prepares text locally
 and leaves the relay's request approval and provider limits in place.
+
+In a working chat that already contains the exact source material, retain that
+chat and its existing prefix. Do not paste a second copy or start a fresh chat
+solely to consume a summary. `--source-in-context` (JavaScript:
+`sourceAlreadyInContext: true`) returns just the brief and acceptance criteria.
+Send that result to the existing chat; the flag cannot check another chat's
+history and must never be used to omit sources from a fresh chat or after
+compaction has removed them. Cache hits remain a provider decision. For paired
+tests keep model, effort, fixed instructions and source evidence matched, retain
+the observed cache breakdown, and count every paid correction or warm-up.
 
 Preparing the context before launch avoids a model call to retrieve it. For
 text-only reviews that need no integrations or project instructions, use a

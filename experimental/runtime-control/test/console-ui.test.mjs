@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"48c9553b93736f3d52467d231b40e33cf870c8cd4e389286e57a8f5069851da1");
+assert.equal(createHash('sha256').update(script).digest('hex'),"e58b33b4a8516ef4b2f4b0e37e87b431031bfa6ddafd2cfdfcffd2bb84ed3fdf");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:(?:stealth|cockpit)Preference|'picard:windshield-readout')\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\)|setItem\('picard:windshield-readout',hidden\?'hidden':'shown'\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
@@ -50,6 +50,23 @@ assert.equal(savingsFlow.get('codex-savings-note').textContent,'12,000 tokens on
 const [firstSavings,secondSavings]=savingsFlow.get('codex-savings-comparisons').children;
 assert.match(firstSavings.textContent,/first-example.*Codex alone12,000 tokens.*With Picard10,000 tokens.*Includes 2,000 tokens across 1 follow-up turn/);
 assert.match(secondSavings.textContent,/second-example.*Codex alone8,000 tokens.*With Picard9,000 tokens.*12.5% more/);
+
+const creditFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',runs:[
+ {id:'c',variant:'assisted',tools:['context'],model:'gpt-6.1-sol',recordedAt:3,inputTokens:16500,cachedInputTokens:7168,outputTokens:921,totalTokens:17421,
+  comparison:{id:'cache-example',
+   baseline:{...side(18337,6049),inputTokens:17352,cachedInputTokens:12288,outputTokens:985,standardCredits:.53017},
+   assisted:{...side(17421,10253),inputTokens:16500,cachedInputTokens:7168,outputTokens:921,standardCredits:.71477}}}
+]}}));
+await flush();
+assert.equal(creditFlow.get('codex-savings-headline').textContent,'34.8% more estimated Standard credits');
+const creditCard=creditFlow.get('codex-savings-comparisons').textContent;
+assert.match(creditCard,/0.5302 estimated Standard credits/);
+assert.match(creditCard,/0.7148 estimated Standard credits/);
+assert.match(creditCard,/5,120 fewer cached input tokens/);
+assert.match(creditCard,/5% fewer total Codex tokens/);
+assert.match(creditCard,/Includes linked fixes/);
+assert.match(creditCard,/Follow-up fixes: 0 turns · 0 tokens/);
+assert.match(creditCard,/How credits are estimated/);
 
 const displayPrefs=new Map(),displayStorage={getItem:key=>displayPrefs.get(key),setItem:(key,value)=>displayPrefs.set(key,value)};
 const displayStatus=async path=>path==='/auth/state'?ok({enrolled:true}):ok(health);
