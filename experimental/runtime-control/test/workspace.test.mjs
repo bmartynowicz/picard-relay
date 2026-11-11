@@ -21,7 +21,7 @@ test('ordinary request: inert draft, exact approval, one call, restart and recov
  assert.equal((await f.request('/workspace/requests/'+d.payload.eventId)).body.state,'draft');
  const proof=await f.approve(d),queued=await f.submit(d,proof);assert.equal(queued.status,201);assert.equal(queued.body.state,'queued');
  assert.equal((await f.dispatcher.runOnce()).status,'completed');assert.equal(f.calls,1);f.restart();
- const saved=await f.request('/workspace/requests/'+d.payload.eventId);assert.equal(saved.body.result.body,f.output);assert.equal(saved.body.provenance.source,'Owner console');assert.equal(saved.body.provenance.maxOutputTokens,4096);assert.equal(saved.body.provenance.measuredTokens,null);assert.equal((await f.dispatcher.runOnce()).status,'idle');assert.equal(f.calls,1);
+ const saved=await f.request('/workspace/requests/'+d.payload.eventId);assert.equal(saved.body.result.body,f.output);assert.equal(saved.body.provenance.source,'Owner console');assert.equal(saved.body.provenance.maxOutputTokens,4096);const expectedUsage=process.platform==='linux'?150:null;assert.equal(saved.body.provenance.measuredTokens,expectedUsage);assert.equal(saved.body.provenance.providerUsage?.totalTokens??null,expectedUsage);assert.equal(saved.body.provenance.billedUsd,null);assert.equal((await f.dispatcher.runOnce()).status,'idle');assert.equal(f.calls,1);
 });
 test('concurrent duplicate prepare/approval returns one immutable draft, grant and job',async t=>{
  const f=await fixture(t),brief=f.brief(),drafts=await Promise.all([f.prepare(brief),f.prepare(brief)]);assert.deepEqual(drafts[0],drafts[1]);const d=drafts[0],proof=await f.approve(d);

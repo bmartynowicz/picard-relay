@@ -64,7 +64,43 @@ correction. A matching keyword is not proof of factual completeness, and a
 missing keyword is not by itself grounds for a paid correction. Check meaning
 against the exact source. Keep that correction in the measured comparison.
 
-Savings totals cover native finishing turns and all linked corrections. The
-credit display is an estimate, not measured included subscription allowance;
-shared preparation and Picard provider usage remain outside it. Equal cache
-reuse supports a cleaner comparison, but cannot be forced or assumed.
+Savings supports full recorded workflow coverage. Include native preparation,
+Picard calls, finishing and every linked correction. Earlier comparisons retain
+their original finishing-only scope; unknown past usage is never backfilled as
+zero. The credit display estimates Codex usage, not included subscription
+allowance. Groq-reported tokens are included in the cross-provider token total
+and shown separately; there is no invented conversion to Codex credits or billed
+dollars. Equal cache reuse supports a cleaner comparison, but cannot be assumed.
+
+Before task-specific source discovery, `tools/codex-workflow-span.mjs begin
+--transcript NATIVE_JSONL --out CHECKPOINT.json` checkpoints native coordinator
+usage. `finish --checkpoint CHECKPOINT.json --out PHASE.json` counts actual
+model-pass records added during that phase, checks the unchanged log prefix and
+model/turn, and freezes a receipt for redelivery. This includes the coordinator's
+source research rather than hiding it outside the comparison. Keep software
+development, unrelated work and overlapping spans outside the task phase. The
+local checkpoint contains a private log path; only its `record` metadata leaves
+the machine through the recorder's `--phase-record PHASE.json` option.
+
+The runner's `--preparation LABEL` executes and records a frozen
+`preparation-LABEL-prompt.txt` before finishing. Put every measured preparation
+ID into the task's explicit coverage:
+
+```json
+{"workflow":{"v":1,"preparationIds":{"baseline":["SHA256_RUN_ID"],"assisted":["SHA256_RUN_ID"]},"picardRefs":["SAVED_REQUEST_SHA256"]}}
+```
+
+Shared discovery/preparation is allocated once to each independent alternative,
+not twice within either side. The runner delivers coverage automatically and
+keeps all follow-up fixes attached to their root. List every used Picard request,
+including unsuccessful or uncertain attempts. The owner CLI also accepts
+`--comparison ID --usage-settings PRIVATE_SETTINGS.json` on submit/result to
+register the exact saved request automatically. Later Picard correction calls
+with that ID join the original totals without replacing coverage or repeating a
+provider invocation. Metadata delivery is idempotent and retains a local outbox.
+
+An unavailable preparation record, missing provider usage, failed/uncertain
+provider call or duplicate phase/root allocation leaves the workflow incomplete.
+Known usage remains visible, but no full total or full-workflow saving is claimed.
+Provider telemetry is observational; it changes no approval, one-call boundary,
+retry policy or billing authority. Human time is not measured.

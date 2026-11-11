@@ -137,15 +137,30 @@ async function main(){
  const {values,positionals}=parseArgs({allowPositionals:true,options:{
   endpoint:{type:'string'},'token-file':{type:'string'},'codex-home':{type:'string'},outbox:{type:'string'},
   'server-name':{type:'string',default:'picard'},'exec-events':{type:'string'},comparison:{type:'string'},variant:{type:'string'},
-  attach:{type:'string'},'follow-up-to':{type:'string'},'prepared-handoff':{type:'string'}
+  attach:{type:'string'},'follow-up-to':{type:'string'},'prepared-handoff':{type:'string'},workflow:{type:'string'},'picard-call':{type:'string'},'phase-record':{type:'string'}
  }});
  const attaching=values.attach!==undefined||values['follow-up-to']!==undefined;
  const notice=JSON.parse(positionals[0]??'null');
- if(!attaching&&notice?.type!=='agent-turn-complete')return;
+ if(!attaching&&!values.workflow&&!values['picard-call']&&!values['phase-record']&&notice?.type!=='agent-turn-complete')return;
  const endpoint=endpointFor(values.endpoint);
  const tokenFile=resolve(values['token-file']);
  const token=(await readFile(tokenFile,'utf8')).trimEnd();
  if(!usageId.test(token))throw Error('invalid_usage_token');
+ if(values.workflow||values['picard-call']||values['phase-record']){
+  if(attaching||positionals.length||[values.workflow,values['picard-call'],values['phase-record']].filter(Boolean).length!==1)throw Error('invalid_workflow_record');
+  if(values.workflow&&(await stat(values.workflow)).size>4096)throw Error('invalid_workflow_record');
+  if(values['phase-record']&&(await stat(values['phase-record'])).size>4096)throw Error('invalid_workflow_record');
+  const record=values.workflow?JSON.parse(await readFile(values.workflow,'utf8')):values['phase-record']?JSON.parse(await readFile(values['phase-record'],'utf8')).record:JSON.parse(values['picard-call']);
+  if(values['phase-record']?record?.v!==1||record.comparisonId!==null||record.variant!==null:record?.kind!==(values.workflow?'workflow':'picard-call'))throw Error('invalid_workflow_record');
+  const body=JSON.stringify(record);if(Buffer.byteLength(body)>4096)throw Error('invalid_workflow_record');
+  const outbox=resolve(values.outbox??join(dirname(tokenFile),'codex-usage-pending'));
+  await mkdir(outbox,{recursive:true,mode:0o700});
+  const filename=createHash('sha256').update(body).digest('hex')+'.json';
+  const temp=join(outbox,randomUUID()+'.tmp');
+  await writeFile(temp,body,{flag:'wx',mode:0o600});
+  try{await rename(temp,join(outbox,filename));}finally{await rm(temp,{force:true});}
+  if(!await flush(outbox,endpoint,token,filename))throw Error('workflow_not_delivered');return;
+ }
  if(attaching){
   const id=values.attach,followUpTo=values['follow-up-to'];
   if(positionals.length||!usageId.test(id??'')||!usageId.test(followUpTo??'')||id===followUpTo)throw Error('invalid_usage_link');

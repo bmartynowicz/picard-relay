@@ -5,6 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {readBoundAdmissionPolicy} from './admission-policy.mjs';
 import {AdmissionError,admissionHash,stop} from './admission-store.mjs';
 import {recentJobReason} from './relay-store.mjs';
+import {sanitizeProviderUsage} from './adapters.mjs';
 
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).sort().join(',')===[...keys].sort().join(',');
 const headers={'Cache-Control':'no-store, private','Pragma':'no-cache','Content-Type':'application/json; charset=utf-8','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cross-Origin-Resource-Policy':'same-origin','Content-Security-Policy':"default-src 'none'; frame-ancestors 'none'"};
@@ -48,6 +49,8 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
    if(r?.v!==1||r.eventId!==ref||r.ownerId!==p.ownerId||r.taskId!==p.taskId||r.requestId!==p.requestId||r.grantId!==p.grantId||r.assistantId!==p.assistantId||r.payloadHash!==p.payloadHash||r.responseId!=='resp:'+ref||typeof r.body!=='string'||!r.body.trim()||r.body.length>16000||!['information','question'].includes(r.outcome?.kind))stop('existing_record_invalid');
    const resultSha256=admissionHash(r.body);if([...response.review.history,...(response.grade?.history??[])].some(review=>review.resultSha256!==resultSha256))stop('existing_record_invalid');
    response.resultAvailable=true;response.result={body:r.body,kind:r.outcome.kind,sha256:resultSha256};
+   const usage=sanitizeProviderUsage(r.providerUsage);
+   if(usage){response.provenance.measuredTokens=usage.totalTokens;response.provenance.providerUsage=usage;}
   }
   return response;
  }

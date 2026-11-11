@@ -17,7 +17,11 @@ def run(args):
     assert prepared['automaticRetries']==0
     settings=json.loads(pathlib.Path(args.settings).read_text(encoding='utf8'))
     label=args.variant
-    if args.fix:
+    if args.preparation:
+        assert not args.fix
+        label='preparation-'+args.preparation
+        prompt=(root/(label+'-prompt.txt')).read_bytes()
+    elif args.fix:
         original=json.loads((root/(args.variant+'-measurement.json')).read_text())
         label=args.variant+'-fix-'+args.fix
         prompt=(root/(label+'-prompt.txt')).read_bytes()
@@ -29,7 +33,7 @@ def run(args):
         row=json.loads(measurement.read_text())
     else:
         assert not events.exists(),'Existing native attempt: inspect it; no automatic retry.'
-        if args.variant=='assisted' and not args.fix:
+        if args.variant=='assisted' and not args.fix and not args.preparation:
             proof=json.loads((root/'proof.json').read_text())
             assert hashlib.sha256(prompt).hexdigest()==proof['promptSha256']
         command=[args.node,args.codex_js,'exec','--ignore-user-config','--disable','apps','--disable','plugins',
@@ -72,13 +76,22 @@ def run(args):
     notice={'type':'agent-turn-complete','thread-id':row['thread'],'turn-id':row['turn']}
     command=[args.node,str(recorder),'--endpoint',settings['endpoint'],'--token-file',settings['tokenFile'],
        '--exec-events',str(events)]
-    if not args.fix:
+    if not args.fix and not args.preparation:
         command+=['--comparison',prepared['comparison'],'--variant',args.variant]
         if args.variant=='assisted':command+=['--prepared-handoff',str(root/'proof.json')]
     subprocess.run(command+[json.dumps(notice)],check=True,timeout=30)
     if args.fix:
         subprocess.run([args.node,str(recorder),'--endpoint',settings['endpoint'],'--token-file',settings['tokenFile'],
           '--attach',row['runId'],'--follow-up-to',row['followUpTo']],check=True,timeout=15)
+    if not args.fix and not args.preparation and prepared.get('workflow'):
+        coverage=prepared['workflow']
+        scope={'v':1,'kind':'workflow','comparisonId':prepared['comparison'],'variant':args.variant,
+               'preparationIds':coverage['preparationIds'][args.variant],
+               'picardRefs':coverage['picardRefs'] if args.variant=='assisted' else []}
+        scope_path=root/(args.variant+'-workflow.json')
+        scope_path.write_text(json.dumps(scope),encoding='utf8')
+        subprocess.run([args.node,str(recorder),'--endpoint',settings['endpoint'],'--token-file',settings['tokenFile'],
+                        '--workflow',str(scope_path)],check=True,timeout=15)
     print(json.dumps({'completed':label,'delivered':True,**row}),flush=True)
 
 if __name__=='__main__':
@@ -86,5 +99,6 @@ if __name__=='__main__':
     p.add_argument('--input',required=True);p.add_argument('--variant',choices=['baseline','assisted'],required=True)
     p.add_argument('--settings',required=True);p.add_argument('--node',required=True);p.add_argument('--codex-js',required=True)
     p.add_argument('--fix',help='Explicit correction label; prompt must already exist. Counts against original side.')
+    p.add_argument('--preparation',help='Named preparation prompt; records its native usage before finishing. Include its saved runId in workflow coverage.')
     p.add_argument('--deliver-only',action='store_true',help='Redeliver saved usage only; never run the model.')
     run(p.parse_args())

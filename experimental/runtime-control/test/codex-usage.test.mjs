@@ -8,6 +8,7 @@ import {join} from 'node:path';
 import {createRelayStore} from '../src/relay-store.mjs';
 import {createConsoleHandler} from '../src/oracle-service.mjs';
 import {readCodexExecTools,readCompletedCodexUsage} from '../../../tools/codex-usage-notify.mjs';
+import {canonical,digest,payloadHash} from '../src/protocol.mjs';
 
 const run={
  v:1,id:'a'.repeat(64),model:'test-model',effort:'low',recordedAt:1000,
@@ -15,6 +16,63 @@ const run={
 };
 const assisted={...run,id:'b'.repeat(64),recordedAt:2000,inputTokens:7500,cachedInputTokens:5500,outputTokens:500,
  tools:['compute_ci_status'],variant:'assisted'};
+
+test('whole workflow persists preparation, actual provider usage and late fixes without double counting',async t=>{
+ const store=createRelayStore({dbPath:':memory:'});t.after(()=>store.close());
+ const usage=store.openCodexUsage('owner');
+ const root={...run,model:'gpt-6.1-sol'},withPicard={...assisted,model:'gpt-6.1-sol'};
+ const preparation={...root,id:'c'.repeat(64),comparisonId:null,variant:null,inputTokens:500,cachedInputTokens:100,outputTokens:100};
+ for(const row of [root,withPicard,preparation])assert.equal(usage.record(row),'saved');
+ const at=Date.now(),p={v:1,ownerId:'owner',taskId:'task',requestId:'provider-request',grantId:'grant',assistantId:'groq:openai/gpt-oss-20b',grantExpiresAt:at+60000,
+  request:{text:'Summarize public references.',createdAt:new Date(at).toISOString(),answerTo:null},context:{title:'Fixture',nextAction:'',latestFinding:''}};
+ p.eventId=await digest(canonical([p.ownerId,p.taskId,p.requestId]));p.payloadHash=await payloadHash(p);
+ await store.accept(p);const claim=store.claimNext({workerId:'worker',claimTtlMs:60000});
+ const identity={owner:'owner',task:'task',requestId:p.eventId,attempt:claim.attempt,workerId:'worker'};
+ store.startInvocation(identity);
+ store.appendReply({...identity,eventId:'resp:'+p.eventId,kind:'answer',outcomeKind:'information',body:'Saved summary',statusChange:null,
+  providerUsage:{v:1,provider:'groq',model:'openai/gpt-oss-20b',inputTokens:1500,outputTokens:200,totalTokens:1700}});
+ store.markCompleted(identity);
+ const scope=variant=>({v:1,kind:'workflow',comparisonId:'sample',variant,preparationIds:[preparation.id],picardRefs:variant==='assisted'?[p.eventId]:[]});
+ for(const side of ['baseline','assisted']){assert.equal(usage.record(scope(side)),'saved');assert.equal(usage.record(scope(side)),'duplicate');}
+ assert.equal(usage.record({...scope('assisted'),preparationIds:[] }),'conflict');
+ let pair=usage.list().find(row=>row.id===withPicard.id).comparison;
+ assert.equal(pair.baseline.workflow.totalTokens,12600);
+ assert.equal(pair.assisted.workflow.totalTokens,10300);
+ assert.equal(pair.assisted.workflow.preparationTokens,600);
+ assert.equal(pair.assisted.workflow.picardTokens,1700);
+ assert.equal(pair.assisted.workflow.codexTokens,8600);
+ assert.equal(pair.assisted.workflow.providerBilledUsd,null);
+ assert(pair.assisted.workflow.complete);
+ const fix={...preparation,id:'d'.repeat(64),recordedAt:4000,followUpTo:withPicard.id};
+ assert.equal(usage.record(fix),'saved');assert.equal(usage.record(fix),'duplicate');
+ pair=usage.list().find(row=>row.id===withPicard.id).comparison;
+ assert.equal(pair.assisted.workflow.totalTokens,10900);assert.equal(pair.assisted.workflow.followUpCount,1);
+ assert.equal(pair.assisted.workflow.preparationTokens,600);
+ // A later Picard correction joins the original comparison without rewriting its coverage.
+ assert.equal(usage.record({v:1,kind:'picard-call',comparisonId:'sample',ref:'f'.repeat(64)}),'saved');
+ assert.equal(usage.record({v:1,kind:'picard-call',comparisonId:'sample',ref:'f'.repeat(64)}),'duplicate');
+ pair=usage.list().find(row=>row.id===withPicard.id).comparison;
+ assert.equal(pair.assisted.workflow.complete,false);assert.equal(pair.assisted.workflow.picardCalls,2);
+ assert.equal(pair.assisted.workflow.totalTokens,null);
+ const other=store.openCodexUsage('other');
+ other.record(root);other.record(withPicard);other.record(preparation);other.record(scope('assisted'));other.record(scope('baseline'));
+ const hidden=other.list().find(row=>row.id===withPicard.id).comparison.assisted.workflow;
+ assert.equal(hidden.complete,false);assert.equal(hidden.totalTokens,null);assert.equal(hidden.picardTokens,null);
+ assert.equal(hidden.calls[0].state,'unavailable');
+});
+
+test('coverage never silently treats absent or double-counted preparation and provider usage as zero',t=>{
+ const store=createRelayStore({dbPath:':memory:'});t.after(()=>store.close());const usage=store.openCodexUsage('owner');
+ usage.record(run);usage.record(assisted);
+ const scope={v:1,kind:'workflow',comparisonId:'sample',variant:'assisted',preparationIds:[assisted.id,'c'.repeat(64)],picardRefs:['d'.repeat(64)]};
+ assert.equal(usage.record(scope),'saved');
+ const w=usage.list().find(row=>row.id===assisted.id).comparison.assisted.workflow;
+ assert.equal(w.complete,false);assert.equal(w.totalTokens,null);assert.equal(w.preparationTokens,0);
+ assert.deepEqual(w.missing,['preparation','picard']);
+ assert.equal(usage.record({...scope,variant:'baseline'}),'invalid');
+ assert.equal(usage.record({...scope,preparationIds:[assisted.id,assisted.id]}),'invalid');
+ assert.equal(usage.record({...scope,privateSource:'not allowed'}),'invalid');
+});
 
 test('usage is immutable, persistent and compared only for matched runs',async t=>{
  const directory=await mkdtemp(join(tmpdir(),'picard-usage-'));
