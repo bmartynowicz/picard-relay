@@ -28,7 +28,9 @@
     "compute_refresh_resources",
     "compute_plan",
     "compute_submit",
+    "compute_submit_batch",
     "compute_run",
+    "compute_run_batch",
     "compute_collect",
     "compute_get",
     "compute_list",
@@ -45,6 +47,9 @@
     "mcpMessageBytes": 65536,
     "pendingMcpRequests": 16,
     "listedJobs": 100,
+    "batchJobs": 8,
+    "batchNormalizedInputUtf8Bytes": 49152,
+    "batchParallelResourceGroups": 2,
     "receiptLogLines": 8,
     "receiptLogLineUtf8Bytes": 256,
     "inlineArtifactBytes": 4096
@@ -72,7 +77,20 @@
     "live monetary guarantee",
     "multi-host SQLite"
   ],
-  "nextMilestone": "Review/merge the live-qualified full-repository workflow in PR13, then retain zero-dollar conditions while completing broader durable orchestration/account-control acceptance separately.",
+  "nextMilestone": "Qualify bounded routed batches on exact source; live worker enrollment and broader cloud-account controls remain separate.",
+  "batches": {
+    "guide": "experimental/compute-broker/BATCHES.md",
+    "submit": "One SQLite transaction; no execution. Invalid/conflicting members roll back new rows; eligible and blocked members are saved individually.",
+    "run": "Explicit saved job IDs; at most two selected resource groups concurrently and one job at a time per resource.",
+    "unresolved": "Never resend; retain parallel slots and quota; defer later jobs on the same resource.",
+    "otherActiveBatch": "Identical ordered IDs coalesce; a different active batch returns batch_execution_busy.",
+    "response": "Bounded routing/state/disposition metadata; read full results individually.",
+    "durability": "Existing per-job ledger, routes, execution contexts and receipts; no batch schema or background queue.",
+    "automaticRetries": 0,
+    "newTimers": 0,
+    "newDependencies": 0,
+    "liveBatchQualification": false
+  },
   "selectedSecondBackend": "github-public-project-ci",
   "githubCiObserver": {
     "repository": "bmartynowicz/picard-relay",

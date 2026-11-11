@@ -3,6 +3,7 @@ import { resolve, dirname } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { createStore } from './src/store.mjs';
 import { createBroker } from './src/broker.mjs';
+import { BATCH_LIMITS, batchJobSummary } from './src/batch.mjs';
 import { fixtureAdapters, fixtureResources } from './src/fixtures.mjs';
 import { observeProjectCi, commitIdentity } from './src/github-ci.mjs';
 import { createOracleObserver, oracleProbePlan } from './src/oracle-inventory.mjs';
@@ -53,11 +54,17 @@ const idSchema = { type: 'object', additionalProperties: false,
   properties: { id: { type: 'string', pattern: '^[a-z0-9-]{1,80}$' } }, required: ['id'] };
 const ciSchema = { type: 'object', additionalProperties: false,
   properties: { commitSha: { type: 'string', pattern: '^[0-9a-f]{40}$' } }, required: ['commitSha'] };
+const batchJobsSchema = { type: 'object', additionalProperties: false, required: ['jobs'],
+  properties: { jobs: { type: 'array', minItems: 1, maxItems: BATCH_LIMITS.jobs, items: jobSchema } } };
+const batchIdsSchema = { type: 'object', additionalProperties: false, required: ['ids'],
+  properties: { ids: { type: 'array', minItems: 1, maxItems: BATCH_LIMITS.jobs, uniqueItems: true, items: idSchema.properties.id } } };
 const tools = [
   ['compute_discover', 'Read saved resource eligibility and remaining local reservations. Does not contact providers.', emptySchema, true],
   ['compute_plan', 'Check eligibility and quota without reserving or executing.', jobSchema, true],
   ['compute_submit', 'Persist one exact job and reserve quota. Live work requires an enabled private profile and exact job approval; --demo uses fixtures.', jobSchema, false],
   ['compute_run', 'Invoke a reserved approved fixed operation once. No caller shell commands, retries or paid fallback.', idSchema, false],
+  ['compute_submit_batch', 'Atomically route and reserve up to eight exact jobs (48 KiB combined JSON). Does not execute. Returns routing summaries; inspect individual jobs before running.', batchJobsSchema, false],
+  ['compute_run_batch', 'Run up to eight saved job IDs with at most two resource groups in parallel and one invocation at a time per resource. Unresolved work is never retried; later same-resource work stays reserved. Returns summaries; recover individual results with compute_get/collect.', batchIdsSchema, false],
   ['compute_collect', 'Read a previously invoked job from its original provider and save its validated receipt. Never dispatches or retries execution.', idSchema, false],
   ['compute_refresh_resources', 'Refresh enrolled provider readiness with bounded read-only probes. Does not renew cost evidence, quota or job approval.', emptySchema, false],
   ['compute_get', 'Read a saved job or result. No retry or provider call.', idSchema, true],
@@ -66,7 +73,7 @@ const tools = [
   ['compute_oracle_status', 'Read fixed Oracle micro-VM inventory through an operator-configured pinned SSH profile. No execution enrollment or account billing assertion.', emptySchema, true],
 ].map(([name, description, inputSchema, readOnlyHint]) => ({ name, description, inputSchema,
   annotations: { readOnlyHint, destructiveHint: false, idempotentHint: true,
-    openWorldHint: ['compute_ci_status', 'compute_oracle_status', 'compute_run', 'compute_collect', 'compute_refresh_resources'].includes(name) } }));
+    openWorldHint: ['compute_ci_status', 'compute_oracle_status', 'compute_run', 'compute_run_batch', 'compute_collect', 'compute_refresh_resources'].includes(name) } }));
 let initialized = false;
 let ready = false;
 let pending = 0;
@@ -108,11 +115,16 @@ async function handle(message) {
     return error(id, -32602, 'Only job id is accepted');
   if (tool.inputSchema === ciSchema && (Object.keys(args).length !== 1 || !commitIdentity(args.commitSha)))
     return error(id, -32602, 'Only a 40-character lowercase commit SHA is accepted');
+  if ((tool.inputSchema === batchJobsSchema || tool.inputSchema === batchIdsSchema)
+    && (Object.keys(args).length !== 1 || !Object.hasOwn(args, tool.inputSchema === batchJobsSchema ? 'jobs' : 'ids')))
+    return error(id, -32602, 'Only the batch jobs or saved job ids are accepted');
   try {
     const data = name === 'compute_discover' ? broker.discover()
       : name === 'compute_plan' ? broker.plan(args)
       : name === 'compute_submit' ? broker.submit(args)
+      : name === 'compute_submit_batch' ? { jobs: broker.submitBatch(args.jobs).map(batchJobSummary), executionStarted: false }
       : name === 'compute_run' ? await broker.run(args.id)
+      : name === 'compute_run_batch' ? await broker.runBatch(args.ids)
       : name === 'compute_collect' ? await broker.collect(args.id)
       : name === 'compute_refresh_resources' ? await execution.refresh()
       : name === 'compute_get' ? broker.get(args.id)
@@ -126,7 +138,7 @@ async function handle(message) {
     const known = ['invalid_job', 'unknown_job_field', 'invalid_job_id', 'job_not_found', 'job_identity_conflict',
       'invalid_commit_sha', 'project_ci_unavailable', 'project_ci_response_too_large', 'public_project_required', 'invalid_project_ci_response',
       'invalid_oracle_profile', 'oracle_inventory_unavailable', 'invalid_oracle_inventory',
-      'execution_context_unavailable', 'invalid_worker_receipt'];
+      'execution_context_unavailable', 'invalid_worker_receipt', 'invalid_job_batch', 'invalid_job_id_batch', 'batch_execution_busy', 'batch_outcome_unavailable'];
     return result({ isError: true, content: [{ type: 'text', text: known.includes(failure.message) ? failure.message : 'broker_operation_failed' }] });
   }
 }

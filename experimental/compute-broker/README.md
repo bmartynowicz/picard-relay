@@ -40,6 +40,20 @@ flowchart LR
 
 Receipts bind job ID, input hash and worker-source hash; reject executable/non-JSON data, hidden/accessor fields, excessive nesting and mismatched identities; and enforce 16 KiB total UTF-8 size, eight 256-byte log tails and one inline `result.json` artifact of at most 4 KiB with byte count and SHA-256. See [Picard provenance](PROVENANCE.md).
 
+## Route several jobs
+
+Use `compute_submit_batch` to reserve up to eight exact jobs together, inspect
+their assigned resources, then call `compute_run_batch` with their saved IDs.
+Independent resources can run in parallel, at most two at a time; jobs on the
+same resource run sequentially. Pending or uncertain outcomes keep their slot
+and stop later work on that resource. Each result stays in the existing ledger
+and is recovered individually with `compute_get` or `compute_collect`.
+
+The [batch guide](BATCHES.md) covers input limits, partial outcomes, restart
+recovery and exact approvals. No new daemon, polling loop, database schema or
+execution privilege is introduced. This is source functionality in the separate
+compute broker, outside the signed console runtime; it does not activate workers.
+
 ## Unattended public CI
 
 An opt-in [native CI dispatcher](UNATTENDED.md) runs the actual MCP broker with GitHub's ephemeral repository token, so it needs no browser or personal token. Ordinary branches remain disabled; only an explicitly authorized owner request on a matching compute-request branch can dispatch one fixed worker job. This is CI-hosted orchestration, not an external credential-free API gateway. Live qualification is recorded separately.
@@ -72,7 +86,9 @@ On POSIX, immediate state directories must be owned mode 0700 and database/profi
 | `compute_refresh_resources` | Bounded read-only readiness probes; no renewal or dispatch. |
 | `compute_plan` | Eligibility without reservation or execution. |
 | `compute_submit` | Save exact job and reserve capacity, or save blocked result. |
+| `compute_submit_batch` | Atomically save up to eight exact jobs and their routes; no execution. |
 | `compute_run` | Invoke once. Input `{ "id": "sample-one" }`. |
+| `compute_run_batch` | Dispatch saved IDs with bounded parallelism; return routing/state summaries. |
 | `compute_collect` | Retrieve pending/uncertain outcomes from the original provider; never resubmit. |
 | `compute_get` | Saved job/result by ID; unknown ID returns null. |
 | `compute_list` | Up to 100 recent local jobs. |

@@ -14,9 +14,13 @@ Hash reviewed worker source:
 node --input-type=module -e "import {workerSha256} from './experimental/compute-broker/src/execution-protocol.mjs'; console.log(workerSha256())"
 ```
 
-The hash covers nine fixed files, with CRLF normalized to LF. Each adapter checks the local hash before dispatch. The ledger preserves original resource/transport/worker context. Resetting a database/budget to bypass consumed or uncertain evidence is unsupported.
+The hash covers ten fixed files, with CRLF normalized to LF. Each adapter checks the local hash before dispatch. The ledger preserves original resource/transport/worker context. Resetting a database/budget to bypass consumed or uncertain evidence is unsupported.
 
 Call `compute_refresh_resources`, `compute_plan`, `compute_submit`, then `compute_run`. Collect GitHub outcomes explicitly with `compute_collect`. An unknown outcome is a stop, not permission for a new ID or dispatch. Collection uses read-only provider requests after expiry if needed, retaining the original context. It never refreshes spending evidence or quotas.
+
+For multiple exact-approved jobs, the [batch workflow](BATCHES.md) adds atomic
+submission and explicit bounded dispatch. It uses the same profile, approvals,
+worker pins and ledger; batch submission does not grant or renew any of them.
 
 ## Oracle: existing Always Free micro VM
 

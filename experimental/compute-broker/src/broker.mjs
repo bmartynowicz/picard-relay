@@ -2,6 +2,7 @@ import { selectResource, identity, integer } from './policy.mjs';
 import { normalizeJob } from './job.mjs';
 import { validateReceipt } from './receipt.mjs';
 import { jobSha256, PreflightDenied } from './execution-protocol.mjs';
+import { normalizeBatchJobs, createBatchRunner } from './batch.mjs';
 export { normalizeJob } from './job.mjs';
 
 export function createBroker({ store, resources = () => [], adapters = new Map(), fixtureMode = false,
@@ -28,17 +29,22 @@ export function createBroker({ store, resources = () => [], adapters = new Map()
     return { ...selected, fixtureMode, liveCloudExecutionEnabled: executionEnabled,
       note: 'Operator cost evidence is not an independent billing guarantee. Live work also requires exact job authority and adapter preflight.' };
   }
+  function persist(job) {
+    const replay = store.replay(job);
+    if (replay) return replay;
+    const selection = plan(job);
+    const row = store.insert(job, selection.resourceId,
+      selection.resourceId ? '' : JSON.stringify(selection.decisions), now());
+    if (selection.resourceId && live(adapters.get(selection.resourceId))) store.setContext(job.id, adapters.get(selection.resourceId).context);
+    return row;
+  }
   function submit(value) {
     const job = normalizeJob(value);
-    return store.transaction(() => {
-      const replay = store.replay(job);
-      if (replay) return replay;
-      const selection = plan(job);
-      const row = store.insert(job, selection.resourceId,
-        selection.resourceId ? '' : JSON.stringify(selection.decisions), now());
-      if (selection.resourceId && live(adapters.get(selection.resourceId))) store.setContext(job.id, adapters.get(selection.resourceId).context);
-      return row;
-    });
+    return store.transaction(() => persist(job));
+  }
+  function submitBatch(value) {
+    const jobs = normalizeBatchJobs(value);
+    return store.transaction(() => jobs.map(persist));
   }
   async function run(id) {
     if (!identity(id)) throw Error('invalid_job_id');
@@ -110,7 +116,7 @@ export function createBroker({ store, resources = () => [], adapters = new Map()
   return {
     discover: () => ({ fixtureMode, liveCloudExecutionEnabled: executionEnabled,
       resources: store.effective(resources()), note: 'Execution requires fresh zero-dollar eligibility, exact job authority and a configured adapter.' }),
-    plan, submit, run, collect,
+    plan, submit, submitBatch, run, runBatch: createBatchRunner({ get: store.find, run }), collect,
     get: id => { if (!identity(id)) throw Error('invalid_job_id'); return store.find(id); },
     list: store.list,
     recover: () => { if (active.size) throw Error('active_invocation'); return store.recover(now()); },
