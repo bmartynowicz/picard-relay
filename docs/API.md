@@ -140,6 +140,29 @@ saved result export to prepare the first prompt.
 node tools/codex-handoff.mjs --brief task.txt --context sources.txt --result picard.json | codex exec --sandbox read-only -
 ```
 
+Supply an acceptance checklist with `--acceptance checklist.txt` when the task
+has specific checks. The helper keeps those criteria in the first prompt for
+both the original-source and Picard-assisted paths, including a fallback.
+Use the same checklist for both sides of a Savings comparison so the first
+draft can address every check before review. The JavaScript API accepts the
+same text as `acceptanceCriteria`.
+
+Run deterministic acceptance checks locally after drafting, so a passing
+answer can complete without another model call to run the check. Supply a
+JSON array of operator-written checks with a `key`, case-insensitive regular
+expression `patterns`, and a short source-backed `fact` for a correction.
+Every pattern in a check must match. For example, a trigger check can require
+both `TAP` and `ON_VISIBLE`.
+
+```sh
+node tools/codex-handoff.mjs --check answer.txt --checks checks.json
+```
+
+The command prints `passed` and `missing` fields and exits 1 when a check
+fails. Use missing checks to request a correction and record that Codex turn
+in the original Savings comparison. Review factual meaning against the
+sources as well as checking the declared patterns.
+
 The helper checks that the saved answer is complete and matches its SHA-256.
 It uses the proposal only when the prepared prompt is at least 512 bytes
 smaller and at least 25% shorter in UTF-8. It keeps the original context if
