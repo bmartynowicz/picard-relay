@@ -19,7 +19,7 @@ Picard Relay accepts a narrowly approved AI request, records it durably, sends i
 
 **Before relying on it:** [Limitations](LIMITATIONS.md) · [Known work](WORK-REGISTER.md) · [Verified status](STATUS.md)
 
-**Experimental:** [Compute broker](../experimental/compute-broker/README.md) · [Provider research](../experimental/compute-broker/PROVIDERS.md) · [Execution enrollment](../experimental/compute-broker/EXECUTION.md)
+**Experimental:** [Compute broker](../experimental/compute-broker/README.md) · [Batch routing](../experimental/compute-broker/BATCHES.md) · [Provider research](../experimental/compute-broker/PROVIDERS.md) · [Execution enrollment](../experimental/compute-broker/EXECUTION.md)
 
 **AI tools:** [llms.txt](../llms.txt) · [AGENTS.md](../AGENTS.md) · [Project map](project-map.json) · [Workspace contract](workspace-contract.json) · [Interface tour and asset record](interface-tour.json) · [Structured work register](work-register.json)
 

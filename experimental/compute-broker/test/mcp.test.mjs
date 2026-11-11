@@ -47,9 +47,12 @@ function client(t, { demo = false, database, executionProfile } = {}) {
   }
   return { child, messages, request, initialize, db, exited, call: (name, args) => request('tools/call', { name, arguments: args }) };
 }
-test('stdio session requires initialization and advertises ten bounded tools', async t => {
+test('stdio session requires initialization and advertises twelve bounded tools', async t => {
   const c = client(t); assert.equal((await c.request('tools/list')).error.code, -32002);
-  await c.initialize(); const listed = await c.request('tools/list'); assert.equal(listed.result.tools.length, 10);
+  await c.initialize(); const listed = await c.request('tools/list'); assert.equal(listed.result.tools.length, 12);
+  const contract = JSON.parse(readFileSync(join(root, 'contract.json')));
+  assert.deepEqual(listed.result.tools.map(t => t.name).sort(), [...contract.tools].sort());
+  assert.equal(contract.limits.batchJobs, 8); assert.equal(contract.limits.batchParallelResourceGroups, 2);
   assert.deepEqual((await c.call('compute_refresh_resources', {})).result.structuredContent.data, { executionEnabled: false, resources: [] });
   assert.equal((await c.call('compute_discover', {})).result.structuredContent.data.liveCloudExecutionEnabled, false);
   assert.equal((await c.call('compute_submit', job())).result.structuredContent.data.state, 'blocked');
@@ -58,6 +61,25 @@ test('stdio session requires initialization and advertises ten bounded tools', a
   const oracle = await c.call('compute_oracle_status', {});
   assert.equal(oracle.result.structuredContent.executionMode, 'read-only-oracle-inventory');
   assert.equal(oracle.result.structuredContent.data.configured, false);
+});
+
+test('MCP batch tools route first, execute explicitly, return bounded summaries and recover exact saved answers', async t => {
+  const c = client(t, { demo: true }); await c.initialize();
+  const jobs = [job('batch-x64'), job('batch-arm', { arch: 'arm64' })];
+  const admitted = (await c.call('compute_submit_batch', { jobs })).result.structuredContent.data;
+  assert.equal(admitted.executionStarted, false);
+  assert.deepEqual(admitted.jobs.map(r => [r.state, r.resourceId]), [['reserved', 'fixture-x64'], ['reserved', 'fixture-arm64']]);
+  const ids = jobs.map(j => j.id), reply = await c.call('compute_run_batch', { ids });
+  assert.equal(reply.result.structuredContent.executionMode, 'local-fixtures');
+  assert.deepEqual(reply.result.structuredContent.data.jobs.map(r => r.state), ['completed', 'completed']);
+  assert.equal(reply.result.structuredContent.data.maximumParallelResources, 2);
+  assert.ok(reply.result.structuredContent.data.jobs.every(r => !Object.hasOwn(r, 'result')));
+  assert.equal((await c.call('compute_get', { id: ids[0] })).result.structuredContent.data.result.value, 3);
+  assert.equal((await c.call('compute_run_batch', { ids })).result.structuredContent.data.jobs[0].disposition, 'unchanged');
+  assert.equal((await c.call('compute_submit_batch', { jobs, command: 'nope' })).error.code, -32602);
+  assert.equal((await c.call('compute_run_batch', { ids, retry: true })).error.code, -32602);
+  assert.equal((await c.call('compute_submit_batch', { jobs: [jobs[0], jobs[0]] })).result.isError, true);
+  assert.equal((await c.call('compute_run_batch', { ids: [ids[0], 'missing'] })).result.isError, true);
 });
 test('MCP demo submits, runs and retrieves one local fixture with Unicode input', async t => {
   const c = client(t, { demo: true }); await c.initialize();
