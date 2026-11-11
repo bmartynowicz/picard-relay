@@ -13,6 +13,8 @@ Picard Relay accepts a narrowly approved AI request, records it durably, sends i
 
 **Building or operating?** [Architecture](ARCHITECTURE.md) · [API](API.md) · [Operations](OPERATIONS.md) · [Development](DEVELOPMENT.md) · [Coding-agent workflow](../experimental/compute-broker/CODING-WORKFLOW.md)
 
+**CLI task workflow:** [Focused evidence, matched defaults and correction accounting](CLI-WORKFLOW.md)
+
 **Updating your relay?** [System update button and host connection](OWNER-UPDATES.md)
 
 **Earned ranks and the space HUD:** [Owner features](OWNER-FEATURES.md) · [Physical badge research](BADGE-RESEARCH.md)
