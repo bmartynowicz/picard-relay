@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,writeFile,appendFile,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {beginSpan,finishSpan} from '../tools/codex-workflow-span.mjs';
+test('phase accounting sums real model passes once and excludes prior usage and private content',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'picard-phase-'));t.after(()=>rm(dir,{recursive:true,force:true}));const path=join(dir,'native.jsonl');
+ const line=o=>JSON.stringify(o)+'\n',context={type:'turn_context',payload:{turn_id:'turn',model:'gpt-6.1-sol',effort:'low'}};
+ const pass=(i,c,o)=>({type:'token_usage_record',payload:{usage:{input_tokens:i,cached_input_tokens:c,output_tokens:o}}});
+ await writeFile(path,line(context)+line(pass(9000,8000,500)));const start=await beginSpan(path);
+ await appendFile(path,line({type:'response_item',payload:{secret:'private source text'}})+line(pass(100,40,20))+line(pass(200,100,30)));
+ const measured=await finishSpan(start);assert.equal(measured.modelPasses,2);assert.equal(measured.record.inputTokens,300);
+ assert.equal(measured.record.cachedInputTokens,140);assert.equal(measured.record.outputTokens,50);
+ assert(!JSON.stringify(measured).includes('private'));assert(!JSON.stringify(measured).includes(path));
+ assert.equal((await finishSpan(start)).record.id,measured.record.id);
+ await appendFile(path,line({...context,payload:{...context.payload,turn_id:'other'}}));
+ await assert.rejects(()=>finishSpan(start),/context_changed/);
+ await writeFile(path,line(context));await assert.rejects(()=>finishSpan(start),/log_changed/);
+});

@@ -682,6 +682,7 @@ const SAVINGS_STYLE=String.raw`
 #codex-savings-runs p{margin:4px 0 4px 14px}
 #codex-savings-comparisons article{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
 #codex-savings-comparisons h3{margin:0 0 8px;font-size:14px}
+#codex-savings-comparisons summary{min-height:44px;padding:12px 0;cursor:pointer}
 .savings-sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .savings-sides p{margin:2px 0;font-size:13px}
 .savings-sides strong{display:block;font-size:clamp(15px,3vw,20px)}
@@ -700,6 +701,9 @@ function renderCodexSavings(usage){
  const runs=Array.isArray(usage?.runs)?usage.runs:[];
  const pairs=runs.flatMap(run=>run.comparison?[run.comparison]:[]);
  const measured=pairs[0];
+ const full=pair=>pair?.baseline.workflow?.complete&&pair?.assisted.workflow?.complete;
+ const scoped=pair=>pair?.baseline.workflow||pair?.assisted.workflow;
+ const fullCredits=pair=>({baseline:{standardCredits:pair.baseline.workflow.codexCredits},assisted:{standardCredits:pair.assisted.workflow.codexCredits}});
  const number=value=>value.toLocaleString();
  const credits=value=>value.toLocaleString(undefined,{minimumFractionDigits:4,maximumFractionDigits:4});
  const hasCredits=pair=>[pair.baseline.standardCredits,pair.assisted.standardCredits].every(value=>typeof value==='number'&&Number.isFinite(value));
@@ -719,18 +723,36 @@ function renderCodexSavings(usage){
   const difference=(Math.abs(saved)*100/pair.baseline.standardCredits).toLocaleString(undefined,{maximumFractionDigits:1});
   return saved===0?'Same estimated Standard credits':difference+'% '+(saved>0?'fewer':'more')+' estimated Standard credits';
  };
- headline.textContent=measured?(hasCredits(measured)?creditChange(measured):usageChange(measured)):'Savings not yet measured';
+ headline.textContent=measured?(scoped(measured)?full(measured)?'Full workflow · '+(hasCredits(fullCredits(measured))?creditChange(fullCredits(measured)).replace('Standard credits','Codex credits'):'Compare provider totals below'):'Full workflow not yet measured':(hasCredits(measured)?creditChange(measured):usageChange(measured))):'Savings not yet measured';
  note.textContent=measured
-  ?number(measured.baseline.totalTokens)+' tokens on its own · '+number(measured.assisted.totalTokens)+' with Picard'
+  ?full(measured)?number(measured.baseline.workflow.totalTokens)+' total reported tokens on its own · '+number(measured.assisted.workflow.totalTokens)+' with Picard (all providers)':scoped(measured)?'Some workflow usage is missing. Known usage is shown below.':number(measured.baseline.totalTokens)+' finishing + fix tokens on its own · '+number(measured.assisted.totalTokens)+' with Picard. Preparation and provider usage were not recorded.'
   :usage?.state==='unavailable'?'Usage records are temporarily unavailable.'
   :usage?.state==='ready'?(runs.length?'Run the same task both ways to measure savings.':'Waiting for the first completed Codex run.')
   :'Connect Codex to record usage as you work.';
  for(const pair of pairs){
   const article=element('article');
   const sides=element('div','','savings-sides');
-  article.append(element('h3',pair.id),sides,element('p',hasCredits(pair)?creditChange(pair):'Credit estimate unavailable','muted'),element('p',usageChange(pair),'muted'));
+  article.append(element('h3',pair.id),sides);
+  if(!scoped(pair))article.append(element('p',hasCredits(pair)?creditChange(pair):'Credit estimate unavailable','muted'),element('p',usageChange(pair),'muted'));
+  if(scoped(pair)){
+   article.append(element('p',full(pair)?'Full recorded workflow: preparation, Picard calls, finishing and linked fixes.':'Workflow incomplete: missing usage is not counted as zero.','muted'));
+   if(full(pair)&&hasCredits(fullCredits(pair)))article.append(element('p','Whole-workflow Codex estimate: '+creditChange(fullCredits(pair)),'muted'));
+  }else article.append(element('p','Legacy comparison: finishing and fixes only. Preparation and Picard usage unavailable.','muted'));
   for(const [label,side] of [['Codex alone',pair.baseline],['With Picard',pair.assisted]]){
    const cell=element('div');
+   if(side.workflow){
+    const w=side.workflow,breakdown=element('details');
+    cell.append(element('p',label),element('strong',w.complete?number(w.totalTokens)+' tokens across providers':number(w.knownTokens)+' known tokens · incomplete'));
+    cell.append(element('p',number(w.codexTokens)+' Codex tokens · '+(typeof w.codexCredits==='number'?credits(w.codexCredits)+' estimated Standard credits':'credit estimate unavailable')));
+    breakdown.append(element('summary','Usage breakdown'),
+     element('p','Preparation: '+number(w.preparationTokens)+' Codex tokens across '+w.preparationCount+' recorded '+(w.preparationCount===1?'step':'steps')),
+     element('p','Picard: '+w.picardCalls+(w.picardCalls===1?' call':' calls')+' · '+(w.picardTokens===null?'usage unavailable':number(w.picardTokens)+' provider tokens')),
+     element('p','Finishing: '+number(w.finishingTokens)+' Codex tokens'),
+     element('p','Fixes: '+number(w.followUpTokens)+' Codex tokens across '+w.followUpCount+' turns'),
+     element('p','Provider billed cost unavailable. Codex credits apply only to Codex. Subscription allowance and human time are not measured.','muted'));
+    if(w.missing.length)breakdown.append(element('p','Missing usage: '+w.missing.join(', '),'muted'));
+    cell.append(breakdown);sides.append(cell);continue;
+   }
    cell.append(element('p',label),element('strong',number(side.totalTokens)+' tokens'),
     element('p',number(side.freshTokens)+' fresh input + output','muted'));
    if(typeof side.standardCredits==='number')cell.append(element('p',credits(side.standardCredits)+' estimated Standard credits'));
@@ -742,10 +764,10 @@ function renderCodexSavings(usage){
    sides.append(cell);
   }
   if(hasCredits(pair)){
-   const cacheDelta=pair.assisted.cachedInputTokens-pair.baseline.cachedInputTokens;
+   const cacheDelta=(pair.assisted.workflow?.cachedInputTokens??pair.assisted.cachedInputTokens)-(pair.baseline.workflow?.cachedInputTokens??pair.baseline.cachedInputTokens);
    article.append(element('p',cacheDelta?'Cache reuse: '+number(Math.abs(cacheDelta))+' '+(cacheDelta>0?'more':'fewer')+' cached input tokens with Picard. Different cache reuse affects the credit comparison.':'Same cached input on both sides.','muted'));
    const basis=element('details');
-   basis.append(element('summary','How credits are estimated'),element('p','Estimate uses GPT-6.1 Sol Standard rates dated 11 Nov 2026: 50 uncached / 2.5 cached / 250 output credits per million tokens. Includes linked fixes; excludes Picard provider usage. Speed, billing and included subscription allowance are not measured.','muted'));
+   basis.append(element('summary','How credits are estimated'),element('p','Estimate uses GPT-6.1 Sol Standard rates dated 11 Nov 2026: 50 uncached / 2.5 cached / 250 output credits per million tokens. Whole-workflow Codex totals include recorded preparation and linked fixes. Picard provider tokens are a separate measured total with no Codex-credit conversion. Legacy comparisons cover finishing and fixes only. Speed, billed cost, human time and included subscription allowance are not measured. Shared preparation is allocated once to each independent alternative, never twice within a side.','muted'));
    article.append(basis);
   }
   comparisons.append(article);

@@ -1,7 +1,7 @@
 // Bounded Groq candidate. No SDK retries, fallback, tools, or identity substitution.
 import {createHash} from 'node:crypto';
 import {canonical} from './protocol.mjs';
-import {AdapterBlockedError,InvocationIncompleteError,TransportObservationError,sanitizeInvocationDiagnostic,withInvocationDiagnostic,invocationDiagnostic} from './adapters.mjs';
+import {AdapterBlockedError,InvocationIncompleteError,TransportObservationError,sanitizeInvocationDiagnostic,withInvocationDiagnostic,invocationDiagnostic,sanitizeProviderUsage} from './adapters.mjs';
 export const GROQ_MODEL='openai/gpt-oss-20b';
 export const GROQ_ID='groq:openai/gpt-oss-20b';
 const ENDPOINT='https://api.groq.com/openai/v1/chat/completions';
@@ -49,6 +49,7 @@ export function createGroqAdapter({enabled=false,apiKey='',gate=null,fetchImpl=g
    while(true){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>131072){try{await reader.cancel();}catch{}throw failure('groq_outcome_uncertain','body','body_too_large');}chunks.push(Buffer.from(value));}
    let data;try{data=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw failure('groq_outcome_uncertain','parse','json_parse_failed');}
    const choice=data?.choices?.[0];diagnostic=sanitizeInvocationDiagnostic({...diagnostic,finishReason:choice?.finish_reason});
+   const providerUsage=sanitizeProviderUsage({v:1,provider:'groq',model:data?.model,inputTokens:data?.usage?.prompt_tokens,outputTokens:data?.usage?.completion_tokens,totalTokens:data?.usage?.total_tokens});
    if(signal.aborted)throw failure('groq_outcome_uncertain',input.signal?.aborted?'cancel':'timeout',input.signal?.aborted?'cancelled_after_start':'deadline_exceeded');
    if(!data||data.model!==GROQ_MODEL||typeof data.id!=='string'||!data.id||data.choices?.length!==1)throw failure('groq_outcome_uncertain','validation','invalid_response');
    // Malformed envelopes, tools, non-200 responses and aborted calls remain
@@ -58,13 +59,13 @@ export function createGroqAdapter({enabled=false,apiKey='',gate=null,fetchImpl=g
    if(choice?.finish_reason==='length'&&diagnostic.httpStatus===200&&inertMessage&&gate.maxCompletionTokens===4096&&typeof message.content==='string'&&message.content.trim()){
     let partial=message.content.trim().slice(0,15850);if(/[\uD800-\uDBFF]$/.test(partial))partial=partial.slice(0,-1);
     await observe({phase:'validation',code:'response_validated'});
-    return {kind:'answer',outcomeKind:'information',body:`[Groq / ${GROQ_MODEL}]\n[Incomplete response: the output limit was reached. This is a partial answer.]\n${partial}`,statusChange:null,eventId:`resp:${input.requestId}`,owner:input.owner,task:input.task,requestId:input.requestId,attempt:input.attempt};
+    return {kind:'answer',outcomeKind:'information',body:`[Groq / ${GROQ_MODEL}]\n[Incomplete response: the output limit was reached. This is a partial answer.]\n${partial}`,providerUsage,statusChange:null,eventId:`resp:${input.requestId}`,owner:input.owner,task:input.task,requestId:input.requestId,attempt:input.attempt};
    }
    if(choice?.finish_reason==='length'&&diagnostic.httpStatus===200&&inertMessage)throw failure('groq_output_incomplete','finish_reason','finish_reason_rejected');
    if(choice?.finish_reason!=='stop')throw failure('groq_outcome_uncertain','finish_reason','finish_reason_rejected');
    if(choice.message?.role!=='assistant'||choice.message.tool_calls?.length||choice.message.function_call||typeof choice.message?.content!=='string'||!choice.message.content.trim()||choice.message.content.length>(gate.maxCompletionTokens===4096?15900:3700))throw failure('groq_outcome_uncertain','validation','invalid_response');
    await observe({phase:'validation',code:'response_validated'});
-   return {kind:'answer',outcomeKind:'information',body:`[Groq / ${GROQ_MODEL}]\n${choice.message.content.trim()}`,statusChange:null,eventId:`resp:${input.requestId}`,owner:input.owner,task:input.task,requestId:input.requestId,attempt:input.attempt};
+   return {kind:'answer',outcomeKind:'information',body:`[Groq / ${GROQ_MODEL}]\n${choice.message.content.trim()}`,providerUsage,statusChange:null,eventId:`resp:${input.requestId}`,owner:input.owner,task:input.task,requestId:input.requestId,attempt:input.attempt};
   }catch(e){
    if(ownErrors.has(e))throw e;
    if(input.signal?.aborted)throw failure('groq_outcome_uncertain','cancel','cancelled_after_start');

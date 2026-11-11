@@ -58,6 +58,7 @@ export function createDispatcher({
         owner: answer.owner, task: answer.task, requestId: answer.requestId,
         attempt: answer.attempt, workerId, eventId: answer.eventId, kind: answer.kind,
         outcomeKind: answer.outcomeKind ?? null, body: answer.body, statusChange: answer.statusChange ?? null,
+        ...(groq?{providerUsage:answer.providerUsage??null}:{}),
       });
       if(groq)observe({phase:'completion_commit',code:'completion_commit_started'});
       await store.markCompleted({ requestId, attempt, workerId });

@@ -60,6 +60,13 @@ async function main(){
   const task=JSON.parse(await readFile(values.task,'utf8'));
   if(typeof task.comparison!=='string'||!/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,79}$/.test(task.comparison))throw Error('A bounded comparison ID is required.');
   const prepared=prepareWorkflow(task),out=resolve(values.out);
+  if(task.workflow){
+    const w=task.workflow,id=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
+    if(w.v!==1||!['baseline','assisted'].every(side=>Array.isArray(w.preparationIds?.[side])&&w.preparationIds[side].length<=20&&w.preparationIds[side].every(id))
+      ||!Array.isArray(w.picardRefs)||w.picardRefs.length>20||!w.picardRefs.every(id)
+      ||task.savedResult&&!w.picardRefs.includes(task.savedResult.ref))throw Error('List every recorded preparation turn and Picard request in workflow coverage.');
+    prepared.workflow=w;
+  }
   await mkdir(out); // No overwrite of earlier paid-run inputs or receipts.
   for(const side of ['baseline','assisted'])await writeFile(resolve(out,side+'-prompt.txt'),prepared[side].prompt,{encoding:'utf8',flag:'wx'});
   await writeFile(resolve(out,'prepared.json'),JSON.stringify({...prepared,...prepared.defaults,comparison:task.comparison,taskId:task.taskId??null},null,2),{flag:'wx'});

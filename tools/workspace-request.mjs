@@ -6,6 +6,9 @@ import {Writable} from 'node:stream';
 import {setTimeout as delay} from 'node:timers/promises';
 import {pathToFileURL} from 'node:url';
 import {parseArgs} from 'node:util';
+import {spawnSync} from 'node:child_process';
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
 import {canonical, digest} from '../experimental/runtime-control/src/protocol.mjs';
 import {createOwnerSessionCache,validCachedSession} from './owner-session-cache.mjs';
 
@@ -29,6 +32,9 @@ const usage = `Usage:
 Windows securely remembers the owner session with current-user DPAPI until
 the server expires or revokes it (at most 8 hours). The password is never saved.
 Live commands reuse a valid saved session before prompting without echo.
+For workflow accounting, append --comparison ID --usage-settings PRIVATE_SETTINGS.json
+to submit/result. This links the saved request, including later Picard fixes,
+without another provider invocation. Keep these metadata files private.
 To pipe a password from an
 approved credential source, use --password-stdin. A login replaces the active
 owner session. Keep the original request file to recover the same request.`;
@@ -285,7 +291,7 @@ async function main(args = process.argv.slice(2)) {
     return;
   }
   const [command, ...flags] = args;
-  const live = {origin: {type: 'string'}, 'wait-ms': {type: 'string'}, 'password-stdin': {type: 'boolean'}};
+  const live = {origin: {type: 'string'}, 'wait-ms': {type: 'string'}, 'password-stdin': {type: 'boolean'},comparison:{type:'string'},'usage-settings':{type:'string'}};
   const options = {
     prepare: {input: {type: 'string'}, out: {type: 'string'}},
     submit: {...live, file: {type: 'string'}, approve: {type: 'boolean'}},
@@ -322,12 +328,25 @@ async function main(args = process.argv.slice(2)) {
   const waitMs = Number(values['wait-ms'] ?? 0);
   requireThat(waitMs <= 60000);
   const draft = command === 'submit' ? checkedDraft(await readJson(values.file)) : null;
+  requireThat((values.comparison===undefined)===(values['usage-settings']===undefined)
+    &&(values.comparison===undefined||/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,79}$/.test(values.comparison)));
+  const usageSettings=values['usage-settings']?JSON.parse(readFileSync(values['usage-settings'],'utf8').replace(/^\uFEFF/,'')):null;
+  let knownRef=null;
+  function recordCall(ref){
+    if(!usageSettings||!sha256.test(ref??''))return;
+    const saved=spawnSync(process.execPath,[fileURLToPath(new URL('./codex-usage-notify.mjs',import.meta.url)),
+      '--endpoint',usageSettings.endpoint,'--token-file',usageSettings.tokenFile,'--picard-call',
+      JSON.stringify({v:1,kind:'picard-call',comparisonId:values.comparison,ref})],{timeout:15000,windowsHide:true,stdio:'pipe'});
+    if(saved.status!==0){process.stderr.write('Saved Picard request; workflow usage delivery is pending. Do not repeat the request.\n');process.exitCode=1;}
+  }
   const request = await connectWorkspace(origin,{passwordPrompt:()=>ownerPassword(values['password-stdin'],origin)});
   try {
     const result = draft ? await submitWorkspace(request, draft, waitMs) : await workspaceResult(request, values.ref, waitMs);
+    knownRef=result.ref;recordCall(knownRef);
     console.log(JSON.stringify({...result, consoleUrl: origin + '/#requests/' + result.ref}));
     if (stopped.includes(result.state)) process.exitCode = 2;
   } catch (error) {
+    recordCall(knownRef??error.details?.ref);
     if (error instanceof WorkspaceError && draft) error.details = {requestId: draft.requestId, ...error.details};
     throw error;
   }

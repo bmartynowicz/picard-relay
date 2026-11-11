@@ -1,6 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
 import {canonical,validateWork} from './protocol.mjs';
-import {encodeInvocationError,decodeInvocationError,isIncompleteDiagnostic} from './adapters.mjs';
+import {encodeInvocationError,decodeInvocationError,isIncompleteDiagnostic,sanitizeProviderUsage} from './adapters.mjs';
 // Unserializable proof: created only after the terminal SQLite transaction
 // commits. A row read back after restart, copied object or failed commit is not
 // authority to acknowledge an adapter's current reservation.
@@ -49,7 +49,9 @@ function openCodexUsage(db,owner){
  CREATE TABLE IF NOT EXISTS relay_codex_followups(
   owner TEXT NOT NULL,id TEXT NOT NULL,original_id TEXT NOT NULL,PRIMARY KEY(owner,id)
  );
- CREATE INDEX IF NOT EXISTS relay_codex_followups_original ON relay_codex_followups(owner,original_id);`);
+ CREATE INDEX IF NOT EXISTS relay_codex_followups_original ON relay_codex_followups(owner,original_id);
+ CREATE TABLE IF NOT EXISTS relay_codex_workflows(owner TEXT NOT NULL,comparison_id TEXT NOT NULL,variant TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(owner,comparison_id,variant));
+ CREATE TABLE IF NOT EXISTS relay_codex_workflow_calls(owner TEXT NOT NULL,comparison_id TEXT NOT NULL,ref TEXT NOT NULL,recorded_at INTEGER NOT NULL,PRIMARY KEY(owner,comparison_id,ref));`);
  const byId=db.prepare('SELECT record FROM relay_codex_usage WHERE owner=? AND id=?');
  const insert=db.prepare('INSERT OR IGNORE INTO relay_codex_usage(owner,id,recorded_at,comparison_id,variant,record) VALUES(?,?,?,?,?,?)');
  const recent=db.prepare(`SELECT record,original_id FROM relay_codex_usage AS runs
@@ -62,6 +64,29 @@ function openCodexUsage(db,owner){
  const pruneLinks=db.prepare('DELETE FROM relay_codex_followups WHERE owner=? AND id NOT IN (SELECT id FROM relay_codex_usage WHERE owner=?)');
  const get=id=>JSON.parse(byId.get(owner,id)?.record??'null');
  const isId=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
+ const workflowById=db.prepare('SELECT record FROM relay_codex_workflows WHERE owner=? AND comparison_id=? AND variant=?');
+ const workflowInsert=db.prepare('INSERT INTO relay_codex_workflows VALUES(?,?,?,?)');
+ const providerById=db.prepare('SELECT result_json,state,updated_at FROM relay_jobs WHERE owner=? AND event_id=?');
+ const linkedCalls=db.prepare('SELECT ref,recorded_at FROM relay_codex_workflow_calls WHERE owner=? AND comparison_id=? ORDER BY ref LIMIT 21');
+ function callRecord(value){
+  if(Object.keys(value).sort().join(',')!=='comparisonId,kind,ref,v'||value.v!==1||value.kind!=='picard-call'||!usageSlug(value.comparisonId)||!isId(value.ref))return 'invalid';
+  const existing=linkedCalls.all(owner,value.comparisonId);
+  if(existing.some(row=>row.ref===value.ref))return 'duplicate';
+  if(existing.length>=20)return 'conflict';
+  db.prepare('INSERT INTO relay_codex_workflow_calls VALUES(?,?,?,?)').run(owner,value.comparisonId,value.ref,Date.now());return 'saved';
+ }
+ function workflowRecord(value){
+  if(!value||Object.keys(value).sort().join(',')!=='comparisonId,kind,picardRefs,preparationIds,v,variant'
+   ||value.v!==1||value.kind!=='workflow'||!usageSlug(value.comparisonId)||!['baseline','assisted'].includes(value.variant)
+   ||![value.preparationIds,value.picardRefs].every(ids=>Array.isArray(ids)&&ids.length<=20&&ids.every(isId)&&new Set(ids).size===ids.length)
+   ||value.variant==='baseline'&&value.picardRefs.length)return 'invalid';
+  const record=canonical({...value,preparationIds:[...value.preparationIds].sort(),picardRefs:[...value.picardRefs].sort()});
+  return transaction(()=>{
+   const old=workflowById.get(owner,value.comparisonId,value.variant)?.record;
+   if(old)return old===record?'duplicate':'conflict';
+   workflowInsert.run(owner,value.comparisonId,value.variant,record);return 'saved';
+  });
+ }
  function link(run,originalId,{allowPending=false}={}){
   const existing=followUp.get(owner,run.id);
   if(existing)return existing.original_id===originalId?'duplicate':'conflict';
@@ -79,6 +104,8 @@ function openCodexUsage(db,owner){
  return {
   record(value){
    if(!value||typeof value!=='object'||Array.isArray(value))return 'invalid';
+   if(value.kind==='workflow')return workflowRecord(value);
+   if(value.kind==='picard-call')return transaction(()=>callRecord(value));
    const {followUpTo,...fields}=value;
    const run=codexUsageRecord(fields);
    if(!run)return 'invalid';
@@ -123,9 +150,38 @@ function openCodexUsage(db,owner){
     // Unknown models in any correction make the whole-side estimate unavailable.
     const standardCredits=all.every(row=>row.model==='gpt-6.1-sol')
      ?((inputTokens-cachedInputTokens)*50+cachedInputTokens*2.5+outputTokens*250)/1_000_000:null;
-    return {totalTokens:run.totalTokens+followUpTokens,inputTokens,cachedInputTokens,outputTokens,standardCredits,
+    const native={totalTokens:run.totalTokens+followUpTokens,inputTokens,cachedInputTokens,outputTokens,standardCredits,
      freshTokens:run.totalTokens-run.cachedInputTokens+fixes.reduce((sum,fix)=>sum+fix.totalTokens-fix.cachedInputTokens,0),
      followUpTokens,followUpCount:fixes.length,lastRecordedAt:fixes[0]?.recordedAt??run.recordedAt};
+    const raw=workflowById.get(owner,run.comparisonId,run.variant)?.record;
+    if(!raw)return native;
+    const scope=JSON.parse(raw),preps=scope.preparationIds.map(get),missing=[];
+    const ids=new Set(all.map(row=>row.id));
+    for(let i=0;i<preps.length;i++){
+     const row=preps[i];
+     if(!row||row.variant!==null||followUp.get(owner,row.id)||ids.has(row.id)||hasFollowUps.get(owner,row.id))missing.push('preparation');
+     else ids.add(row.id);
+    }
+    const preparation=preps.filter(row=>row&&row.variant===null&&!followUp.get(owner,row.id)&&!all.some(r=>r.id===row.id)&&!hasFollowUps.get(owner,row.id));
+    const linked=run.variant==='assisted'?linkedCalls.all(owner,run.comparisonId):[];
+    const refs=[...new Set([...scope.picardRefs,...linked.map(row=>row.ref)])];
+    const calls=refs.map(ref=>{
+     const row=providerById.get(owner,ref);let result=null;try{result=JSON.parse(row?.result_json??'null');}catch{}
+     const usage=sanitizeProviderUsage(result?.providerUsage);
+     if(!usage||row?.state!=='completed')missing.push('picard');
+     return {ref,state:row?.state??'unavailable',usage,recordedAt:row?.updated_at??0};
+    });
+    const codex=[...all,...preparation],providerTokens=calls.reduce((n,row)=>n+(row.usage?.totalTokens??0),0);
+    const preparationTokens=preparation.reduce((n,row)=>n+row.totalTokens,0);
+    const codexTokens=codex.reduce((n,row)=>n+row.totalTokens,0);
+    const codexCredits=codex.every(row=>row.model==='gpt-6.1-sol')?codex.reduce((n,row)=>n+((row.inputTokens-row.cachedInputTokens)*50+row.cachedInputTokens*2.5+row.outputTokens*250)/1_000_000,0):null;
+    const lastRecordedAt=Math.max(native.lastRecordedAt,...preparation.map(row=>row.recordedAt),...calls.map(row=>row.recordedAt),...linked.map(row=>row.recorded_at));
+    return {...native,lastRecordedAt,workflow:{complete:missing.length===0,missing:[...new Set(missing)],
+     totalTokens:missing.length?null:codexTokens+providerTokens,knownTokens:codexTokens+providerTokens,
+     codexTokens,codexCredits,cachedInputTokens:codex.reduce((n,row)=>n+row.cachedInputTokens,0),preparationTokens,preparationCount:scope.preparationIds.length,
+     finishingTokens:run.totalTokens,followUpTokens,followUpCount:fixes.length,
+     picardTokens:calls.every(row=>row.usage)?providerTokens:null,picardCalls:calls.length,calls,
+     sharedPreparationIds:scope.preparationIds,providerBilledUsd:null}};
    };
    const projected=entries.map(({run,originalId})=>{
     let comparisonId=run.variant==='assisted'?run.comparisonId:null;
@@ -204,6 +260,7 @@ export function createRelayStore({dbPath,now=Date.now,canAccept=()=>true}={}){
   const outcome=input.kind==='question'?{kind:'question',question:input.body.trim()}:{kind:'information'};
   if(input.kind==='question'&&input.body.trim().length>2000||input.outcomeKind!==outcome.kind)throw error('invalid_outcome');
   const result={v:1,eventId:p.eventId,ownerId:p.ownerId,taskId:p.taskId,requestId:p.requestId,grantId:p.grantId,assistantId:p.assistantId,payloadHash:p.payloadHash,responseId:`resp:${p.eventId}`,body:input.body.trim(),outcome};
+  if(Object.hasOwn(input,'providerUsage'))result.providerUsage=sanitizeProviderUsage(input.providerUsage);
   const encoded=canonical(result);if(row.result_json&&row.result_json!==encoded)throw error('idempotency_conflict');
   db.prepare('UPDATE relay_jobs SET response_id=?,result_json=?,updated_at=? WHERE event_id=?').run(result.responseId,encoded,now(),row.event_id);
   return {replayed:!!row.result_json,reply:{reply_id:result.responseId}};
