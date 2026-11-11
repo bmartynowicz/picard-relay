@@ -16,14 +16,14 @@ const metrics=['input_tokens','cached_input_tokens','output_tokens'];
 const validUsage=usage=>usage&&metrics.every(key=>Number.isSafeInteger(usage[key])&&usage[key]>=0);
 const recordId=(thread,turn)=>createHash('sha256').update(thread+'\n'+turn).digest('hex');
 
-export async function readCompletedCodexUsage(path,turnId,{serverName='picard',threadId}={}){
+export async function readCompletedCodexUsage(path,turnId,{serverName='picard',threadId,preparedPromptSha256=null}={}){
  const size=(await stat(path)).size;
  if(size>64*1024*1024)throw Error('transcript_too_large');
  const stream=createReadStream(path,{encoding:'utf8'});
  const lines=createInterface({input:stream,crlfDelay:Infinity});
  const zeros=Object.fromEntries(metrics.map(key=>[key,0]));
  let active=false,completeAt=null,model=null,effort=null,before=zeros,latest=null,previous=zeros;
- let firstCompletedTurn=null;
+ let firstCompletedTurn=null,matchedPreparedPrompt=false;
  const calls=new Map(),tools=new Set();
  try{
   for await(const line of lines){
@@ -50,6 +50,10 @@ export async function readCompletedCodexUsage(path,turnId,{serverName='picard',t
     model=typeof p.model==='string'&&slug.test(p.model)?p.model:null;
     effort=typeof p.effort==='string'&&slug.test(p.effort)?p.effort:null;
    }else if(active&&event.type==='response_item'){
+    if(preparedPromptSha256&&p.type==='message'&&p.role==='user'&&Array.isArray(p.content)){
+     const text=p.content.filter(part=>part?.type==='input_text').map(part=>part.text).join('');
+     if(createHash('sha256').update(text).digest('hex')===preparedPromptSha256)matchedPreparedPrompt=true;
+    }
     const prefix='mcp__'+serverName+'__';
     if(p.type==='function_call'&&typeof p.name==='string'&&p.name.startsWith(prefix)&&slug.test(p.name.slice(prefix.length)))
      calls.set(p.call_id,p.name.slice(prefix.length));
@@ -63,7 +67,8 @@ export async function readCompletedCodexUsage(path,turnId,{serverName='picard',t
    }
   }
  }finally{lines.close();stream.destroy();}
- if(!latest||!model||!Number.isSafeInteger(completeAt)||completeAt<1)return null;
+ if(!latest||!model||!Number.isSafeInteger(completeAt)||completeAt<1||preparedPromptSha256&&!matchedPreparedPrompt)return null;
+ if(matchedPreparedPrompt)tools.add('prepare_context');
  const [inputTokens,cachedInputTokens,outputTokens]=metrics.map(key=>latest[key]-before[key]);
  if(inputTokens<0||cachedInputTokens<0||cachedInputTokens>inputTokens||outputTokens<0||inputTokens+outputTokens===0)return null;
  return {model,effort,recordedAt:completeAt,inputTokens,cachedInputTokens,outputTokens,tools:[...tools].sort().slice(0,20),
@@ -132,7 +137,7 @@ async function main(){
  const {values,positionals}=parseArgs({allowPositionals:true,options:{
   endpoint:{type:'string'},'token-file':{type:'string'},'codex-home':{type:'string'},outbox:{type:'string'},
   'server-name':{type:'string',default:'picard'},'exec-events':{type:'string'},comparison:{type:'string'},variant:{type:'string'},
-  attach:{type:'string'},'follow-up-to':{type:'string'}
+  attach:{type:'string'},'follow-up-to':{type:'string'},'prepared-handoff':{type:'string'}
  }});
  const attaching=values.attach!==undefined||values['follow-up-to']!==undefined;
  const notice=JSON.parse(positionals[0]??'null');
@@ -155,10 +160,19 @@ async function main(){
  if((values.comparison!==undefined||values.variant!==undefined)&&(!slug.test(values.comparison??'')||!['baseline','assisted'].includes(values.variant)))
   throw Error('invalid_comparison');
  const path=await transcriptPath(values['codex-home']??process.env.CODEX_HOME??join(homedir(),'.codex'),thread);
+ let preparedPromptSha256=null;
+ if(values['prepared-handoff']){
+  const proofPath=resolve(values['prepared-handoff']);
+  if((await stat(proofPath)).size>4096)throw Error('invalid_prepared_handoff');
+  const proof=JSON.parse(await readFile(proofPath,'utf8'));
+  if(!usageId.test(proof?.promptSha256??'')||!Array.isArray(proof.receipts)||!proof.receipts.length||proof.receipts.length>3
+   ||proof.receipts.some(r=>!usageId.test(r?.ref??'')||!usageId.test(r?.sha256??'')))throw Error('invalid_prepared_handoff');
+  preparedPromptSha256=proof.promptSha256;
+ }
  let usage,execTools;
  for(const wait of [0,250,500,1000]){
   if(wait)await delay(wait);
-  usage=await readCompletedCodexUsage(path,turn,{serverName:values['server-name'],threadId:thread});
+  usage=await readCompletedCodexUsage(path,turn,{serverName:values['server-name'],threadId:thread,preparedPromptSha256});
   if(usage&&values['exec-events'])execTools=await readCodexExecTools(values['exec-events'],thread,usage,values['server-name']).catch(()=>null);
   if(usage&&(!values['exec-events']||execTools))break;
  }
