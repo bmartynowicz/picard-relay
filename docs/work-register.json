@@ -408,7 +408,7 @@
       "severity": "P2",
       "title": "Cockpit discovery and persistence",
       "status": "source_candidate",
-      "behavior": "A visible Cockpit switch selects the HUD. The Settings menu controls stars separately. Both preferences survive reload, and the insignia shortcut still switches layouts.",
+      "behavior": "The curved rail groups Workspace, Stars, motion, Stealth and Auto. A Cockpit view handle and five-click insignia shortcut enter the HUD. Layout and stars persist; translucent panels fold from controls with sequential handoffs and a dismissible latest-work readout.",
       "sourceFiles": [
         "experimental/runtime-control/src/oracle-service.mjs"
       ],

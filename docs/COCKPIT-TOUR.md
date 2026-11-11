@@ -22,23 +22,36 @@ only what the recording shows.
 
 ## Take the controls
 
-1. **Enter the cockpit.** Sign in and select **Cockpit** beside Refresh. The
+1. **Enter the cockpit.** Sign in and select **Cockpit view** above Overview. The
    top-left insignia also switches views after five quick activations.
 2. **Read the essentials.** Readiness, active/completed counts, **Progress** and
    the next action stay together on the windshield. Select the counts to open
    Jobs, readiness to open System, or Progress to open Overview.
 3. **Open a panel.** Choose a view in the centered navigation. Its number lights
-   up and a reading deck opens below the instruments. The solid deck and header
-   keep stars away from your reading and controls.
-4. **Clear the view.** Click exposed starfield, choose **Minimize panel**, or press
+   up and a translucent panel grows from that control. The header stays opaque;
+   stars remain visible behind the reading surface.
+4. **Clear the view.** Click exposed starfield, choose **Close panel**, or press
    Escape. The deck retracts while your current draft or selected result stays
    in place. Clicking inside the deck keeps it open.
-5. **Find the utilities.** Refresh and its **Live · 15s** indicator sit at the
-   upper right. Use **… → Cockpit stars** to show or hide stars. The menu also
-   contains Documentation, motion controls and Sign out. For a software update,
-   open **System → Check for updates**.
+5. **Set the display.** The rail beneath the HUD holds **Workspace**, **Stars** and motion on the left, with **Stealth** and **Auto**
+   on the right. These controls follow the same curve as the glass. The
+   Stealth switch shows its keyboard shortcut. **Resume display** brings back your
+   last layout. Refresh and **Live · 15s** stay at the upper right beside the account menu.
 
-The browser remembers Cockpit and stars separately. Refresh reads status.
+The browser remembers Cockpit and stars separately. A compact windshield readout
+prioritizes uncertain or active work, then the latest saved result. Select a saved
+result to expand its answer across the windshield. Dismiss the readout with ×;
+restore it with **Show windshield readout** in the account menu.
+
+Main panels, VM CPU and Auto share one transition: the old panel folds into its
+control before the next opens. Click the same control, Close or exposed space,
+or press Escape to retract it. Reduced motion skips these animations.
+
+![Current curved cockpit with synthetic local data](images/cockpit-curved-preview.jpg)
+
+This image is a local source preview, not an installed-host or release claim.
+
+Refresh reads status.
 Reload the browser page to load a newly installed interface. The update button
 requires a separately connected host updater. See
 [Updating your relay](OWNER-UPDATES.md).
@@ -121,8 +134,8 @@ The current planes have independent 113-second and 179-second base loops;
 measured VM CPU changes their playback rate without restarting them. This
 implementation description is not a device-performance benchmark.
 
-The recording shows the earlier cockpit controls. Current source has the
-visible **Cockpit** button and remembers the layout and stars separately.
+The recording shows the earlier cockpit controls. Current source groups display
+controls in one rail and remembers the layout and stars separately.
 Completed counts mean saved answers, not correct or executed code. Groq status
 is a relay observation, not a live quota or billing check. See
 [limitations](LIMITATIONS.md) and the dated [deployment record](STATUS.md).
