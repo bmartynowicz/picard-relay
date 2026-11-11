@@ -302,7 +302,7 @@ export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecen
     const display=typeof recognition==='function'?recognition():recognition;
     const keyReplacement=groqReplacement?.status();
     let usage;
-    if(codexUsage){try{usage={state:'ready',runs:codexUsage.list()};}catch{usage={state:'unavailable',runs:[]};}}
+    if(codexUsage){try{usage={state:'ready',...(codexUsage.overview?codexUsage.overview():{runs:codexUsage.list()})};}catch{usage={state:'unavailable',runs:[]};}}
     return reply(200,{...snapshot,...(display?{recognition:display}:{}),...(keyReplacement?.enabled?{keyReplacement}:{}),...(usage?{codexUsage:usage}:{})});
    }
    if(path==='/updates'){
@@ -677,6 +677,7 @@ const SAVINGS_STYLE=String.raw`
 #codex-savings{margin:0 0 26px;padding:18px 0;border-bottom:1px solid var(--line)}
 #codex-savings-headline{display:block;margin:6px 0 1px;font-size:clamp(20px,4vw,30px);line-height:1.2;color:var(--accent)}
 #codex-savings-note{margin:5px 0 11px}
+#codex-savings>details summary{min-height:44px;padding:12px 0;cursor:pointer}
 #codex-savings-runs details{border-top:1px solid var(--line);padding:7px 0;overflow-wrap:anywhere}
 #codex-savings-runs summary{cursor:pointer;padding:4px 0;font-size:13px}
 #codex-savings-runs p{margin:4px 0 4px 14px}
@@ -687,7 +688,7 @@ const SAVINGS_STYLE=String.raw`
 .savings-sides p{margin:2px 0;font-size:13px}
 .savings-sides strong{display:block;font-size:clamp(15px,3vw,20px)}
 `;
-const SAVINGS_PANEL='<section id="codex-savings" aria-labelledby="codex-savings-title"><h2 id="codex-savings-title">Savings</h2><strong id="codex-savings-headline">Savings not yet measured</strong><p class="muted" id="codex-savings-note">Connect Codex to record usage as you work.</p><div id="codex-savings-comparisons" aria-label="Codex comparisons"></div><div id="codex-savings-runs" aria-label="Recent Codex runs"></div></section>';
+const SAVINGS_PANEL='<section id="codex-savings" aria-labelledby="codex-savings-title"><h2 id="codex-savings-title">Savings</h2><strong id="codex-savings-headline">Rolling savings not yet measured</strong><p class="muted" id="codex-savings-note">Connect Codex to record usage as you work.</p><p id="codex-savings-coverage" class="muted"></p><details><summary>How rolling savings is measured</summary><p>Latest 20 complete, comparable tasks, ordered by their latest recorded activity. Savings is calculated from combined Codex credit totals, so larger tasks carry more weight. Preparation, finishing and linked fixes count. Tasks where Picard uses more credits stay included. Picard provider tokens are tracked separately. These are estimates, not a reading of your subscription allowance or billed cost.</p></details><div id="codex-savings-comparisons" aria-label="Codex comparisons"></div><div id="codex-savings-runs" aria-label="Recent Codex runs"></div></section>';
 const SAVINGS_CLIENT=String.raw`
 let lastCodexUsage='';
 function renderCodexSavings(usage){
@@ -700,7 +701,7 @@ function renderCodexSavings(usage){
  comparisons.replaceChildren();
  const runs=Array.isArray(usage?.runs)?usage.runs:[];
  const pairs=runs.flatMap(run=>run.comparison?[run.comparison]:[]);
- const measured=pairs[0];
+ const rolling=usage?.rolling;
  const full=pair=>pair?.baseline.workflow?.complete&&pair?.assisted.workflow?.complete;
  const scoped=pair=>pair?.baseline.workflow||pair?.assisted.workflow;
  const fullCredits=pair=>({baseline:{standardCredits:pair.baseline.workflow.codexCredits},assisted:{standardCredits:pair.assisted.workflow.codexCredits}});
@@ -723,12 +724,19 @@ function renderCodexSavings(usage){
   const difference=(Math.abs(saved)*100/pair.baseline.standardCredits).toLocaleString(undefined,{maximumFractionDigits:1});
   return saved===0?'Same estimated Standard credits':difference+'% '+(saved>0?'fewer':'more')+' estimated Standard credits';
  };
- headline.textContent=measured?(scoped(measured)?full(measured)?'Full workflow · '+(hasCredits(fullCredits(measured))?creditChange(fullCredits(measured)).replace('Standard credits','Codex credits'):'Compare provider totals below'):'Full workflow not yet measured':(hasCredits(measured)?creditChange(measured):usageChange(measured))):'Savings not yet measured';
- note.textContent=measured
-  ?full(measured)?number(measured.baseline.workflow.totalTokens)+' total reported tokens on its own · '+number(measured.assisted.workflow.totalTokens)+' with Picard (all providers)':scoped(measured)?'Some workflow usage is missing. Known usage is shown below.':number(measured.baseline.totalTokens)+' finishing + fix tokens on its own · '+number(measured.assisted.totalTokens)+' with Picard. Preparation and provider usage were not recorded.'
-  :usage?.state==='unavailable'?'Usage records are temporarily unavailable.'
-  :usage?.state==='ready'?(runs.length?'Run the same task both ways to measure savings.':'Waiting for the first completed Codex run.')
-  :'Connect Codex to record usage as you work.';
+ const measured=Number.isSafeInteger(rolling?.sampleCount)&&rolling.sampleCount>0&&Number.isFinite(rolling.savedPercent);
+ if(measured){
+  const percent=Math.abs(rolling.savedPercent).toLocaleString(undefined,{maximumFractionDigits:1});
+  headline.textContent=rolling.savedCredits===0?'No change in estimated Codex credits':percent+'% '+(rolling.savedCredits>0?'estimated Codex credits saved':'more estimated Codex credits used');
+  note.textContent='Latest '+rolling.sampleCount+' complete '+(rolling.sampleCount===1?'comparison':'comparisons')+' · '+credits(rolling.baselineCredits)+' credits on its own · '+credits(rolling.assistedCredits)+' with Picard. Preparation and fixes included.';
+ }else{
+  headline.textContent='Rolling savings not yet measured';
+  note.textContent=usage?.state==='unavailable'?'Usage records are temporarily unavailable.':usage?.state==='ready'?'Waiting for a complete comparison with recorded preparation, Picard usage and Codex credit estimates.':'Connect Codex to record usage as you work.';
+ }
+ const excluded=rolling?.excluded;
+ $('codex-savings-coverage').textContent=excluded&&excluded.legacy+excluded.incomplete+excluded.unpriced>0
+  ?'Outside the rolling average: '+excluded.legacy+' finishing-only, '+excluded.incomplete+' incomplete and '+excluded.unpriced+' without a usable credit estimate. These comparisons stay in the records.'
+  :'';
  for(const pair of pairs){
   const article=element('article');
   const sides=element('div','','savings-sides');

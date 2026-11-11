@@ -43,22 +43,86 @@ test('whole workflow persists preparation, actual provider usage and late fixes 
  assert.equal(pair.assisted.workflow.codexTokens,8600);
  assert.equal(pair.assisted.workflow.providerBilledUsd,null);
  assert(pair.assisted.workflow.complete);
+ assert.equal(usage.overview().rolling.sampleCount,1);
+ assert.equal(usage.overview().rolling.assistedCredits,pair.assisted.workflow.codexCredits);
  const fix={...preparation,id:'d'.repeat(64),recordedAt:4000,followUpTo:withPicard.id};
  assert.equal(usage.record(fix),'saved');assert.equal(usage.record(fix),'duplicate');
  pair=usage.list().find(row=>row.id===withPicard.id).comparison;
  assert.equal(pair.assisted.workflow.totalTokens,10900);assert.equal(pair.assisted.workflow.followUpCount,1);
  assert.equal(pair.assisted.workflow.preparationTokens,600);
+ assert.equal(usage.overview().rolling.sampleCount,1);
+ assert.equal(usage.overview().rolling.assistedCredits,pair.assisted.workflow.codexCredits);
  // A later Picard correction joins the original comparison without rewriting its coverage.
  assert.equal(usage.record({v:1,kind:'picard-call',comparisonId:'sample',ref:'f'.repeat(64)}),'saved');
  assert.equal(usage.record({v:1,kind:'picard-call',comparisonId:'sample',ref:'f'.repeat(64)}),'duplicate');
  pair=usage.list().find(row=>row.id===withPicard.id).comparison;
  assert.equal(pair.assisted.workflow.complete,false);assert.equal(pair.assisted.workflow.picardCalls,2);
  assert.equal(pair.assisted.workflow.totalTokens,null);
+ assert.equal(usage.overview().rolling.sampleCount,0);
+ assert.equal(usage.overview().rolling.excluded.incomplete,1);
  const other=store.openCodexUsage('other');
  other.record(root);other.record(withPicard);other.record(preparation);other.record(scope('assisted'));other.record(scope('baseline'));
  const hidden=other.list().find(row=>row.id===withPicard.id).comparison.assisted.workflow;
  assert.equal(hidden.complete,false);assert.equal(hidden.totalTokens,null);assert.equal(hidden.picardTokens,null);
  assert.equal(hidden.calls[0].state,'unavailable');
+ assert.equal(other.overview().rolling.sampleCount,0);
+});
+
+function fullPair(usage,index,baselineInput,assistedInput,{model='gpt-6.1-sol',scope=true}={}){
+ const comparisonId='rolling-'+index;
+ const id=side=>createHash('sha256').update(comparisonId+side).digest('hex');
+ const baseline={...run,id:id('baseline'),comparisonId,model,inputTokens:baselineInput,cachedInputTokens:0,outputTokens:0,recordedAt:index*10};
+ const withPicard={...baseline,id:id('assisted'),variant:'assisted',tools:['prepare_context'],inputTokens:assistedInput,recordedAt:index*10+1};
+ for(const row of [baseline,withPicard])assert.equal(usage.record(row),'saved');
+ if(scope)for(const variant of ['baseline','assisted'])assert.equal(usage.record({v:1,kind:'workflow',comparisonId,variant,preparationIds:[],picardRefs:[] }),'saved');
+ return {baseline,withPicard};
+}
+
+test('rolling savings weights complete totals, retains increases and survives restart with owner isolation',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'picard-rolling-'));
+ const dbPath=join(directory,'relay.sqlite');let store=createRelayStore({dbPath});
+ t.after(async()=>{store.close();await rm(directory,{recursive:true,force:true});});
+ let usage=store.openCodexUsage('owner');
+ fullPair(usage,1,20000,10000); // 1 versus 0.5 credits: 50% saved.
+ fullPair(usage,2,2000000,2200000); // 100 versus 110: 10% more.
+ fullPair(usage,3,1000,500,{scope:false});
+ fullPair(usage,4,1000,500,{model:'unknown-model'});
+ const incomplete=fullPair(usage,5,1000,500,{scope:false});
+ usage.record({v:1,kind:'workflow',comparisonId:incomplete.baseline.comparisonId,variant:'baseline',preparationIds:['f'.repeat(64)],picardRefs:[]});
+ const expected=usage.overview().rolling;
+ assert.equal(expected.sampleCount,2);assert.equal(expected.baselineCredits,101);assert.equal(expected.assistedCredits,110.5);
+ assert.equal(expected.savedCredits,-9.5);assert(Math.abs(expected.savedPercent-(-9.5/101*100))<1e-10);
+ assert.equal(expected.increasedCount,1);assert.deepEqual(expected.excluded,{legacy:1,incomplete:1,unpriced:1});
+ assert.equal(store.openCodexUsage('other').overview().rolling.sampleCount,0);
+ store.close();store=createRelayStore({dbPath});usage=store.openCodexUsage('owner');
+ assert.deepEqual(usage.overview().rolling,expected);
+});
+
+test('rolling window uses twenty comparisons beyond the twelve rows and updates an old root once for a fix',t=>{
+ const store=createRelayStore({dbPath:':memory:'});t.after(()=>store.close());const usage=store.openCodexUsage('owner');
+ const first=fullPair(usage,1,1000000,1000000);
+ for(let i=2;i<=22;i++)fullPair(usage,i,20000,10000);
+ // Newer unpaired activity fills all twelve visible rows without changing the wider window.
+ for(let i=0;i<15;i++)usage.record({...run,id:createHash('sha256').update('unpaired'+i).digest('hex'),comparisonId:null,variant:null,recordedAt:1000+i});
+ let snapshot=usage.overview();
+ assert.equal(snapshot.runs.length,12);assert(snapshot.runs.every(row=>!row.comparison));
+ assert.equal(snapshot.rolling.sampleCount,20);assert.equal(snapshot.rolling.eligibleCount,22);
+ assert.equal(snapshot.rolling.baselineCredits,20);assert.equal(snapshot.rolling.assistedCredits,10);
+ assert.equal(snapshot.rolling.fromRecordedAt,31);
+ const fix={...run,id:'f'.repeat(64),comparisonId:null,variant:null,model:'gpt-6.1-sol',recordedAt:2000,inputTokens:20000,cachedInputTokens:0,outputTokens:0,followUpTo:first.withPicard.id};
+ assert.equal(usage.record(fix),'saved');assert.equal(usage.record(fix),'duplicate');
+ snapshot=usage.overview();
+ assert.equal(snapshot.rolling.sampleCount,20);assert.equal(snapshot.rolling.eligibleCount,22);
+ assert.equal(snapshot.rolling.baselineCredits,69);assert.equal(snapshot.rolling.assistedCredits,60.5);
+ assert.equal(snapshot.rolling.toRecordedAt,2000);assert.equal(snapshot.runs[0].id,first.withPicard.id);
+ assert.equal(snapshot.runs[0].comparison.assisted.workflow.followUpCount,1);
+});
+
+test('empty rolling history exposes unknown savings rather than zero',t=>{
+ const store=createRelayStore({dbPath:':memory:'});t.after(()=>store.close());
+ const rolling=store.openCodexUsage('owner').overview().rolling;
+ assert.equal(rolling.sampleCount,0);
+ for(const key of ['baselineCredits','assistedCredits','savedCredits','savedPercent','fromRecordedAt','toRecordedAt'])assert.equal(rolling[key],null);
 });
 
 test('coverage never silently treats absent or double-counted preparation and provider usage as zero',t=>{
@@ -270,6 +334,7 @@ test('native writes require the dedicated token and only the console owner can r
  const response=await read({cookie:'__Host-PicardSession='+session});
  assert.equal(response.status,200);
  assert.equal(response.data.codexUsage.runs[0].totalTokens,12000);
+ assert.equal(response.data.codexUsage.rolling.sampleCount,0);
  const fix={...run,id:'c'.repeat(64),comparisonId:null,variant:null,recordedAt:3000,inputTokens:30,cachedInputTokens:15,outputTokens:10};
  const link={id:fix.id,followUpTo:assisted.id};
  assert.equal((await push('Bearer '+token,{},assisted)).status,201);

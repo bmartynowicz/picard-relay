@@ -130,6 +130,22 @@ node tools/codex-usage-notify.mjs --endpoint "$SAVINGS_ENDPOINT" --token-file "$
 Install the server update before replacing the completion notifier. The
 comparison records still accept usage from earlier notifiers.
 
+Authenticated `GET /status` includes `codexUsage.rolling` alongside the 12 recent
+`runs`. The server computes it from the owner's retained history, not just those
+12 rows. `windowSize` is 20; `sampleCount` counts the latest eligible comparisons
+and `eligibleCount` counts all eligible retained comparisons. `baselineCredits`,
+`assistedCredits`, `savedCredits` and `savedPercent` use full recorded Codex totals.
+The percentage is the difference of combined totals divided by the combined
+baseline, including negative results. Empty totals and percentage are `null`.
+`increasedCount` counts selected comparisons that cost more; `fromRecordedAt` and
+`toRecordedAt` bound their latest activity, including corrections.
+`excluded` counts paired legacy, incomplete and unpriced workflows. Unpaired
+turns do not enter the window. Both workflows must be complete, have finite
+credit estimates, and have a positive baseline. Provider tokens have no Codex
+credit conversion. A correction changes its original pair rather than adding a
+new sample. Older finishing-only comparisons remain available without inventing
+missing preparation or provider usage.
+
 ### Prepare context before starting Codex
 
 For a self-contained brief, send the brief directly to Codex. When an existing

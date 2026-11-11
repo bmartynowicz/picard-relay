@@ -42,12 +42,29 @@ Overview. Open a row for the counts and comparison details.
 Run the same task twice with the same model and reasoning setting. Assign both
 runs the same comparison ID, and mark one as the baseline and the other as
 assisted. A baseline must have no recorded Picard tool call and an assisted
-run must have a successful one. The headline compares total input and output
-tokens. The assisted row also compares fresh input and output, excluding
-cached input. The comparison can show lower, higher, or equal usage. Check
-both answers before drawing a conclusion about efficiency. A regular turn
-shows its observed usage and leaves savings unmeasured. Reported token counts
-are separate from the plan's remaining allowance.
+run must have a successful one, including a validated preloaded result.
+
+The headline shows **estimated Codex credits saved** across the latest 20 complete,
+comparable tasks in the retained history. It uses combined credit totals:
+`(Codex-alone total - with-Picard total) / Codex-alone total × 100`.
+Larger jobs therefore carry more weight than smaller ones. Preparation, finishing
+and linked fixes count; shared preparation is allocated once to each alternative.
+Cases where Picard uses more credits remain included. The sample count and both
+combined totals appear beside the headline, with individual comparisons below.
+
+Comparisons need complete recorded workflow coverage on both sides, the same
+finishing model and reasoning setting, and usable Codex credit estimates. Legacy
+finishing-only comparisons, incomplete records and unknown estimates stay in
+history but are excluded from the rolling headline, with counts explaining why.
+An empty eligible set says “not yet measured”, not zero savings. The window is
+ordered by each pair's latest recorded activity; a later correction updates its
+original comparison and can bring it back into the latest 20. The 12 recent run
+rows do not limit the calculation, which uses up to 1,000 retained native records.
+
+These credits are estimates, not a direct reading of subscription allowance or
+billed cost. Picard provider tokens stay separately measured, with no invented
+Codex-credit conversion. Check both answers for equal usefulness before drawing
+a conclusion about efficiency; recorded coverage does not certify answer quality.
 
 ### Connect native Codex completion
 

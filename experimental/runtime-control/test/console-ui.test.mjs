@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"82328d0d67592b637a2315cdc84371a51620eb72c4f63853a9a99efd445ee40b");
+assert.equal(createHash('sha256').update(script).digest('hex'),"4592e81fc026dcfa6b90c9da6ab1bba0d25ea96ece50d9fa38efe25ed1972ab0");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:(?:stealth|cockpit)Preference|'picard:windshield-readout')\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\)|setItem\('picard:windshield-readout',hidden\?'hidden':'shown'\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
@@ -46,7 +46,8 @@ const savingsFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):o
   comparison:{id:'second-example',baseline:side(8000,3000),assisted:side(9000,1100)}}
 ]}}));
 await flush();
-assert.equal(savingsFlow.get('codex-savings-note').textContent,'12,000 finishing + fix tokens on its own · 10,000 with Picard. Preparation and provider usage were not recorded.');
+assert.equal(savingsFlow.get('codex-savings-headline').textContent,'Rolling savings not yet measured');
+assert.match(savingsFlow.get('codex-savings-note').textContent,/Waiting for a complete comparison/);
 const [firstSavings,secondSavings]=savingsFlow.get('codex-savings-comparisons').children;
 assert.match(firstSavings.textContent,/first-example.*Codex alone12,000 tokens.*With Picard10,000 tokens.*Includes 2,000 tokens across 1 follow-up turn/);
 assert.match(secondSavings.textContent,/second-example.*Codex alone8,000 tokens.*With Picard9,000 tokens.*12.5% more/);
@@ -58,7 +59,8 @@ const creditFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok
    assisted:{...side(17421,10253),inputTokens:16500,cachedInputTokens:7168,outputTokens:921,standardCredits:.71477}}}
 ]}}));
 await flush();
-assert.equal(creditFlow.get('codex-savings-headline').textContent,'34.8% more estimated Standard credits');
+assert.equal(creditFlow.get('codex-savings-headline').textContent,'Rolling savings not yet measured');
+assert.match(creditFlow.get('codex-savings-comparisons').textContent,/34.8% more estimated Standard credits/);
 const creditCard=creditFlow.get('codex-savings-comparisons').textContent;
 assert.match(creditCard,/0.5302 estimated Standard credits/);
 assert.match(creditCard,/0.7148 estimated Standard credits/);
@@ -69,15 +71,31 @@ assert.match(creditCard,/Follow-up fixes: 0 turns · 0 tokens/);
 assert.match(creditCard,/How credits are estimated/);
 
 const w={complete:true,totalTokens:15000,knownTokens:15000,codexTokens:13000,codexCredits:.6,preparationTokens:2000,preparationCount:1,finishingTokens:10000,followUpTokens:1000,followUpCount:1,picardCalls:1,picardTokens:2000,missing:[]};
-const wholeFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',runs:[
+const wholeFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',rolling:{sampleCount:1,savedPercent:25,savedCredits:.2,baselineCredits:.8,assistedCredits:.6,excluded:{legacy:1,incomplete:2,unpriced:3}},runs:[
  {id:'whole',variant:'assisted',tools:['prepare_context'],model:'gpt-6.1-sol',recordedAt:3,inputTokens:10000,cachedInputTokens:0,outputTokens:1000,totalTokens:11000,
   comparison:{id:'whole-example',baseline:{...side(12000,12000),workflow:{...w,picardCalls:0,picardTokens:0,totalTokens:14000,codexTokens:14000,codexCredits:.8}},assisted:{...side(11000,11000),workflow:w}}}
 ]}}));await flush();
-assert.equal(wholeFlow.get('codex-savings-headline').textContent,'Full workflow · 25% fewer estimated Codex credits');
+assert.equal(wholeFlow.get('codex-savings-headline').textContent,'25% estimated Codex credits saved');
 const wholeCard=wholeFlow.get('codex-savings-comparisons').textContent;
 assert.match(wholeCard,/15,000 tokens across providers/);assert.match(wholeCard,/Preparation: 2,000 Codex tokens/);
 assert.match(wholeCard,/Picard: 1 call · 2,000 provider tokens/);assert.match(wholeCard,/Fixes: 1,000 Codex tokens/);
 assert.match(wholeCard,/Provider billed cost unavailable/);
+
+assert.match(wholeFlow.get('codex-savings-note').textContent,/Latest 1 complete comparison · 0.8000 credits on its own · 0.6000 with Picard/);
+assert.match(wholeFlow.get('codex-savings-coverage').textContent,/1 finishing-only, 2 incomplete and 3 without a usable credit estimate/);
+for(const [savedPercent,savedCredits,expected] of [[-9.405940594,-9.5,'9.4% more estimated Codex credits used'],[0,0,'No change in estimated Codex credits']]){
+ const flow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',runs:[],rolling:{sampleCount:20,savedPercent,savedCredits,baselineCredits:101,assistedCredits:101-savedCredits}}}));
+ await flush();assert.equal(flow.get('codex-savings-headline').textContent,expected);
+ assert.match(flow.get('codex-savings-note').textContent,/Latest 20 complete comparisons/);
+}
+const emptyRolling=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',runs:[],rolling:{sampleCount:0,savedPercent:null}}}));
+await flush();assert.equal(emptyRolling.get('codex-savings-headline').textContent,'Rolling savings not yet measured');
+assert.match(html,/How rolling savings is measured/);assert.match(html,/larger tasks carry more weight/);
+wholeFlow.wl.pagehide();
+assert.equal(wholeFlow.get('codex-savings-headline').textContent,'Rolling savings not yet measured');
+assert.equal(wholeFlow.get('codex-savings-coverage').textContent,'');
+assert.equal(wholeFlow.get('codex-savings-comparisons').children.length,0);
+assert.doesNotMatch(wholeFlow.get('codex-savings-note').textContent,/0.8000|0.6000/);
 
 const displayPrefs=new Map(),displayStorage={getItem:key=>displayPrefs.get(key),setItem:(key,value)=>displayPrefs.set(key,value)};
 const displayStatus=async path=>path==='/auth/state'?ok({enrolled:true}):ok(health);
@@ -367,7 +385,7 @@ await app.get('jobs-list').children[0].children[0].listeners.click();assert.equa
 for(const [filter,expected] of [['completed',1],['active',1],['attention',1],['all',3]]){app.get('jobs-filter').value=filter;app.get('jobs-filter').listeners.change();assert.equal(app.get('jobs-list').children.length,expected);assert.equal(app.get('job-details').hidden,true);assert.equal(app.get('detail-ref').textContent,'-');}
 assert.deepEqual(app.requests.slice(requestsBeforeNavigation).map(r=>({path:r.path,method:r.options.method})),[{path:"/updates",method:"GET"}]);assert.equal(app.get('activity-list').children.length,3);
 assert.equal(app.get('groq-availability').textContent,'Not available for new work');assert.match(app.get('groq-blocking').textContent,/unavailable|not supplied|not reported/i);
-assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.match(html,/<details class="technical"><summary>Request limits and safeguards<\/summary>/);assert.equal((html.match(/<details/g)||[]).length,4);assert.match(html,/<details class="console-info"><summary aria-label="About status and privacy">/);
+assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.match(html,/<details class="technical"><summary>Request limits and safeguards<\/summary>/);assert.equal((html.match(/<details/g)||[]).length,5);assert.match(html,/<details class="console-info"><summary aria-label="About status and privacy">/);
 
 for(const event of ['logout','401','403','pagehide']){
  let lost=false;const code=event==='403'?403:401;
