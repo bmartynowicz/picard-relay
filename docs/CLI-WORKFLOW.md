@@ -8,6 +8,44 @@ effort chosen before both sides of a comparison. Other Codex work is unaffected.
 
 `node tools/codex-workflow.mjs --task task.json --out new-run-directory`
 
+For a measured pair, `tools/codex-workflow-pair.mjs` prepares the same inputs,
+runs one native draft per side, then one short source-backed review per side.
+All four runs use the same explicit default model and low effort. Source facts,
+criteria and both draft inputs are frozen before either model runs. Preparation
+packages existing reviewed evidence locally; it adds no model/provider call.
+Reviews run in bounded fresh CLI contexts rather than replaying a long working
+chat. Their real native usage joins each side's workflow preparation total.
+
+```sh
+node tools/codex-workflow-pair.mjs --task task.json --out new-pair \
+  --node /ABSOLUTE/NODE24 --python /ABSOLUTE/PYTHON3 \
+  --codex-js /ABSOLUTE/codex.js --settings /PRIVATE/savings-settings.json
+```
+
+The task supplies the same explicit `workflow` coverage described below, with
+previously recorded preparation IDs and every used Picard reference. Reused
+source preparation is retained, allocated once to each alternative. Reuse a
+valid saved Picard answer when it still fits the source snapshot; the pair tool
+never invokes a provider or signs in. The [workspace MCP](WORKSPACE-MCP.md) can
+read that saved answer using its existing owner session. Its current tools are
+read-only and do not run comparisons or record Savings.
+
+The pair tool runs any supplied deterministic `checks` and a bounded review of
+source meaning. It stores the reviews, counts even a failed or malformed paid
+review, and reports `needs_correction` rather than automatically retrying. An
+explicit correction still uses the runner's `--fix` option and original root;
+any later paid review can also be an explicit linked follow-up. A regex mismatch
+needs inspection before a paid correction. Preserving a meaning in different
+words is not a defect. A model review is evidence, not owner acceptance or a
+guarantee of factual completeness.
+
+To resume, use `--input existing-pair` instead of `--task`/`--out`. Completed
+native measurements permit metadata redelivery only; a partial attempt without
+a measurement stops for inspection. Input changes fail closed. Original runs,
+including higher costs and failed reviews, remain recorded. One-time software
+development, later Savings display/reporting and any other unmeasured work must
+be disclosed separately from the measured task phases.
+
 The task JSON contains `brief`, `acceptanceCriteria`, `outputStructure`,
 `sourceContext`, and an optional complete exported `savedResult`. Reference tasks
 also require `requiredEvidence`: reviewed groups of `sourceId`, `url` and a
