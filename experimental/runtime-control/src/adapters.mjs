@@ -11,6 +11,16 @@ export class InvocationIncompleteError extends Error {
  constructor(){super('groq_output_incomplete');this.name='InvocationIncompleteError';this.code='groq_output_incomplete';}
 }
 
+// Usage is observational metadata, never execution or billing authority.
+export function sanitizeProviderUsage(value){
+ const keys='inputTokens,model,outputTokens,provider,totalTokens,v';
+ return value&&Object.keys(value).sort().join(',')===keys&&value.v===1
+  &&value.provider==='groq'&&value.model==='openai/gpt-oss-20b'
+  &&[value.inputTokens,value.outputTokens,value.totalTokens].every(n=>Number.isSafeInteger(n)&&n>=0&&n<=1_000_000_000)
+  &&value.totalTokens>0&&value.totalTokens===value.inputTokens+value.outputTokens
+  ?{...value}:null;
+}
+
 // Local observations only: none of these codes proves remote execution.
 const DIAGNOSTIC_PHASES=Object.freeze({
  pre_send:['scope_unavailable','scope_mismatch','cancelled_before_send','input_too_large','transport_scope_rejected','transport_endpoint_rejected','context_unavailable','context_validated','invocation_boundary_failed'],

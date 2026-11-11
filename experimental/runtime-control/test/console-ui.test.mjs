@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"046904a4be21137833e13d9de9dccb132cab2f86fed40ca23ec6da688e63dc81");
+assert.equal(createHash('sha256').update(script).digest('hex'),"c694fc8f8dea4efc192eefb1d6c6aba672ac70b2ee1a8b5f87098c25b081d51a");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:(?:stealth|cockpit)Preference|'picard:windshield-readout')\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\)|setItem\('picard:windshield-readout',hidden\?'hidden':'shown'\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
@@ -46,7 +46,7 @@ const savingsFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):o
   comparison:{id:'second-example',baseline:side(8000,3000),assisted:side(9000,1100)}}
 ]}}));
 await flush();
-assert.equal(savingsFlow.get('codex-savings-note').textContent,'12,000 tokens on its own · 10,000 with Picard');
+assert.equal(savingsFlow.get('codex-savings-note').textContent,'12,000 finishing + fix tokens on its own · 10,000 with Picard. Preparation and provider usage were not recorded.');
 const [firstSavings,secondSavings]=savingsFlow.get('codex-savings-comparisons').children;
 assert.match(firstSavings.textContent,/first-example.*Codex alone12,000 tokens.*With Picard10,000 tokens.*Includes 2,000 tokens across 1 follow-up turn/);
 assert.match(secondSavings.textContent,/second-example.*Codex alone8,000 tokens.*With Picard9,000 tokens.*12.5% more/);
@@ -64,9 +64,20 @@ assert.match(creditCard,/0.5302 estimated Standard credits/);
 assert.match(creditCard,/0.7148 estimated Standard credits/);
 assert.match(creditCard,/5,120 fewer cached input tokens/);
 assert.match(creditCard,/5% fewer total Codex tokens/);
-assert.match(creditCard,/Includes linked fixes/);
+assert.match(creditCard,/include recorded preparation and linked fixes/);
 assert.match(creditCard,/Follow-up fixes: 0 turns · 0 tokens/);
 assert.match(creditCard,/How credits are estimated/);
+
+const w={complete:true,totalTokens:15000,knownTokens:15000,codexTokens:13000,codexCredits:.6,preparationTokens:2000,preparationCount:1,finishingTokens:10000,followUpTokens:1000,followUpCount:1,picardCalls:1,picardTokens:2000,missing:[]};
+const wholeFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',runs:[
+ {id:'whole',variant:'assisted',tools:['prepare_context'],model:'gpt-6.1-sol',recordedAt:3,inputTokens:10000,cachedInputTokens:0,outputTokens:1000,totalTokens:11000,
+  comparison:{id:'whole-example',baseline:{...side(12000,12000),workflow:{...w,picardCalls:0,picardTokens:0,totalTokens:14000,codexTokens:14000,codexCredits:.8}},assisted:{...side(11000,11000),workflow:w}}}
+]}}));await flush();
+assert.equal(wholeFlow.get('codex-savings-headline').textContent,'Full workflow · 25% fewer estimated Standard credits');
+const wholeCard=wholeFlow.get('codex-savings-comparisons').textContent;
+assert.match(wholeCard,/15,000 tokens across providers/);assert.match(wholeCard,/Preparation: 2,000 Codex tokens/);
+assert.match(wholeCard,/Picard: 1 calls · 2,000 provider tokens/);assert.match(wholeCard,/Fixes: 1,000 Codex tokens/);
+assert.match(wholeCard,/Provider billed cost unavailable/);
 
 const displayPrefs=new Map(),displayStorage={getItem:key=>displayPrefs.get(key),setItem:(key,value)=>displayPrefs.set(key,value)};
 const displayStatus=async path=>path==='/auth/state'?ok({enrolled:true}):ok(health);

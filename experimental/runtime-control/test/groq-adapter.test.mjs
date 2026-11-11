@@ -12,6 +12,25 @@ const good={id:'fixture-completion',model:GROQ_MODEL,choices:[{finish_reason:'st
 const response=(data=good,status=200)=>new Response(JSON.stringify(data),{status});
 const factory=(options={})=>createGroqAdapter({enabled:true,apiKey:'SYNTHETIC_FIXTURE_NOT_A_KEY',gate,fetchImpl:async()=>response(),now:()=>at,...options});
 const test=async(name,fn)=>{await fn();console.log('PASS '+name);passed++;};
+await test('provider usage is retained only when integer counts reconcile, never as billing evidence',async()=>{
+ for(const usage of [undefined,{prompt_tokens:10,completion_tokens:5,total_tokens:15},{prompt_tokens:-1,completion_tokens:5,total_tokens:4},{prompt_tokens:10,completion_tokens:5,total_tokens:16},{prompt_tokens:10,completion_tokens:'5',total_tokens:15}]){
+  const result=await factory({fetchImpl:async()=>response({...good,usage})}).answer(input);
+  assert.equal(result.providerUsage?.totalTokens??null,usage?.total_tokens===15&&usage?.completion_tokens===5?15:null);
+  assert.equal(result.body,'[Groq / '+GROQ_MODEL+']\nHello.');
+ }
+});
+await test('reported provider usage survives the real dispatcher and durable result boundary',async()=>{
+ const store=createRelayStore({dbPath:':memory:',now:()=>at});
+ try{
+  const p={v:1,eventId:await digest(canonical([input.owner,input.task,'usage-msg'])),ownerId:input.owner,taskId:input.task,requestId:'usage-msg',grantId:'grant',assistantId:GROQ_ID,grantExpiresAt:at+60000,request:{text:input.requestText,createdAt:new Date(at).toISOString(),answerTo:null},context:input.context.taskContext};
+  p.payloadHash=await payloadHash(p);await store.accept(p);
+  const adapter=factory({gate:{...gate,requestId:p.eventId},fetchImpl:async()=>response({...good,usage:{prompt_tokens:123,completion_tokens:45,total_tokens:168}})});
+  const dispatcher=createDispatcher({store,boardAdapter:{kind:'signed-relay-result-ledger',scopeEnforced:true,getTaskContext:store.getTaskContext,appendReply:store.appendReply,getReplyByRequestId:store.getReplyByRequestId},assistantAdapter:adapter,enabled:true,workerId:'usage-worker'});
+  assert.equal((await dispatcher.runOnce()).status,'completed');
+  assert.equal(JSON.parse(store.get(p.eventId).result_json).providerUsage.totalTokens,168);
+  assert.equal((await dispatcher.runOnce()).status,'idle');
+ }finally{store.close();}
+});
 await test('default disabled and no provider substitution',async()=>{assert.equal(createGroqAdapter().ready,false);assert.equal(createSelectedAssistantAdapter({}).ready,false);assert.equal(createSelectedAssistantAdapter({BRIDGE_PROVIDER:'groq'}).ready,false);});
 await test('fresh external Free gate required, not inferred',async()=>{for(const g of [null,{...gate,accountPlan:'Developer'},{...gate,validUntil:at},{...gate,verifiedAt:at+1},{...gate,noPaidFallback:false},{...gate,maxCalls:2},{...gate,harmlessTestOnly:false},{...gate,evidenceRef:''}])assert.equal(factory({gate:g}).ready,false);});
 await test('fixed Groq endpoint model text-only request and correlation',async()=>{let calls=0;const a=factory({fetchImpl:async(url,o)=>{calls++;assert.equal(url,'https://api.groq.com/openai/v1/chat/completions');assert.equal(o.redirect,'error');const b=JSON.parse(o.body);assert.equal(b.model,GROQ_MODEL);assert.equal(b.tool_choice,'none');assert.equal(b.tools,undefined);assert.equal(b.max_completion_tokens,512);assert.equal(b.stream,false);return response();}});const r=await a.answer(input);assert.equal(r.eventId,'resp:'+input.requestId);assert.equal(r.requestId,input.requestId);assert.equal(r.owner,input.owner);assert.equal(r.attempt,1);assert.equal(r.statusChange,null);assert.match(r.body,/Groq/);assert.equal(a.assistantId,GROQ_ID);assert.equal(calls,1);await assert.rejects(()=>a.answer(input),{code:'groq_free_scope_unavailable'});assert.equal(calls,1);});
