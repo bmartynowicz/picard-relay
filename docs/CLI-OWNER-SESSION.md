@@ -1,5 +1,8 @@
 # Remembering the owner CLI session
 
+The [read-only workspace MCP adapter](WORKSPACE-MCP.md) can reuse this saved
+session without prompting, logging in or replacing an active session.
+
 On Windows, the owner request CLI checks for a saved, origin-bound session
 before asking for a password. It verifies that session with a read-only workspace
 request. The session is encrypted with Windows DPAPI for the current Windows

@@ -11,6 +11,8 @@
 ## V1 workspace
 - [V1 workflow and acceptance](docs/V1.md): ordinary requests, exact approval, durable progress, inert artifacts and local reviews.
 - [Structured workspace contract](docs/workspace-contract.json): routes, schemas, limits, persistence and unsupported behaviors.
+- [Read-only workspace MCP](docs/WORKSPACE-MCP.md): local stdio tools for owner status, request metadata and saved answers; no writes or provider calls.
+- [Workspace MCP contract](docs/workspace-mcp-contract.json): tool names, routes, protected-session requirements, bounds and protocol version.
 
 ## Read first
 - [Documentation index](docs/README.md): reading order and source-of-truth rules.

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "capability": "read-only-owner-workspace-mcp",
+  "entrypoint": "tools/workspace-mcp.mjs",
+  "source": "tools/workspace-readonly.mjs",
+  "guide": "docs/WORKSPACE-MCP.md",
+  "transport": "local-stdio",
+  "protocolVersion": "2025-06-18",
+  "tools": ["workspace_status", "workspace_list", "workspace_get"],
+  "methods": ["GET"],
+  "routes": ["/workspace/config", "/workspace/history", "/workspace/drafts/<uuid-v4>", "/workspace/requests/<sha256-reference>"],
+  "authentication": {
+    "windows": "existing origin-bound current-user DPAPI owner CLI session cache",
+    "posix": "explicit private current-user-owned regular session file",
+    "automaticLogin": false,
+    "modelSuppliedCredentials": false,
+    "serverCredentialScope": "existing owner session; adapter enforces read-only routes"
+  },
+  "limits": {
+    "incomingFrameBytes": 16384,
+    "httpResponseBytes": 1048576,
+    "toolDataBytes": 262144,
+    "httpDeadlineMs": 10000,
+    "concurrentToolCalls": 1,
+    "historyRows": 25,
+    "rememberedCursors": 32,
+    "reviewEvents": 5,
+    "gradeEvents": 5,
+    "automaticRetries": 0,
+    "providerInvocations": 0,
+    "newDependencies": 0,
+    "newListeners": 0
+  },
+  "untrustedContent": ["request text", "saved answer", "review notes", "grade notes"],
+  "notImplemented": ["draft creation", "owner approval", "submission", "review writes", "grading writes", "execution", "newer stateless MCP", "remote MCP endpoint"]
+}
