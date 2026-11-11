@@ -68,6 +68,11 @@ available windshield. Short content stays compact; long content scrolls inside.
 Controls follow the glass curve and meet the viewport bottom. On narrow screens
 they form upright, tappable rows.
 
+On short phones (up to 700px wide and 700px tall), the header and HUD compact
+to leave more room for reading. Panels use the remaining windshield and scroll
+internally; the HUD's next action stays available. Display and instrument
+buttons keep 44px touch targets. Taller phones and desktop retain their layout.
+
 The old panel folds back before the next opens, including VM CPU and Auto.
 Click the same control, Close, exposed space or Escape to retract it without
 clearing the draft or result. Focus returns to its control. Reduced motion or

@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"e58b33b4a8516ef4b2f4b0e37e87b431031bfa6ddafd2cfdfcffd2bb84ed3fdf");
+assert.equal(createHash('sha256').update(script).digest('hex'),"046904a4be21137833e13d9de9dccb132cab2f86fed40ca23ec6da688e63dc81");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:(?:stealth|cockpit)Preference|'picard:windshield-readout')\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\)|setItem\('picard:windshield-readout',hidden\?'hidden':'shown'\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
@@ -588,3 +588,28 @@ for(const [from,to] of [['main','cpu'],['cpu','main'],['main','auto'],['auto','m
  assert.equal(reloaded.requests.filter(r=>r.options.method==='POST').length,0);
 }
 console.log('PASS cockpit coordination: all six handoffs, deferred opening, latest click wins, same-source reopen, backdrop/Stealth/auth cancellation, no request writes, remembered readout dismissal and restore.');
+
+// Real embedded geometry: reserve the HUD and use more of a short phone's
+// remaining windshield, without changing the established desktop/tall layout.
+const deckPositionCode=script.match(/function positionDeckPanel\(\)\{[\s\S]*?\n\}\nfunction updateDeckPanel/)[0].replace(/\nfunction updateDeckPanel$/,'');
+function panelGeometry({width,height,headerBottom,dashTop,sourceBottom,fromHud=false}){
+ const values=new Map(),source={offsetWidth:44,getBoundingClientRect:()=>({left:16,top:sourceBottom-44,bottom:sourceBottom,width:64,height:44}),setAttribute(){},removeAttribute(){}};
+ const context={document:{documentElement:{clientWidth:width,clientHeight:height}},openDeck:{opener:source,view:'jobs',maxWidth:760},deckOpener:source,
+  $:id=>id==='nav-jobs'?source:{},deckDash:{contains:()=>fromHud,getBoundingClientRect:()=>({top:dashTop})},deckSidebar:{getBoundingClientRect:()=>({bottom:headerBottom})},deckShell:{dataset:{},style:{setProperty:(k,v)=>values.set(k,v)}}};
+ vm.runInNewContext(deckPositionCode+';positionDeckPanel();',context);
+ return {height:parseFloat(values.get('--deck-height')),width:parseFloat(values.get('--deck-width')),edge:parseFloat(values.get('--deck-edge'))};
+}
+const shortPanel=panelGeometry({width:320,height:568,headerBottom:124,dashTop:422,sourceBottom:124});
+assert.ok(shortPanel.height>=270,'short phone uses the remaining windshield instead of the old 45%/78% cap');
+assert.ok(shortPanel.height<=422-8-132,'panel stays above the dock');
+const fromHudPanel=panelGeometry({width:320,height:568,headerBottom:124,dashTop:422,sourceBottom:490,fromHud:true});
+assert.ok(fromHudPanel.height>=270);assert.ok(fromHudPanel.height<=422-8-124-8);
+const tallPanel=panelGeometry({width:390,height:844,headerBottom:124,dashTop:700,sourceBottom:124});
+assert.equal(tallPanel.height,844*.45,'tall-phone sizing is unchanged');
+const desktopPanel=panelGeometry({width:1200,height:568,headerBottom:100,dashTop:400,sourceBottom:100});
+assert.equal(desktopPanel.height,(400-8-100)*.78,'desktop sizing is unchanged');
+for(const sample of [{width:320,height:360,headerBottom:150,dashTop:170,sourceBottom:150},{width:640,height:360,headerBottom:70,dashTop:230,sourceBottom:70}]){
+ const result=panelGeometry(sample);assert.ok(Number.isFinite(result.height)&&result.height>=0);
+ assert.ok(result.width<=sample.width-16);
+}
+console.log('PASS short-phone panel geometry: larger bounded reading area, HUD-origin sizing, tiny available space, and unchanged tall/desktop bounds.');

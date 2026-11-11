@@ -1228,6 +1228,45 @@ body:has(.console[data-cockpit=true]) {
   [data-cockpit=true] .folding-shell #hud-close { min-width: 44px; min-height: 44px; }
   [data-cockpit=true] .folding-shell .jobs-workspace:has(#job-details:not([hidden])) { grid-template-columns: minmax(0,1fr); }
 }
+@media(max-width:700px) and (max-height:700px) {
+  [data-cockpit=true] .sidebar { padding: 6px 8px; gap: 4px 8px; }
+  [data-cockpit=true] #logo-wrap { min-height: 44px; }
+  [data-cockpit=true] #logo-wrap .rank-logo { width: 30px; height: 44px; }
+  [data-cockpit=true] #refresh { min-height: 44px; padding: 6px 8px; font-size: 12px; }
+  [data-cockpit=true] .hud-instruments {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(88px, 1fr) minmax(60px, .8fr);
+    gap: 2px 4px;
+    padding: 4px 8px;
+  }
+  [data-cockpit=true] .hud-instruments button { min-height: 44px; padding: 4px; }
+  [data-cockpit=true] .hud-instruments #hud-ready { grid-column: 1; grid-row: 1; padding-left: 10px; }
+  [data-cockpit=true] .folding-job-readouts { grid-column: 2; grid-row: 1; }
+  [data-cockpit=true] .power-instrument { grid-column: 3; grid-row: 1; }
+  [data-cockpit=true] .power-instrument #power-toggle { min-width: 44px; width: 100%; }
+  [data-cockpit=true] #hud-progress { grid-column: 1; grid-row: 2; }
+  [data-cockpit=true] #hud-ready strong { font-size: 12px; line-height: 1.2; }
+  [data-cockpit=true] .hud-instruments .hud-numeral { font-size: 22px; }
+  [data-cockpit=true] .folding-job-readouts { gap: 0; justify-content: center; }
+  [data-cockpit=true] .folding-job-readouts button { min-width: 44px; }
+  [data-cockpit=true] .folding-job-readouts small { margin-top: 2px; font-size: 9px; letter-spacing: 0; }
+  [data-cockpit=true] #hud-next { grid-column: 2 / 4; grid-row: 2; }
+  [data-cockpit=true] .folding-glass { flex-wrap: nowrap; }
+  [data-cockpit=true] .folding-side { flex-wrap: nowrap; margin-bottom: 0; }
+  [data-cockpit=true] .folding-side button { min-width: 44px; padding-inline: 4px; font-size: 11px; }
+  [data-cockpit=true] .folding-side kbd { display: none; }
+  [data-cockpit=true] .folding-shell .view-head { align-items: center; gap: 8px; margin-bottom: 12px; }
+  [data-cockpit=true] .folding-shell .view-head h1 { margin: 0; font-size: 22px; line-height: 1.2; }
+  [data-cockpit=true] .folding-shell :is(#next-jobs,#next-groq,#next-system) { display: none; }
+}
+@media(min-width:600px) and (max-width:700px) and (max-height:500px) {
+  [data-cockpit=true] .sidebar { grid-template-columns: 128px minmax(0,1fr) auto; }
+  [data-cockpit=true] .sidebar nav { grid-column: 2; grid-row: 1; }
+  [data-cockpit=true] .console-utilities { grid-column: 3; grid-row: 1; gap: 4px; }
+  [data-cockpit=true] .hud-instruments { display: flex; flex-wrap: nowrap; justify-content: space-between; }
+  [data-cockpit=true] .hud-instruments #hud-ready { flex: 1; min-width: 0; }
+  [data-cockpit=true] .power-instrument { width: 64px; }
+}
 @media(prefers-reduced-motion:reduce) {
   #hud-ready { animation: none !important; }
 }
@@ -1482,7 +1521,8 @@ function positionDeckPanel(){
  const edge=fromWindshield?skyTop+Math.max(8,(skyBottom-skyTop)*.12):
   fromHud?Math.min(skyBottom,source.top-8):Math.max(skyTop+8,source.bottom+8);
  const space=fromHud?edge-skyTop-8:skyBottom-edge;
- const height=Math.max(0,Math.min(space,viewport.clientHeight*.45,(skyBottom-skyTop)*.78));
+ const shortPhone=viewport.clientWidth<=700&&viewport.clientHeight<=700;
+ const height=Math.max(0,Math.min(space,viewport.clientHeight*(shortPhone?.72:.45),(skyBottom-skyTop)*(shortPhone?.96:.78)));
  deckShell.dataset.from=fromWindshield?'windshield':fromHud?'hud':'nav';
  deckShell.style.setProperty('--deck-left',left+'px');
  deckShell.style.setProperty('--deck-width',width+'px');

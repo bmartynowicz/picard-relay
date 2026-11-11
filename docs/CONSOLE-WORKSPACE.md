@@ -17,6 +17,11 @@ without a click, keystroke or scroll, or both. Auto stealth starts off. Your
 browser remembers the setting. Automatic entry stays on until you toggle it or
 reload. The same job and request data remain visible.
 
+On short phones, Cockpit uses a compact HUD and gives reading panels more of
+the available windshield. Long answers scroll inside the panel while the
+instruments and next action remain available. Workspace still offers a full-page
+layout. Rotating or resizing keeps the current request and answer open.
+
 | View | What to use it for |
 | --- | --- |
 | Overview | Check readiness, job counts, recent activity and recorded Codex usage in Savings. |
