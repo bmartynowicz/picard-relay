@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run from a reviewed checkout, not curl | sudo sh. No provider call is made.
 set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 if [[ ${1:-} == --help ]]; then
   printf '%s\n' 'Fresh Linux setup: sudo bash scripts/setup-linux.sh' 'Ubuntu 22.04/24.04 or Oracle Linux 9, x86-64/ARM64, systemd.' 'Requires your hostname, inbound TCP 80/443, and an owner-verified Groq Free key.'
   exit 0
@@ -10,6 +11,10 @@ if [[ $# == 1 && $1 == --check-assets ]]; then check_assets=true; fi
 if ! $check_assets; then
   [[ $# == 0 && $EUID == 0 && -t 0 && -t 1 ]] || { printf '%s\n' 'Run with sudo from your private interactive terminal.' >&2; exit 1; }
   [[ -d /run/systemd/system ]] || { printf '%s\n' 'A systemd Linux host is required.' >&2; exit 1; }
+  if ! { grep -Eq '^ID="?ubuntu"?$' /etc/os-release && grep -Eq '^VERSION_ID="(22\.04|24\.04)"$' /etc/os-release; } && ! { grep -Eq '^ID="?ol"?$' /etc/os-release && grep -Eq '^VERSION_ID="9(\.[0-9]+)?"$' /etc/os-release; }; then
+    printf '%s\n' 'Supported hosts: Ubuntu 22.04/24.04 or Oracle Linux 9. Nothing installed.' >&2
+    exit 1
+  fi
 fi
 for cmd in curl tar xz sha256sum mktemp install; do command -v "$cmd" >/dev/null || { printf 'Missing prerequisite: %s\n' "$cmd" >&2; exit 1; }; done
 for target in /opt/picard-relay /etc/picard-relay /var/lib/picard-relay /var/lib/picard-relay-web /etc/systemd/system/picard-relay.service /etc/systemd/system/picard-relay-web.service; do
