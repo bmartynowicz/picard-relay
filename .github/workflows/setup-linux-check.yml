@@ -1,0 +1,37 @@
+name: Check fresh Linux setup
+on:
+  pull_request:
+    paths:
+      - 'scripts/setup-linux*'
+      - 'test/setup-linux.test.mjs'
+      - 'test/fixtures/setup-linux-*'
+      - 'deploy/Caddyfile.workspace.example'
+      - '.github/workflows/setup-linux-check.yml'
+permissions:
+  contents: read
+jobs:
+  setup:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.22.1'
+      - name: Syntax, real permissions, first approval and saved-result recovery
+        run: |
+          bash -n scripts/setup-linux.sh
+          npm run test:setup
+          npm run docs:check
+      - name: Check pinned official binaries without installing services
+        run: bash scripts/setup-linux.sh --check-assets
+      - name: Install on this disposable VM using synthetic credentials only
+        run: python3 test/fixtures/setup-linux-terminal.py
+      - name: Check real services and verified local HTTPS without calling AI
+        run: sudo -n --preserve-env=GITHUB_ACTIONS node test/fixtures/setup-linux-installed.mjs
+      - name: Stop only the fixture services
+        if: always()
+        run: sudo -n systemctl disable --now picard-relay.service picard-relay-web.service 2>/dev/null || true

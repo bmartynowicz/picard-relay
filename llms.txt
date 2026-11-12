@@ -4,18 +4,19 @@
 
 ## Choose the workflow first
 - Human introduction: [Overview](README.md), [Quickstart](docs/QUICKSTART.md), [documentation index](docs/README.md).
+- New Linux host: [guided setup](docs/SETUP.md), `sudo bash scripts/setup-linux.sh` from a reviewed checkout. Fresh-host candidate only; refuses existing paths/users/services/occupied ports. Owner-confirmed Free project; no provider call during installation. Installs runtime/private Node/Caddy, owner bootstrap and workspace. Does not provision compute, change firewalls, enroll updater/key replacement or prove public TLS. See qualification limits before applying.
 - No provider/account: `npm run demo` is terminal-only and synthetic; `npm run preview:v1` serves a temporary loopback interface with synthetic data. Neither installs production or calls a provider.
 - Read existing work: [workspace MCP](docs/WORKSPACE-MCP.md) exposes workspace_status, workspace_list and workspace_get. [Read-only contract](docs/workspace-mcp-contract.json).
 - Prepare and submit approved text work: [agent workflow](docs/WORKSPACE-AGENT.md) adds workspace_prepare and workspace_submit. Owner approval is separate; no approval/review/grade tool exists. [Agent contract](docs/workspace-agent-contract.json).
 - Check code through Picard: [coding workflow](experimental/compute-broker/CODING-WORKFLOW.md) binds one exact public Picard commit to a protected fixed CI worker. Preparation is offline, dispatch is finite, collection is read-only. A model answer is not a test result.
-- Operate a host: [operations](docs/OPERATIONS.md), [updates](docs/OWNER-UPDATES.md), [owner CLI](docs/CLI-OWNER-SESSION.md). No one-command production installer.
+- Operate an existing host: [operations](docs/OPERATIONS.md), [updates](docs/OWNER-UPDATES.md), [owner CLI](docs/CLI-OWNER-SESSION.md). Guided setup does not migrate or update an existing relay.
 
 ## Read before acting
 - [AGENTS.md](AGENTS.md): source-tree boundaries, checks and release/state preservation.
 - [Project map](docs/project-map.json): machine-readable paths, limits and source-versus-host identity.
 - [Workspace contract](docs/workspace-contract.json): routes, schemas, bounds and saved state.
 - [Work register](docs/work-register.json): sanitized dated bugs/features, separate from the private operational board.
-- [Status](docs/STATUS.md): latest recorded enrolled-host verification v1.0.59, November 12, 2026; merged setup cleanup in PR123. Do not infer another host's installed version.
+- [Status](docs/STATUS.md): dated source/host evidence. Inspect physical installed identity for the current host; never infer it from a source merge or an older snapshot.
 - [Limitations](docs/LIMITATIONS.md): supported features and explicit gaps.
 
 ## Authority and cost

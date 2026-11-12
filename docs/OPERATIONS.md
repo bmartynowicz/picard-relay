@@ -4,6 +4,12 @@ This guide is for an already authorized Linux host operator. Repository template
 
 ## Installation boundary
 
+For a new machine, start with the [guided fresh-host setup candidate](SETUP.md).
+It installs the workspace and HTTPS services from reviewed source and refuses
+existing installations. Its qualification and separate updater/key-replacement
+enrollment limits are explicit in that guide. The instructions below remain for
+manual enrollment and existing hosts; do not run fresh setup over an existing relay.
+
 The runtime needs Node.js 24, persistent SQLite storage, a dedicated unprivileged account, root-controlled code/configuration and a trusted HTTPS proxy. The listener binds to `127.0.0.1`; the proxy exposes the explicitly supported routes. Keep certificate verification and SELinux enforcement enabled. See [manual host setup](DEPLOYMENT.md) and [console authentication setup](self-hosted-console.md) for their narrower details.
 
 The signed-runtime source is `experimental/runtime-control/src/`. The root `npm start` entrypoint uses the separate top-level preview tree. Do not point a host at one tree while assuming it runs the other.

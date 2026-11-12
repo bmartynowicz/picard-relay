@@ -1,5 +1,9 @@
 # Manual deployment — advanced preview
 
+For a new machine, use the [guided fresh-host setup candidate](SETUP.md).
+This page remains the lower-level operator reference; its examples do not run
+the guided installer or qualify an arbitrary fresh host.
+
 Start with `npm run demo` and `npm test`. These instructions are not an automated installer or a claim that arbitrary fresh hosts were tested.
 
 ## Requirements

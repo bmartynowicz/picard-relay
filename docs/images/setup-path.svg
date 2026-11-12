@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="180" viewBox="0 0 960 180" role="img" aria-labelledby="title desc">
+<title id="title">Your machine to your first saved answer</title>
+<desc id="desc">Four steps: prepare an existing Linux host and hostname; run guided setup with a verified Free key; create the owner sign-in over HTTPS; approve a request and keep its saved answer.</desc>
+<rect width="960" height="180" rx="12" fill="#0b1119"/>
+<g fill="none" stroke="#dfc587"><path d="M55 47h850M55 143h850" opacity=".3"/><path d="M220 92h46m184 0h46m184 0h46"/></g>
+<g font-family="system-ui,sans-serif" text-anchor="middle"><g fill="#dfc587" font-size="13"><text x="130" y="72">01 · YOUR MACHINE</text><text x="365" y="72">02 · GUIDED SETUP</text><text x="600" y="72">03 · OWNER SIGN-IN</text><text x="835" y="72">04 · FIRST RESULT</text></g><g fill="#eef2f4" font-size="16"><text x="130" y="104">Linux + hostname</text><text x="365" y="104">Private Free key</text><text x="600" y="104">Create password</text><text x="835" y="104">Approve → save</text></g></g>
+</svg>
