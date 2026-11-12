@@ -28,7 +28,7 @@ await import('./vm-power.test.mjs');
 
 test('recognition is opt-in, bounded, and visible only in authenticated status', async()=>{
  const recognition=contributionRecognition('{"kills":[12,14],"captures":[16]}');
- assert.equal(recognition,'2 Kills � 1 Capture');
+ assert.equal(recognition,'2 Kills · 1 Capture');
  for(const value of [undefined,'{}','{"kills":[],"captures":[]}','{"kills":[1],"captures":[1]}','{"kills":[1,1],"captures":[]}','{"kills":["1"],"captures":[]}','x'.repeat(4097)])assert.equal(contributionRecognition(value),'');
  const handler=createConsoleHandler({enabled:true,html:CONSOLE_HTML,recognition,origins:['https://fixture.invalid'],
   auth:{authenticate:token=>token==='a'.repeat(43)},getSnapshot:()=>({v:1})});
@@ -67,20 +67,20 @@ test('automatic recognition checks on authenticated demand and applies label add
  assert.equal(reads.length,1);
  reads[0].resolve({kills:[40],captures:[]});
  await tick();
- assert.equal((await status()).recognition,'1 Kill � 0 Captures');
+ assert.equal((await status()).recognition,'1 Kill · 0 Captures');
  now=599999;
- assert.equal((await status()).recognition,'1 Kill � 0 Captures');
+ assert.equal((await status()).recognition,'1 Kill · 0 Captures');
  assert.equal(reads.length,1);
  now++;
- assert.equal((await status()).recognition,'1 Kill � 0 Captures');
+ assert.equal((await status()).recognition,'1 Kill · 0 Captures');
  reads[1].resolve({kills:[],captures:[60]});
  await tick();
- assert.equal((await status()).recognition,'0 Kills � 1 Capture');
+ assert.equal((await status()).recognition,'0 Kills · 1 Capture');
  now+=600000;
  await status();
  reads[2].reject(Error('GitHub unavailable'));
  await tick();
- assert.equal((await status()).recognition,'0 Kills � 1 Capture');
+ assert.equal((await status()).recognition,'0 Kills · 1 Capture');
  now+=600000;
  await status();
  reads[3].resolve({kills:[],captures:[]});
