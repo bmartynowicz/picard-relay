@@ -17,6 +17,15 @@ The board-side workflow is:
 5. Retrieve only the original saved result after a lost response. Attach a
    verified reply to the same task, preserving notes, review and acceptance.
 
+The authenticated signed `health` response includes `activeEnrollmentId` for
+reusable Board admission. Compare it with the Board's retained enrollment before
+offering approval and again before sending. A missing, malformed or different
+binding stops new work; provider readiness alone cannot establish that the same
+key is enrolled. This field is only an opaque enrollment hash, never a key or
+live billing guarantee. After key replacement, reconcile the retained enrollment
+through an explicit owner review. Do not silently rebind old approvals or resend
+their requests. Saved results remain independent of a new-work enrollment check.
+
 `validateHandoffDraft` checks the immutable owner/task/revision/input/ID/expiry
 bindings. `handoffState` projects recorded outcomes without renewing a grant or
 turning an uncertain result into new work. These helpers do not authenticate a

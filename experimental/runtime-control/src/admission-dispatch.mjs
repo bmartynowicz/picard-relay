@@ -77,6 +77,9 @@ export function createAdmissionAssistantAdapter({activationEnabled=false,signedB
  return Object.freeze({kind:activationEnabled===true?'groq-finite-admission':'groq-finite-admission-disabled',assistantId:'groq:openai/gpt-oss-20b',localTestOnly:synthetic,routingPolicy:FREE_ONLY_ROUTING_POLICY,reusableBoardEnabled:reusableBoardEnabled===true,
   permitsBoardTask({ownerId,taskId,action}){return reusableBoardEnabled===true&&ownerId===binding?.ownerId&&typeof taskId==='string'&&taskId.length>0&&taskId.length<=200&&['exchange','result','cancel','grade','grade_status'].includes(action);},
   get ready(){return availability().acceptingRequests;},get canServeResults(){return configured&&parentReady();},availability,
+  // Authenticated Board preflight compares this binding before requesting approval.
+  // A ready provider does not mean a client's retained enrollment is current.
+  get activeEnrollmentId(){try{return configured&&reusableBoardEnabled===true?policy().catalogue.enrollmentId:null;}catch{return null;}},
   attachStore(store,{accepting=()=>true}={}){if(storage)throw blocked('groq_scope_mismatch');storage=store;canAccept=accepting;},
   async registerSignedWork(payload,identity,approval){
    if(signedBridgeEnabled!==true||!configured||!storage||!bridgeKeyId||identity?.ownerId!==binding.ownerId||identity?.keyId!==bridgeKeyId)throw blocked('groq_scope_mismatch');
