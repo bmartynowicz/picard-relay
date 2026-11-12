@@ -19,7 +19,7 @@ async function question(label,{secret=false}={}){
  finally{terminal.close();if(secret)process.stdout.write('\n');}
 }
 export async function portUnused(port){
- await new Promise((resolve,reject)=>{const s=net.createServer();s.once('error',()=>reject(Error('port_in_use_'+port)));s.listen({host:'0.0.0.0',port,exclusive:true},()=>s.close(resolve));});
+ for(const host of ['0.0.0.0','::'])await new Promise((resolve,reject)=>{const s=net.createServer();s.once('error',e=>host==='::'&&e.code==='EAFNOSUPPORT'?resolve():reject(Error('port_in_use_'+port)));s.listen({host,port,exclusive:true},()=>s.close(resolve));});
 }
 function mkdir(dir,uid,gid,mode){fs.mkdirSync(dir,{mode});fs.chownSync(dir,uid,gid);fs.chmodSync(dir,mode);}
 function exclusive(file,body,mode){fs.writeFileSync(file,body,{flag:'wx',mode});fs.chmodSync(file,mode);}
@@ -34,10 +34,13 @@ export async function main(args=process.argv.slice(2)){
  const os=fs.readFileSync('/etc/os-release','utf8');
  check(/\n?ID=(?:ubuntu|"?ol"?)\n/.test(os)&&(/VERSION_ID="(?:22\.04|24\.04)"/.test(os)||/\n?ID="?ol"?\n/.test(os)&&/VERSION_ID="9(?:\.[0-9]+)?"/.test(os)),'supported_host_required');
  const paths=setupPaths();assertFresh(paths);
- for(const name of ['picard-relay','picard-relay-web'])check(command('/usr/bin/systemctl',['show','--property=LoadState','--value',name+'.service'])==='not-found','existing_service_refused');
+ for(const name of ['picard-relay','picard-relay-web']){
+  const r=spawnSync('/usr/bin/systemctl',['show','--property=LoadState','--value',name+'.service'],{encoding:'utf8',timeout:5000});
+  check([0,1,4].includes(r.status)&&r.stdout.trim()==='not-found','existing_service_refused');
+ }
  for(const name of ['picard-relay','picard-relay-web'])accountAbsent(name);
  for(const port of [80,443,8787])await portUnused(port);
- check(command('/usr/bin/systemctl',['is-system-running'])==='running','healthy_systemd_required');
+ check(['running','degraded'].includes(command('/usr/bin/systemctl',['show','--property=SystemState','--value'])),'running_systemd_required');
  const nodeBytes=checkedInput(args[0],150000000),webBytes=checkedInput(args[1],100000000);
  check(command(args[1],['version']).startsWith('v'+CADDY_VERSION+' '),'pinned_caddy_required');
  const allowed=JSON.parse(fs.readFileSync(path.join(root,'experimental/updater/policy.example.json'),'utf8')).allowedFiles;

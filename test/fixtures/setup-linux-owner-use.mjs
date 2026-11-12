@@ -23,6 +23,7 @@ try{
  assert.equal(calls,0);assert.equal((await call('/workspace/config')).status,401);
  const owner=await call('/auth/setup',{setupCode:code,password:'Synthetic setup qualification password 8!'});assert.equal(owner.status,200);
  cookie=owner.headers['set-cookie'][0].split(';')[0];
+ assert.equal((await call('/auth/setup',{setupCode:code,password:'Synthetic replacement password 8!'})).status,409);
  const status=await call('/workspace/config');assert.equal(status.status,200);assert.equal(status.body.ready,true);assert.equal(calls,0);
  const draft=await call('/workspace/drafts',{requestId:randomUUID(),taskId:'',title:'First useful request',requestText:'Give three short acceptance checks.',context:'Synthetic setup fixture, no private data.',purpose:'sanitized-source-proposal'});
  assert.equal(draft.status,201);const d=draft.body.draft;

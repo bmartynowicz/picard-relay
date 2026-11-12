@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {buildSetup,validateAnswers,setupPaths,hash} from '../scripts/setup-linux-core.mjs';
@@ -11,7 +10,7 @@ const answers={hostname:'picard.example.com',accountLabel:'Synthetic Free projec
 test('fresh setup binds a finite empty catalogue, key and baseline to the actual production validators',()=>{
  const p=buildSetup(answers),e=p.env,policy=JSON.parse(p.privateFiles.find(v=>v.file===e.BRIDGE_ADMISSION_CATALOGUE_FILE).body);
  const baseline=p.privateFiles.find(v=>v.file===e.BRIDGE_ADMISSION_LEGACY_BASELINE_FILE);
- const config={ownerId:e.BRIDGE_OWNER_ID,allowedTaskId:e.BRIDGE_ALLOWED_TASK_ID,assistantId:e.BRIDGE_ASSISTANT_ID,keyId:e.BRIDGE_KEY_ID,consoleOrigins:JSON.parse(e.BRIDGE_CONSOLE_ORIGINS),admissionLegacyBaselineFile:baseline.file,admissionLegacyBaselineSha256:hash(baseline.body)};
+ const config={ownerId:e.BRIDGE_OWNER_ID,allowedTaskId:e.BRIDGE_ALLOWED_TASK_ID,assistantId:e.BRIDGE_ASSISTANT_ID,keyId:e.BRIDGE_KEY_ID,consoleOrigins:JSON.parse(e.BRIDGE_CONSOLE_ORIGINS),admissionSignedBridgeEnabled:true,admissionReusableBoardEnabled:true,admissionLegacyBaselineFile:baseline.file,admissionLegacyBaselineSha256:hash(baseline.body)};
  const binding={...policy.catalogue,keySha256:hash(answers.apiKey),configurationSha256:admissionConfigurationDigest({config,enrollmentId:p.enrollmentId,keySha256:hash(answers.apiKey),markerDirectory:'/var/lib/picard-relay/markers'})};
  assert.equal(readBoundAdmissionPolicy(()=>policy,binding).slotCount,0);
  assert.equal(hash(baseline.body),e.BRIDGE_ADMISSION_LEGACY_BASELINE_SHA256);

@@ -36,7 +36,7 @@ export function buildSetup(a,{paths=setupPaths(),now=Date.now(),random=randomByt
  requireThat(validCostEnrollmentMetadata(costEnrollment),'invalid_cost_enrollment');
  const enrollmentId=hash(canonical(costEnrollment)),markers=paths.state+'/markers';
  const baseline={v:1,kind:'PICARD_LEGACY_BASELINE_V1',enrollmentId,ownerId,taskId,assistantId:runtime,observedAt:now,rows:[]};
- const config={ownerId,allowedTaskId:taskId,assistantId:runtime,keyId,consoleOrigins:['https://'+a.hostname],
+ const config={ownerId,allowedTaskId:taskId,assistantId:runtime,keyId,consoleOrigins:['https://'+a.hostname],admissionSignedBridgeEnabled:true,admissionReusableBoardEnabled:true,
   admissionLegacyBaselineFile:paths.config+'/policy/legacy-baseline.json',admissionLegacyBaselineSha256:hash(json(baseline))};
  const configurationSha256=admissionConfigurationDigest({config,enrollmentId,keySha256,markerDirectory:markers});
  const catalogue={v:1,kind:'FINITE_ADMISSION_PROTOTYPE_ONLY',ownerId,taskId,assistantId:runtime,enrollmentId,
