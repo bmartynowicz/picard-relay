@@ -58,7 +58,13 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
   const url=typeof req.url==='string'?req.url:'',readDraft=/^\/workspace\/drafts\/([a-f0-9-]{36})$/.exec(url),readResult=/^\/workspace\/requests\/([a-f0-9]{64})$/.exec(url),reviewPath=/^\/workspace\/reviews\/([a-f0-9]{64})$/.exec(url),gradePath=/^\/workspace\/grades\/([a-f0-9]{64})$/.exec(url),historyPath=url==='/workspace/history'||url.startsWith('/workspace/history?');
   const revokeClient=/^\/workspace\/clients\/([a-f0-9-]{36})\/revoke$/.exec(url),clientManagement=url==='/workspace/clients'||!!revokeClient;
   if(!(req.method==='GET'&&(url==='/workspace/config'||url==='/workspace/clients'||readDraft||readResult||historyPath)||req.method==='POST'&&(['/workspace/drafts','/workspace/approvals','/workspace/client-approvals','/workspace/requests','/workspace/clients'].includes(url)||revokeClient||reviewPath||gradePath)))return false;
-  const reply=(status,value)=>{res.writeHead(status,headers);res.end(JSON.stringify(value));return true;};
+  let completedToolRead=null;
+  const reply=(status,value)=>{
+   if(status===200&&completedToolRead){
+    try{store.recordWorkspaceToolRead(completedToolRead);}catch{/* Observational failure must not block read-only result recovery. */}
+   }
+   res.writeHead(status,headers);res.end(JSON.stringify(value));return true;
+  };
   let origin;try{const host=req.headers.host,u=new URL('https://'+host);if(typeof host==='string'&&u.host===host&&!u.username&&!u.password&&u.pathname==='/'&&!u.search&&!u.hash)origin=u.origin;}catch{}
   if(!allowed.has(origin)||req.headers.origin!==undefined&&req.headers.origin!==origin||!['same-origin','none',undefined].includes(req.headers['sec-fetch-site'])||req.method==='POST'&&req.headers.origin!==origin)return reply(403,{error:'auth_failed'});
   try{
@@ -73,6 +79,7 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
    }else if(!/^[A-Za-z0-9_-]{43}$/.test(token)||!await auth.authenticate(token))return reply(401,{error:'auth_failed'});
    if(req.method==='POST'&&(clientManagement||url==='/workspace/client-approvals')&&!await auth.authenticate(token,{fresh:true}))return reply(401,{error:'recent_owner_sign_in_required'});
    if(req.method==='GET'){
+    if(client)completedToolRead={clientId:client.id,origin,operation:historyPath?'history':readResult?'request':readDraft?'draft':'status'};
     if(url==='/workspace/clients')return reply(200,{v:1,clients:store.listWorkspaceClients(origin)});
     if(historyPath){
      const query=new URL(url,'https://fixture.invalid').searchParams;

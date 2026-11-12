@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"4592e81fc026dcfa6b90c9da6ab1bba0d25ea96ece50d9fa38efe25ed1972ab0");
+assert.equal(createHash('sha256').update(script).digest('hex'),"96de97836cf3a1dc747d1419781d8b23fe11525618803258192e39dce166869c");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:(?:stealth|cockpit)Preference|'picard:windshield-readout')\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\)|setItem\('picard:windshield-readout',hidden\?'hidden':'shown'\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
@@ -642,3 +642,23 @@ for(const sample of [{width:320,height:360,headerBottom:150,dashTop:170,sourceBo
  assert.ok(result.width<=sample.width-16);
 }
 console.log('PASS short-phone panel geometry: larger bounded reading area, HUD-origin sizing, tiny available space, and unchanged tall/desktop bounds.');
+
+// At-a-glance activity: claimed is already folded into invoking by project().
+// Guard against both omission and double counting, and never count tool reads.
+{
+ let fail=false,failJobs=false,now=200000,rows=[{...job,updatedAt:190000},{...job,ref:'c'.repeat(64),state:'claimed',reasonCode:'claimed',updatedAt:198000}];
+ let jobs={queued:1,claimed:2,invoking:3,completed:60,uncertain:1};
+ let toolActivity={v:1,available:true,recordingHealthy:true,events:[{id:'read-1',kind:'tool_read',operation:'history',at:199000}]};
+ class ActivityClock extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
+ const h=harness(async path=>path==='/auth/state'?ok({enrolled:true}):fail?bad(503,'unavailable'):ok({...health,observedAt:new Date(now).toISOString(),jobs,toolActivity}),{clock:ActivityClock,storage:{getItem:k=>k==='picard:cockpit'?'3':null,setItem(){}},jobsHandler:async()=>failJobs?bad(503,'unavailable'):ok({...page(rows),observedAt:new Date(now).toISOString()})});
+ await flush();assert.equal(h.get('hud-active').textContent,'6');assert.equal(h.get('hud-done').textContent,'60');assert.equal(h.get('hud-work-state').textContent,'Working');assert.equal(h.get('hud-attention').textContent,'1 need attention');assert.equal(h.get('windshield-state').textContent,'Working');assert.equal(h.get('windshield-work').dataset.ref,'c'.repeat(64));assert.match(h.get('hud-last-activity').textContent,/Tool read · history read/);assert.equal(h.get('recent-work-list').children.length,3);
+ failJobs=true;await h.click('refresh');assert.equal(h.get('hud-work-state').textContent,'Working');assert.match(h.get('recent-work-note').textContent,/Model-job history unavailable/);assert.equal(h.get('windshield-work').hidden,true);failJobs=false;
+ // Short completion remains visible even when no in-flight poll saw it.
+ rows=[{...completedJob,updatedAt:now}];jobs={queued:0,claimed:0,invoking:0,completed:61,uncertain:1};await h.click('refresh');assert.equal(h.get('hud-work-state').textContent,'Idle');assert.equal(h.get('hud-done').textContent,'61');assert.match(h.get('hud-last-activity').textContent,/Model job · completed/);assert.equal(h.get('hud-attention').textContent,'1 need attention');
+ fail=true;await h.click('refresh');assert.equal(h.get('hud-work-state').textContent,'Activity unknown');assert.match(h.get('recent-work-note').textContent,/previously observed/);assert.equal(h.get('hud-active').textContent,'—');
+ fail=false;toolActivity={v:1,available:false,recordingHealthy:false,events:[]};await h.click('refresh');assert.match(h.get('recent-work-note').textContent,/unavailable/);
+ toolActivity={v:1,available:true,recordingHealthy:false,events:[{id:'read-2',kind:'tool_read',operation:'status',at:now}]};await h.click('refresh');assert.match(h.get('recent-work-note').textContent,/incomplete/);
+ toolActivity={v:1,available:true,recordingHealthy:true,events:[{id:'bad',kind:'tool_read',operation:'PRIVATE DATA',at:now}]};await h.click('refresh');assert.match(h.get('recent-work-note').textContent,/unavailable/);assert.doesNotMatch(h.get('recent-work-list').textContent,/PRIVATE/);
+ await h.click('logout');assert.equal(h.get('recent-work-list').children.length,0);assert.equal(h.get('hud-last-activity').textContent,'');assert.equal(h.get('hud-attention').textContent,'');assert.equal(h.get('hud-work-state').textContent,'Not checked');
+}
+console.log('PASS at-a-glance work: claimed counted once, working separate from attention, short completion history, tool reads distinct, recording gaps and auth clearing.');

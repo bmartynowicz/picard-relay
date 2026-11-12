@@ -267,6 +267,44 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
    const {row}=clientRecord(id),updated={...c,lastSeenAt:clock()};replaceClient(row,updated);return updated;});
  }
  function revokeWorkspaceClient(id,origin){return transaction(()=>{const {row,record:c}=clientRecord(id);if(c.origin!==origin||clock()<c.lastSeenAt)stop('auth_failed');const updated={...c,revokedAt:c.revokedAt??clock()};replaceClient(row,updated);return publicClient(updated);});}
+ // Observational tool-read telemetry is separate from grants, consumed markers,
+ // job counts and client authority. Retain only the latest 64 successful reads.
+ // A telemetry failure never turns a successful read into an invocation/retry.
+ const activityPrefix=()=>PREFIX+'workspace:'+workspaceScope()+':tool-activity:';
+ const activityOperations=new Set(['status','history','request','draft']);
+ let activityRecordingHealthy=true;
+ function readToolActivityRecord(){
+  if(workspaceEnabled!==true||!reusableBinding?.ownerId)stop('activity_unavailable');
+  const rows=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 2').all(activityPrefix()+'*');
+  if(!rows.length)return {v:1,ownerId:reusableBinding.ownerId,events:[]};
+  if(rows.length!==1||rows[0].expires!==ASSOCIATION_EXPIRY)stop('activity_unavailable');
+  const record=decode(rows[0]),at=clock();
+  if(!exact(record,['v','ownerId','events'])||record.v!==1||record.ownerId!==reusableBinding.ownerId||!Array.isArray(record.events)||record.events.length>64)stop('activity_unavailable');
+  let previous=at;
+  const ids=new Set();
+  for(const event of record.events){
+   if(!exact(event,['id','kind','operation','at'])||!clientId(event.id)||ids.has(event.id)||event.kind!=='tool_read'||!activityOperations.has(event.operation)||!integer(event.at)||event.at>8640000000000000||event.at>previous)stop('activity_unavailable');
+   ids.add(event.id);previous=event.at;
+  }
+  return record;
+ }
+ function recordWorkspaceToolRead({clientId:id,origin,operation}={}){
+  try{return transaction(()=>{
+   workspaceClient(id,origin); // Revalidate the authenticated client at completion.
+   if(!activityOperations.has(operation))stop('request_invalid');
+   const record=readToolActivityRecord(),at=clock();
+   if(at>8640000000000000)stop('clock_invalid');
+   const event={id:randomUUID(),kind:'tool_read',operation,at};
+   const next={...record,events:[event,...record.events].slice(0,64)};
+   db.prepare('DELETE FROM relay_nonces WHERE nonce GLOB ?').run(activityPrefix()+'*');
+   db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(activityPrefix()+Buffer.from(canonical(next)).toString('base64url'),ASSOCIATION_EXPIRY);
+   return event;
+  });}catch(error){activityRecordingHealthy=false;throw error;}
+ }
+ function workspaceToolActivity(){
+  try{return {v:1,available:true,recordingHealthy:activityRecordingHealthy,events:readToolActivityRecord().events.slice(0,12)};}
+  catch{return {v:1,available:false,recordingHealthy:false,events:[]};}
+ }
  const draftPrefix=id=>PREFIX+'workspace:'+workspaceScope()+':draft:'+id+':';
  function getWorkspaceDraft(requestId){
   if(workspaceEnabled!==true||typeof requestId!=='string'||!/^[a-f0-9-]{36}$/.test(requestId))return null;
@@ -485,7 +523,7 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
    if(changed.changes!==1)return null;const claimed=get(row.event_id);return {...claimed,request_id:claimed.event_id};
   });
  }
- return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,readHistoricalWork,commitWorkspace,createWorkspaceClient,listWorkspaceClients,workspaceClient,authenticateWorkspaceClient,revokeWorkspaceClient,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,workspaceReviewedRefs,workspaceProgressVersion,saveWorkspaceReview,workspaceGrade,saveWorkspaceGrade,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,pendingGrantAssociated,reconcileEligible,claimEligible,
+ return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,readHistoricalWork,commitWorkspace,createWorkspaceClient,listWorkspaceClients,workspaceClient,authenticateWorkspaceClient,revokeWorkspaceClient,recordWorkspaceToolRead,workspaceToolActivity,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,workspaceReviewedRefs,workspaceProgressVersion,saveWorkspaceReview,workspaceGrade,saveWorkspaceGrade,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,pendingGrantAssociated,reconcileEligible,claimEligible,
   close(){db.close();if(!relayStore)relay.close();},
  });
 }
