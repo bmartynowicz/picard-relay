@@ -3,15 +3,17 @@
 Picard turns an exact approved AI request into a durable saved answer. You can
 use its console or connect an assistant through scoped local MCP tools. A
 separate compute broker checks approved project commits through fixed workers.
-Start with [the overview](../README.md) or choose a path below.
+**[Run your first useful request →](QUICKSTART.md)**
 
-## Find your path
+Start with a saved checklist you can use, then reopen the same answer. You need
+your relay address, owner sign-in and a ready Free Groq workspace.
+[Check the prerequisites](QUICKSTART.md#before-you-start) before you start;
+the [local demo](QUICKSTART.md#try-it-locally) uses synthetic answers only.
 
-![Four starting points: terminal demo, local interface, enrolled relay, or coding assistant](images/choose-a-start.svg)
+## Reference guides
 
 | Your next step | Read |
 | --- | --- |
-| Try it without an account | [Quickstart: local demos](QUICKSTART.md#try-it-locally) |
 | Run your first useful request | [First-request steps](QUICKSTART.md#run-your-first-useful-request) · [V1 workflow](V1.md) |
 | Find your way around the interface | [Cockpit tour](COCKPIT-TOUR.md) · [Console guide](CONSOLE-WORKSPACE.md) |
 | Connect an AI companion | [Tool enrollment and approved handoff](WORKSPACE-AGENT.md) · [Read-only adapter](WORKSPACE-MCP.md) |

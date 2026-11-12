@@ -2,36 +2,36 @@
 
 <a id="your-relay-your-cockpit"></a>
 
-**Your AI work, with a durable record.**
+**Give Picard a task. Keep the answer.**
 
-Picard is a small, self-hosted workspace for bounded AI requests. Write a brief,
-approve the exact input, follow the job and reopen the saved answer later.
-Connect your coding assistant through MCP, or use the cockpit yourself.
-Generated code stays a proposal for you to review.
+Picard is a small, self-hosted AI workspace. Turn a rough note into a checklist,
+ask for a code proposal, or get help with a task. Review the exact request before
+sending it once, then reopen its saved answer whenever you need it.
+
+<a id="choose-your-starting-point"></a>
+
+## Run your first useful request
+
+**[Start here: turn a rough note into a checklist →](docs/QUICKSTART.md)**
+
+You need your relay's HTTPS address, owner sign-in and a ready Free Groq
+workspace. The guide takes you from **New request** to a saved checklist you can
+copy and use. You approve the call yourself; Picard does not carry out the list.
+
+**No relay yet?** A production installer is still missing. An operator must
+[set up a Linux host](docs/QUICKSTART.md#before-you-start) first. The optional
+[local demo](#try-it-locally) lets you explore with synthetic answers; it does
+not connect a real model.
 
 [![Curved cockpit with projected activity and a floating saved-result control](docs/images/cockpit-curved-preview.jpg)](docs/COCKPIT-TOUR.md)
 
 *Curved cockpit layout with synthetic local data. The [15-second walkthrough](docs/images/picard-cockpit-walkthrough.gif)
 records an earlier v1.0.33 release; the [tour](docs/COCKPIT-TOUR.md) explains the current controls.*
 
-<a id="choose-your-starting-point"></a>
-
-## Start here
-
-| I want to… | Start with |
-| --- | --- |
-| Try Picard without an account or API key | [Local demo and interface preview](docs/QUICKSTART.md#try-it-locally) |
-| Run a useful request on my relay | [First request](docs/QUICKSTART.md#run-your-first-useful-request) |
-| Connect my coding assistant | [Independent tool access and MCP](docs/WORKSPACE-AGENT.md) |
-| Ask Picard to check a code change | [Fixed repository checks](experimental/compute-broker/CODING-WORKFLOW.md) |
-| Set up or update a host | [Operations](docs/OPERATIONS.md) · [Update button](docs/OWNER-UPDATES.md) |
-| Understand the code, limits or unfinished work | [Documentation](docs/README.md) · [Limits](docs/LIMITATIONS.md) · [Known work](docs/WORK-REGISTER.md) |
-
-**For AI companions:** [llms.txt](llms.txt) → [project map](docs/project-map.json) → [contributor instructions](AGENTS.md).
-
 <a id="try-it-locally--no-account-or-api-key"></a>
+<a id="try-it-locally"></a>
 
-## Try it locally
+## Try it locally — synthetic demo
 
 Install Git and **Node.js 24**. There are no npm dependencies to install.
 
@@ -122,6 +122,13 @@ snapshot. The owner's private board is the operational backlog and is not bundle
 <a id="reuse-and-contributions"></a>
 
 ## Build and contribute
+
+After your first request: [connect a coding assistant](docs/WORKSPACE-AGENT.md),
+[check a public commit](experimental/compute-broker/CODING-WORKFLOW.md), or
+[maintain your host](docs/OPERATIONS.md). [All guides](docs/README.md) ·
+[Known work](docs/WORK-REGISTER.md)
+
+**For AI companions:** [llms.txt](llms.txt) → [project map](docs/project-map.json) → [contributor instructions](AGENTS.md).
 
 Read [AGENTS.md](AGENTS.md) and [Development](docs/DEVELOPMENT.md). The signed
 runtime lives in `experimental/runtime-control/src/`; top-level `src/` is the
