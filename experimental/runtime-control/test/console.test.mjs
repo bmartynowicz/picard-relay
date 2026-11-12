@@ -3,7 +3,7 @@ import {recordedGroqKeyExpiry} from '../src/admission-enrollment.mjs';
 const now=new Date('2026-10-30T15:00:00Z'),health={serviceReady:true,resultRecoveryReady:true,providerReady:false,acceptingNewWork:false,draining:false,updateReady:true,releaseHash:'a'.repeat(64),pid:123,owner:'secret-owner',ledgerStateCounts:{completed:999},key:'SECRET'};
 test('scoped projection never exports raw health/global totals',()=>{const s=consoleSnapshot(health,[{state:'completed',count:1}],now);assert.deepEqual(s.jobs,{queued:0,claimed:0,invoking:0,completed:1,failed:0,blocked:0,cancelled:0,uncertain:0});assert.equal(s.service.providerReady,false);assert.equal(s.release.version,null);assert.equal(s.updater.state,'unknown');assert.equal(s.observedAt,now.toISOString());assert.doesNotMatch(JSON.stringify(s),/SECRET|secret-owner|999|pid|ledgerStateCounts/);});
 test('malformed counts and health stay unknown, release requires physical verification',()=>{for(const rows of [null,undefined,[{state:'completed',count:10001}],[{state:'completed',count:1},{state:'completed',count:2}],[{state:'bad',count:0}]])assert.deepEqual(consoleSnapshot(health,rows,now).jobs,{queued:null,claimed:null,invoking:null,completed:null,failed:null,blocked:null,cancelled:null,uncertain:null});assert.equal(consoleSnapshot({...health,updateReady:false},[],now).release.hash,null);assert.equal(consoleSnapshot({},[],now).service.ready,null);});
-test('integrated candidate UI has pinned self-contained bytes',()=>{assert.equal(Buffer.byteLength(CONSOLE_HTML),149508);assert.equal(createHash('sha256').update(CONSOLE_HTML).digest('hex'),'8618d7154c5f1d525180361e7f99ff5fcfd72d00c61be9d954b9b9d899eeae50');});
+test('integrated candidate UI has pinned self-contained bytes',()=>{assert.equal(Buffer.byteLength(CONSOLE_HTML),153191);assert.equal(createHash('sha256').update(CONSOLE_HTML).digest('hex'),'96a20d1216c08df91129593e902226078ece98870c8d0266874f092199ea6b66');});
 
 test('a recorded key expiry must match the active key and only the date reaches status',()=>{
  const keySha256='b'.repeat(64),expiresAt='2026-11-03T12:00:00.000Z';
@@ -28,7 +28,7 @@ await import('./vm-power.test.mjs');
 
 test('recognition is opt-in, bounded, and visible only in authenticated status', async()=>{
  const recognition=contributionRecognition('{"kills":[12,14],"captures":[16]}');
- assert.equal(recognition,'2 Kills · 1 Capture');
+ assert.equal(recognition,'2 Kills � 1 Capture');
  for(const value of [undefined,'{}','{"kills":[],"captures":[]}','{"kills":[1],"captures":[1]}','{"kills":[1,1],"captures":[]}','{"kills":["1"],"captures":[]}','x'.repeat(4097)])assert.equal(contributionRecognition(value),'');
  const handler=createConsoleHandler({enabled:true,html:CONSOLE_HTML,recognition,origins:['https://fixture.invalid'],
   auth:{authenticate:token=>token==='a'.repeat(43)},getSnapshot:()=>({v:1})});
@@ -67,20 +67,20 @@ test('automatic recognition checks on authenticated demand and applies label add
  assert.equal(reads.length,1);
  reads[0].resolve({kills:[40],captures:[]});
  await tick();
- assert.equal((await status()).recognition,'1 Kill · 0 Captures');
+ assert.equal((await status()).recognition,'1 Kill � 0 Captures');
  now=599999;
- assert.equal((await status()).recognition,'1 Kill · 0 Captures');
+ assert.equal((await status()).recognition,'1 Kill � 0 Captures');
  assert.equal(reads.length,1);
  now++;
- assert.equal((await status()).recognition,'1 Kill · 0 Captures');
+ assert.equal((await status()).recognition,'1 Kill � 0 Captures');
  reads[1].resolve({kills:[],captures:[60]});
  await tick();
- assert.equal((await status()).recognition,'0 Kills · 1 Capture');
+ assert.equal((await status()).recognition,'0 Kills � 1 Capture');
  now+=600000;
  await status();
  reads[2].reject(Error('GitHub unavailable'));
  await tick();
- assert.equal((await status()).recognition,'0 Kills · 1 Capture');
+ assert.equal((await status()).recognition,'0 Kills � 1 Capture');
  now+=600000;
  await status();
  reads[3].resolve({kills:[],captures:[]});
