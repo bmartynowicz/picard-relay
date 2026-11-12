@@ -13,6 +13,23 @@ or use `submit` and `result` normally. Imports can call `connectWorkspace(origin
 instead of prompting before `openWorkspace`. A valid remembered session avoids
 another login; it does not issue an approval or provider request by itself.
 
+For owner-only tool enrollment, revocation or exact client approval, the server
+requires a password check within the last five minutes. An older session can
+still read saved work but cannot perform those management actions. Explicitly
+request a fresh sign-in when needed:
+
+```sh
+node tools/workspace-request.mjs login --origin HTTPS_ORIGIN --fresh
+```
+
+This bypasses the remembered session and asks for the password privately. A
+successful sign-in replaces the active owner session and updates the protected
+cache; enrolled [tool credentials](WORKSPACE-AGENT.md) stay valid. Ordinary
+`login`, `submit` and `result` still reuse the cache. Cancelling or rejecting the
+fresh password check leaves the local cache intact. A lost response can leave
+the server outcome unknown, so the client stops without another login attempt.
+Imports can request the same behavior with `connectWorkspace(origin, {fresh:true})`.
+
 The existing server session expires after at most eight hours. Explicit logout
 or another owner sign-in can revoke it sooner: the host currently permits one
 active owner session. This client change does not add an independent long-lived

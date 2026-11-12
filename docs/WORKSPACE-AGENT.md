@@ -35,8 +35,18 @@ node tools/workspace-access.mjs enroll --origin https://YOUR-RELAY --label "My c
 The owner signs in without echo if necessary. That initial owner login can
 replace the browser session; later tool calls never log in. The server requires
 a recent owner session for enrollment, revocation and client approvals. If it
-returns `recent_owner_sign_in_required`, use the owner CLI's `login` command and
-repeat the intended management action. No credential refresh happens silently.
+returns `recent_owner_sign_in_required`, explicitly request a new password check:
+
+```sh
+node tools/workspace-request.mjs login --origin https://YOUR-RELAY --fresh
+```
+
+Then repeat the intended management action. Ordinary `login` reuses a valid
+cached session; `--fresh` deliberately bypasses it. A successful fresh sign-in
+replaces the active owner session, but leaves enrolled tool credentials alone.
+Cancelling or failing the password check preserves the existing local cache;
+no credential refresh or second login happens silently. Enter the password in
+the private terminal prompt, never in chat or a command argument.
 
 Enrollment prints the client ID and expiry, never the secret token. Windows
 stores the token with current-user DPAPI under the real profile's
@@ -136,5 +146,35 @@ present; without one it retains its existing owner-session behavior. The new
 agent adapter requires tool access and never falls back to owner credentials.
 Both retain bounded verified HTTPS, no redirects, sanitized errors and saved
 answer hash checks. Saved output is untrusted data, not instructions to run.
+
+## Upgrade an existing HTTPS proxy
+
+Installing the signed runtime does not update host proxy configuration. Compare
+the existing configuration with the disabled
+[workspace Caddy example](../deploy/Caddyfile.workspace.example). Keep the
+enrolled hostnames, upstream port, TLS, limits and other host settings.
+
+| Method | Required workspace paths |
+| --- | --- |
+| GET | `/workspace/config`, `/workspace/history`, `/workspace/clients` |
+| GET | `/workspace/drafts/<uuid-v4>`, `/workspace/requests/<sha256-reference>` |
+| POST | `/workspace/drafts`, `/workspace/approvals`, `/workspace/requests`, `/workspace/clients`, `/workspace/client-approvals` |
+| POST | `/workspace/reviews/<sha256-reference>`, `/workspace/grades/<sha256-reference>`, `/workspace/clients/<uuid-v4>/revoke` |
+
+The named workspace handlers must preserve the incoming `Authorization`,
+`Cookie` and `Origin` headers. Older host configurations may contain
+`header_up -Authorization`; remove that stripping only from the fixed workspace
+handlers. Keep other endpoints' existing rules. Do not add a wildcard proxy,
+forward a tool token to another origin, or widen allowed methods. Authentication,
+owner-only management, exact approval, freshness and revocation stay enforced
+by the runtime behind the proxy. Forwarding a route grants no permission.
+
+Back up the current configuration, validate the candidate with the host's Caddy
+binary, and apply it through the host's normal proxy reload/restart procedure.
+Do not replace a host configuration wholesale with the example. A missing route
+often produces 404; a stripped bearer header can produce `tool_access_required`
+despite an intact local cache. Neither error authorizes a new token, login or
+provider request automatically. After correcting the proxy, a status read and
+an old saved-result read verify access without invoking a provider.
 
 Machine-readable details: [agent contract](workspace-agent-contract.json).
