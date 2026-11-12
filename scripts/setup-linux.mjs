@@ -40,7 +40,9 @@ export async function main(args=process.argv.slice(2)){
  }
  for(const name of ['picard-relay','picard-relay-web'])accountAbsent(name);
  for(const port of [80,443,8787])await portUnused(port);
- check(['running','degraded'].includes(command('/usr/bin/systemctl',['show','--property=SystemState','--value'])),'running_systemd_required');
+ // Other boot jobs can still be starting on an otherwise usable fresh host.
+ // The actual relay/proxy readiness is checked after their own start operation.
+ check(['starting','running','degraded'].includes(command('/usr/bin/systemctl',['show','--property=SystemState','--value'])),'running_systemd_required');
  const nodeBytes=checkedInput(args[0],150000000),webBytes=checkedInput(args[1],100000000);
  check(command(args[1],['version']).startsWith('v'+CADDY_VERSION+' '),'pinned_caddy_required');
  const allowed=JSON.parse(fs.readFileSync(path.join(root,'experimental/updater/policy.example.json'),'utf8')).allowedFiles;

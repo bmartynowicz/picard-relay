@@ -14,6 +14,7 @@ if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_OS") != 
 subprocess.run(["sudo", "-n", "stat", "-c", "%u:%g %a %n", "/", "/opt", "/etc", "/etc/systemd", "/etc/systemd/system", "/var", "/var/lib"], check=True)
 subprocess.run(["sudo", "-n", "chown", "root:root", "/opt"], check=True)
 subprocess.run(["sudo", "-n", "chmod", "0755", "/opt"], check=True)
+subprocess.run(["sudo", "-n", "systemctl", "show", "--property=SystemState", "--value"], check=True)
 
 pid, fd = pty.fork()
 if pid == 0:
