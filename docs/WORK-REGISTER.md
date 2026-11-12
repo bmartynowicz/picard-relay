@@ -1,70 +1,61 @@
 # Known bugs and feature requests
 
-Snapshot: **November 8, 2026 UTC**. The owner's private task board is the operational record. This is a sanitized product summary, not an exhaustive issue tracker or authorization to start every item. Machine-readable records and state definitions are in [work-register.json](work-register.json).
+Snapshot: **November 12, 2026**. The owner's private task board is the operational
+record. This is a sanitized source/delivery summary, not a complete board export
+or permission to start every item. [Structured records](work-register.json) ·
+[Limitations](LIMITATIONS.md) · [Dated verification](STATUS.md)
 
-## Cockpit follow-up
+## Still to build or qualify
 
-| ID | Item | State / limitation |
+| ID | Work | Current limit / next step |
 | --- | --- | --- |
-| PR-FTR-009 | Cockpit navigation, expanding decks, earned ranks and brighter round stars | Installed and live-verified on v1.0.33. See the [visual tour](COCKPIT-TOUR.md) and [dated evidence](STATUS.md). Owner acceptance remains separate. |
-| PR-FTR-010 | Whole-VM power reading, load-responsive travel and background look-around | Installed and checked on v1.0.34. HUD and controls stay fixed; motion is bounded. See [Flight instruments](FLIGHT-INSTRUMENTS.md). |
-| PR-BUG-006 | Cockpit discovery and persistence | Source candidate. Curved instruments integrate Workspace, Stars, motion, Stealth and Auto. Panels fold from their controls; layout, stars and readout dismissal persist across reload. Live verification follows deployment. |
-| PR-BUG-007 | Completed CI worker result lost during coordinator handoff | Fixed in merged PR #40; all seven groups and normal result/restart recovery verified from main. No runtime deployment required. |
-| PR-BUG-008 | Updater setup failure can leave a Ready-looking status | Open. A preflight error can remove the queue while retaining idle status. Preserve failure/unknown evidence and refuse automatic retries. |
+| PR-FTR-001 | Additional provider connectors | Paused. The text workspace has one fixed Groq model; compute-provider enrollment is a separate contract. |
+| PR-FTR-002 | Portable host installation | Manual operator setup remains. A clean-host installer must preserve signatures, ownership and durable state. |
+| PR-FTR-004 | Execute generated work | Generated output stays inert. Deterministic fixtures and fixed CI operations do not enable arbitrary model-generated code. |
+| PR-FTR-005 | Reusable task-board connector | The original private Board is application-specific and not bundled. A portable consuming client needs its own authorization/integration work. |
+| PR-FTR-014 | Less manual feedback submission | The shared form prepares a draft; destination submission is still manual. A safe, deduplicated posting flow remains to design. |
+| PR-FTR-015 | Physical voice badge and relay sync | Prototype/build work continues separately. Hold-to-record, durable storage/recovery and hardware sync require target qualification; a successful build is not a hardware result. |
 
-The current recording is a product demo of existing data, not proof of a new
-inference, rank-up, update installation or hardware-performance improvement.
+This snapshot does not claim these are the only remaining ideas or defects.
+Account-wide cost controls, arbitrary power-loss/disk-full qualification and
+broader device/accessibility testing remain [explicit limits](LIMITATIONS.md).
 
-## Fixed live-audit findings
+## Delivered capabilities and scoped fixes
 
-| ID | Priority | Issue | Current state |
-| --- | --- | --- | --- |
-| PR-BUG-001 / R01 | P2 | Back navigation restores a job route while a retained filter hides the job. | Fixed and live-verified on v0.1.18. |
-| PR-BUG-002 / R02 | P3 | A successful fresh refresh temporarily shows an unknown age. | Fixed and live-verified on v0.1.18. |
-| PR-BUG-003 / R03 | P2 | The known reviewed correction is not discoverable beside the original saved proposal. | Fixed and live-verified on v0.1.18; original response preserved. |
+Delivered does not mean owner-accepted. Version numbers below refer to dated
+checks on one enrolled host, not every installation.
 
-All three scoped findings were installed and verified through authenticated HTTPS on November 3, 2026 after [PR #1](https://github.com/bmartynowicz/picard-relay/pull/1) and its [signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41725556990). This does not assert owner acceptance or the absence of other bugs.
-
-The correction note preserves the original model response. It does not implement or close the broader Board form-validation feature. A completed model proposal and a reviewed/deployed product change are separate outcomes.
-
-Earlier console audit fixes were observed on v0.1.17: truthful blocked-work explanations, request labels/hashes, saved-result links and inert formatting, persistent submission warnings, readable release identity, updater activity, scoped timestamps, mobile flow and heading hierarchy. The three records above are follow-ups found during the next live pass; prior broad verification is not proof that these remaining cases were already fixed.
-
-## Additional reporting correction
-
-| ID | Priority | Issue | Current state |
-| --- | --- | --- | --- |
-| PR-BUG-004 | P2 | Dispatcher guesses a terminal outcome when both persistence and readback are unavailable; non-Groq errors can expose raw exception text. | Installed on v0.1.21; 15 reporting regressions passed against installed modules in isolated fixtures; live HTTPS service and saved-result checks passed. |
-
-The original failed-versus-uncertain mismatch was already corrected in earlier source. This follow-up removes the remaining fallback guess, requires a matching persisted request, and returns only an allowlisted code plus fixed review guidance. It changes reporting, with no new retry, grant, dependency, database migration or provider activation.
-
-The [PR #3](https://github.com/bmartynowicz/picard-relay/pull/3) [signed release](https://github.com/bmartynowicz/picard-relay/actions/runs/41731254396) was installed and verified on November 3, 2026. Configuration, all 18 historical markers and ledger counts were preserved. No real provider failure or replay was manufactured; see [Status](STATUS.md) for the exact installed-code fixture and live-check boundaries. Owner acceptance is separate.
-
-## Live-data follow-up
-
-| ID | Priority | Issue | Current state |
-| --- | --- | --- | --- |
-| PR-BUG-005 | P1 | The console retains the legacy catalogue-task filter and requires manual refresh, hiding other real jobs and failed outcomes. | Verified on v0.1.22: all 17 owner jobs and 13 completed/1 failed/3 uncertain counts reconciled live; automatic refresh and desktop/phone layouts passed. Owner review remains separate. |
-
-A read-only live comparison on November 3, 2026 showed two completed jobs in the old console scope versus 13 completed, 1 failed and 3 uncertain jobs for the configured owner. The correction uses the scope of the already-enabled reusable Board workflow, keeps other owners excluded, adds read-only visible-tab refresh and moves static request policy below current data. No provider call, grant renewal or access for another owner is added.
-
-[PR #4](https://github.com/bmartynowicz/picard-relay/pull/4) and its [signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/41734484111) delivered source `f20c1194895074dc8f4633d84ebeff7d28526a75` as v0.1.22/22001, physical release `62127b8e10e1fa3298636b29b03431b7f039e4fbabdb3a9f6954b1af1274ca9c`. All 20 installed files match. The host is healthy; configuration, 18 markers and 13 completed/1 failed/3 uncertain records are preserved. No new provider call or grant was used. Three actual owner-scope fixture cases passed against installed code normally and jitless. Authenticated production browser verification passed separately from the synthetic preview: all 17 visible job references/states match the configured owner ledger; counters and Groq activity agree. The observation advanced automatically from 6:22:11 PM to 6:22:27 PM EST. The four failed/uncertain review rows, no-retry guidance, saved results and reviewed correction remain accessible. Desktop, 390px and 320px screenshots were inspected without horizontal overflow. The private task board contains the production screenshot; owner acceptance remains separate.
-
-## Requested or unfinished features
-
-| ID | Feature | State / limitation |
+| ID | Capability / fix | Delivery scope |
 | --- | --- | --- |
-| PR-FTR-006 | Mechanical rolling Overview counters | Verified on v0.1.25. Exact installed-source UI regressions and authenticated desktop/phone checks passed; real job counts and stored results preserved. Owner acceptance remains separate. |
-| PR-FTR-001 | Additional provider connectors | Paused. Groq remains the only supported live provider; there is no paid fallback. |
-| PR-FTR-002 | Portable host onboarding/installer | Planned. Current deployment needs explicit Linux host enrollment and verification. |
-| PR-FTR-003 | Broader routine request enrollment | Live-verified on v1.0.26: ordinary drafts and exact approval on the explicitly activated enrolled host. Owner review remains separate. |
-| PR-FTR-004 | Controlled execution | Offline fixtures only. No live generated code, shell or tools are executed. |
-| PR-FTR-005 | Portable task-board integration | Planned. The original consuming Board app is not included in this repository. |
-| PR-FTR-008 | Separate zero-dollar compute broker | PRs #7-11 merged. PR #13 full-repository source candidate live-qualified all seven groups through pinned/protected worker v2, saved recovery and read-only collection; request consumed, legacy v1 preserved. Ready for review/merge. Source defaults remain disabled; broader durability, account-wide controls and owner acceptance remain open. See [coding workflow](../experimental/compute-broker/CODING-WORKFLOW.md) and [dated evidence](../experimental/compute-broker/VERIFICATION.md). |
+| PR-FTR-003 | Ordinary bounded request enrollment | Free-text workspace requests shipped; the older finite picker retains exact enrolled slots. |
+| PR-FTR-006 | Mechanical rolling counters | Installed and checked on v0.1.25; real observed counts, reduced motion and retained uncertainty semantics. |
+| PR-FTR-007 | Request-to-result owner workspace | Activated on v1.0.26 with exact approval, history, saved exports and output-bound reviews. |
+| PR-FTR-008 | Separate fixed-job compute broker | Merged and qualified from main; exact public-commit checks return verified per-group receipts. Historical Oracle/GitHub batch proof does not renew its grants. |
+| PR-FTR-009 | Cockpit, reading decks, ranks and stars | Delivered cockpit foundation; later curved-panel and short-phone refinements are separately dated. |
+| PR-FTR-010 | Whole-VM CPU and background look-around | Checked on v1.0.34. The HUD stays fixed; CPU-linked motion is bounded. |
+| PR-FTR-011 | Independent tool access and approved handoff | PR109/120 merged; v1.0.59 checked with one approved live request and old-answer recovery after client restart. No self-approval or automatic renewal. |
+| PR-FTR-012 | First-run walkthrough and rank guide | PR75 shipped, including replay from Settings. Onboarding ends after a review; rank progress remains. |
+| PR-FTR-013 | Stealth shortcut and automatic display triggers | Shortcut and optional tab/inactivity triggers shipped; hidden-tab behavior checked live. This is a display mode, not network anonymity. |
+| PR-BUG-006 | Cockpit discovery and persistence | Visible choices, curved controls, panel handoffs and dismissible readout shipped. PR100 short-phone reading was checked on v1.0.56. |
+| PR-BUG-007 | CI worker-result handoff | PR40 fixed the bounded worker-history response. Normal collection and saved restart recovery passed from main. |
+| PR-BUG-008 | Updater setup/startup failure reporting | PR43 fixed reporting; Linux regressions cover negative paths and the ordinary live update/cooldown flow passed. No production startup fault was injected. |
+| PR-BUG-009 | Enrollment proxy setup and fresh owner sign-in | PR123 merged and checked from main. The supported CLI has explicit `login --fresh`; the proxy example and upgrade guide preserve workspace credentials. |
 
-Unqualified power-loss/disk-full behavior, physical phone/screen-reader coverage and fresh-host portability are [verification limits](LIMITATIONS.md), not evidence of a specific observed failure. This snapshot does not assert owner acceptance or enumerate unrelated private Board work.
+The update button, Groq key replacement, quality grades, feedback draft form,
+reviewed contributor credits and workflow-usage accounting are also in current
+source. Their host support and setup requirements still apply. A grade is not
+an acceptance review; a prepared feedback draft is not a posted issue.
 
-When changing a record, update its structured state and dated evidence as well as this summary. Keep source implementation, tests, deployment verification and human acceptance distinct. For current installed evidence, use [Status](STATUS.md).
+## Historical live-audit fixes
 
-## V1 deployed and verified
+| ID | Finding | Recorded qualification |
+| --- | --- | --- |
+| PR-BUG-001 / R01 | Back navigation restores a job hidden by a retained filter | Fixed and checked on v0.1.18. |
+| PR-BUG-002 / R02 | Fresh observation briefly says age unknown | Fixed and checked on v0.1.18. |
+| PR-BUG-003 / R03 | Reviewed correction missing beside the original proposal | Fixed and checked on v0.1.18; original answer preserved. |
+| PR-BUG-004 | Unconfirmed persistence can produce a guessed dispatcher outcome | Consistent uncertain-outcome reporting checked on v0.1.21 without replaying production work. |
+| PR-BUG-005 | Console retains a legacy task filter/static observations | Owner-wide workspace observations and saved-result recovery shipped; original task/owner authorization boundaries remain. |
 
-PR-FTR-007 and PR-FTR-003 are installed and explicitly activated on v1.0.26 / sequence 26002 after [PR #6](https://github.com/bmartynowicz/picard-relay/pull/6). One generic live Groq smoke request completed; exact answer/code/JSON downloads, persisted local review, named history, historical result recovery and desktop/phone checks passed. All 17 historical job rows and 18 markers were preserved. The smoke test adds one completed job and one marker; saved state survived a guarded restart without another invocation. Source fixture qualification is separate from these actual live checks. See [Status](STATUS.md) for exact source/release identity and [V1](V1.md) for scope and limitations. Owner acceptance remains separate.
+Older release details remain in [Status](STATUS.md). Their original scope and
+dates apply. Updating this register does not retroactively accept work, prove a
+new installation or erase a historical failure/uncertainty record.

@@ -1,7 +1,7 @@
 # Owner updates, earned ranks and the space window
 
-Updated November 8, 2026. The cockpit and ranks are in the signed-runtime source;
-the latest recorded enrolled-host checks cover v1.0.34. Use the [visual tour](COCKPIT-TOUR.md)
+Updated November 12, 2026. The cockpit and ranks are in the signed-runtime source;
+the latest recorded enrolled-host identity is v1.0.59. Use the [visual tour](COCKPIT-TOUR.md)
 for controls and the walkthrough, and [Status](STATUS.md) for dated installation
 evidence. Other hosts still need a signed release; the owner-update bridge needs
 separate host enrollment.
@@ -13,6 +13,11 @@ The System button and its separate host enrollment are documented in the
 HUD so a host can receive the update button without changing its appearance.
 
 ## Earned work
+
+Open **Rank guide** from **Your progress** for all ranks and unlocks.
+The first-run walkthrough ends after the first review and can be replayed from
+**Settings → Replay walkthrough**. Rank progress remains visible. A 1–5 quality
+grade is separate from the output-bound acceptance review used for rank credit.
 
 Training remains Cadet → Ensign → Lieutenant. Setup, a saved result and an
 output-bound owner review teach the existing workflow. After training:

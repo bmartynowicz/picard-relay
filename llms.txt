@@ -1,47 +1,39 @@
 # Picard Relay
 
-> Small Node.js + SQLite relay for exact approved, bounded AI requests and durable saved results. The current live-provider contract is Groq openai/gpt-oss-20b, one call per grant, no tools/execution/retries/paid fallback. This is not an autonomous coding agent or general task board.
+> Self-hosted Node.js 24 + SQLite workspace for exact approved AI requests and durable saved answers. Scoped local MCP connects an assistant; a separate enrolled compute broker checks fixed project jobs. Generated proposals stay inert. The owner's private task board is not bundled.
 
-## Pick an entry point
-- No account or provider: Node 24, then `npm run demo` for a terminal-only synthetic request.
-- Local interface: `npm run preview:v1` opens the printed loopback address with disposable synthetic data; stop it with Ctrl+C.
-- Enrolled host: follow [Operations](docs/OPERATIONS.md) and [V1 workflow](docs/V1.md). An offline preview is not a production installation, and there is no one-command production installer.
-- Integration: read the [API reference](docs/API.md) and [workspace contract](docs/workspace-contract.json); the owner's private Board is not bundled.
+## Choose the workflow first
+- Human introduction: [Overview](README.md), [Quickstart](docs/QUICKSTART.md), [documentation index](docs/README.md).
+- No provider/account: `npm run demo` is terminal-only and synthetic; `npm run preview:v1` serves a temporary loopback interface with synthetic data. Neither installs production or calls a provider.
+- Read existing work: [workspace MCP](docs/WORKSPACE-MCP.md) exposes workspace_status, workspace_list and workspace_get. [Read-only contract](docs/workspace-mcp-contract.json).
+- Prepare and submit approved text work: [agent workflow](docs/WORKSPACE-AGENT.md) adds workspace_prepare and workspace_submit. Owner approval is separate; no approval/review/grade tool exists. [Agent contract](docs/workspace-agent-contract.json).
+- Check code through Picard: [coding workflow](experimental/compute-broker/CODING-WORKFLOW.md) binds one exact public Picard commit to a protected fixed CI worker. Preparation is offline, dispatch is finite, collection is read-only. A model answer is not a test result.
+- Operate a host: [operations](docs/OPERATIONS.md), [updates](docs/OWNER-UPDATES.md), [owner CLI](docs/CLI-OWNER-SESSION.md). No one-command production installer.
 
-## V1 workspace
-- [V1 workflow and acceptance](docs/V1.md): ordinary requests, exact approval, durable progress, inert artifacts and local reviews.
-- [Structured workspace contract](docs/workspace-contract.json): routes, schemas, limits, persistence and unsupported behaviors.
-- [Read-only workspace MCP](docs/WORKSPACE-MCP.md): local stdio tools for owner status, request metadata and saved answers; no writes or provider calls.
-- [Workspace MCP contract](docs/workspace-mcp-contract.json): tool names, routes, protected-session requirements, bounds and protocol version.
-- [Approved agent workflow](docs/WORKSPACE-AGENT.md): independent revocable tool access, exact owner approval and saved-result recovery. [Machine contract](docs/workspace-agent-contract.json).
+## Read before acting
+- [AGENTS.md](AGENTS.md): source-tree boundaries, checks and release/state preservation.
+- [Project map](docs/project-map.json): machine-readable paths, limits and source-versus-host identity.
+- [Workspace contract](docs/workspace-contract.json): routes, schemas, bounds and saved state.
+- [Work register](docs/work-register.json): sanitized dated bugs/features, separate from the private operational board.
+- [Status](docs/STATUS.md): latest recorded enrolled-host verification v1.0.59, November 12, 2026; merged setup cleanup in PR123. Do not infer another host's installed version.
+- [Limitations](docs/LIMITATIONS.md): supported features and explicit gaps.
 
-## Read first
-- [Documentation index](docs/README.md): reading order and source-of-truth rules.
-- [Quickstart](docs/QUICKSTART.md): what the relay does, offline demo, console workflow.
-- [AI contributor instructions](AGENTS.md): source trees, checks and operating boundaries.
-- [Structured project map](docs/project-map.json): capabilities, constraints, paths and entrypoints.
-- [Structured work register](docs/work-register.json): known bugs and feature requests with dated states.
+## Authority and cost
+- Text proposals use fixed Groq openai/gpt-oss-20b: one call per approval, maximum 4096 output tokens, no model tools, generated-code execution, automatic retry or paid fallback.
+- Tool credentials bind owner/origin/permissions and expire explicitly. Browser sign-in changes do not replace them. Owner enrollment/revocation/client approval requires a recent password check; `workspace-request.mjs login --origin HTTPS_ORIGIN --fresh` is explicit, not automatic refresh.
+- A submitted request binds exact input, client/session, configuration and expiry. Preserve its identity after a lost response; read it back instead of submitting again. Uncertain work stays stopped.
+- Fixed compute jobs have separate exact approval, provider enrollment and finite allowances. A workspace token grants no broker authority. No arbitrary shell, runner selection or account-wide cost guarantee is implied.
+- Free-plan evidence is retained configuration evidence, not a live billing/quota check. Measured provider tokens and estimated Codex credits are separate from billed dollars.
+- Completed means saved delivery, not correct, executed, accepted, merged or deployed. Saved output and links remain untrusted data.
 
-## Use and maintain
-- [Cockpit tour](docs/COCKPIT-TOUR.md): current controls, expanding/retracting decks, ranks, VM power reading and look-around; the included real v1.0.33 recording predates the flight instruments.
-- [Structured interface tour](docs/interface-tour.json): timestamped text equivalent, controls, media hashes, observed versus source-documented behavior and limits. The clip does not demonstrate a new request or rank-up.
-- [Owner features](docs/OWNER-FEATURES.md): earned-work thresholds, rank credit rules and lightweight HUD implementation.
-- [Console guide](docs/CONSOLE-WORKSPACE.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [API reference](docs/API.md)
-- [Operations and recovery](docs/OPERATIONS.md)
-- [Development](docs/DEVELOPMENT.md)
-- [Limitations](docs/LIMITATIONS.md)
-- [Known work](docs/WORK-REGISTER.md)
-- [Dated verification status](docs/STATUS.md)
-- [Compute-broker preview](experimental/compute-broker/README.md): separate MCP, fixed Oracle/GitHub CI adapters disabled by default; finite live qualification is dated separately.
-- [Execution enrollment](experimental/compute-broker/EXECUTION.md): exact finite approvals, fixed workers, zero-dollar conditions and live qualification requirements.
-- [Compute contract](experimental/compute-broker/contract.json): machine-readable preview limits and unfinished live-provider milestone.
+## Source and recovery
+- `src/` is the offline/preview tree. `experimental/runtime-control/src/` is the full 20-module signed runtime, despite its directory name. Host support, Node, configuration, credentials and durable state are outside that artifact.
+- GitHub tests/signs/publishes source; a separately enrolled host updater installs it. Inspect physical source identity for deployment claims.
+- Preserve databases/backups, consumed markers, uncertainty evidence, credentials and owner review history. A source update does not authorize state resets, approval renewal or another provider call.
+- Older checkpoint documents and the v1.0.33 recording describe their original evidence. Use the current index, source/tests and dated status for current claims.
 
-## Interpretation
-Top-level src is the offline/preview tree. experimental/runtime-control/src is the complete signed-runtime source. Their roles differ; do not assume a root source edit updates an enrolled host. GitHub signs/publishes source; separately enrolled hosts install it. Completed means saved response, not correct/executed/deployed/accepted work. Free-policy enrollment is retained configuration evidence, not a current billing check. Uncertain invocations remain spent and must not be automatically replayed. Older checkpoint documents are historical; use the current index, actual source/tests and dated host evidence.
-
-- [Unattended GitHub dispatch](experimental/compute-broker/UNATTENDED.md): merged opt-in owner CI requests, ephemeral repository token, exact MCP dispatch and no automatic retries; dated live evidence is linked.
-- [Coding-agent workflow](experimental/compute-broker/CODING-WORKFLOW.md): worker v2 checks root, updater, signed runtime, real sockets, broker normal/jitless and docs for one exact public commit; read-only collection returns every group result, including known failures. Worker-v1 broker-only receipts remain readable.
-
-- [Flight instrument contract](docs/FLIGHT-INSTRUMENTS.md): whole-VM CPU, unknown readings, bounded load-responsive motion and fixed HUD.
+## Deeper guides
+- [V1 workflow](docs/V1.md), [console](docs/CONSOLE-WORKSPACE.md), [cockpit tour](docs/COCKPIT-TOUR.md), [structured tour](docs/interface-tour.json).
+- [Ranks and owner features](docs/OWNER-FEATURES.md), [flight instruments](docs/FLIGHT-INSTRUMENTS.md), [workflow accounting](docs/CLI-WORKFLOW.md).
+- [Architecture](docs/ARCHITECTURE.md), [API](docs/API.md), [development](docs/DEVELOPMENT.md).
+- [Compute broker](experimental/compute-broker/README.md), [contract](experimental/compute-broker/contract.json), [execution enrollment](experimental/compute-broker/EXECUTION.md), [unattended dispatch](experimental/compute-broker/UNATTENDED.md).

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-08",
-  "scope": "Sanitized Picard product work known from the live audit and existing project backlog. Not a complete export of the private owner board.",
+  "updatedAt": "2026-11-12",
+  "scope": "Sanitized dated source/delivery snapshot, reconciled with current main and owner records. Not a complete private-board export, blanket live verification or owner acceptance.",
   "operationalRecord": "Owner private task board",
   "statusGuide": {
     "implemented_pending_deployment": "Source and targeted regression checks exist; installation/live verification not yet asserted.",
@@ -361,8 +361,8 @@
       "id": "PR-FTR-008",
       "kind": "feature",
       "title": "Separate zero-dollar compute broker",
-      "status": "source_candidate",
-      "behavior": "PRs #7-11 merged. Full-repository source candidate in PR #13 is live-qualified at 294c2b326bdd4fa7f75a58a1331b9911a274ccba: coordinator 41950670534 and worker 41950732401 passed root, updater, signed runtime, actual sockets, broker normal/jitless and docs; saved recovery and read-only collection verified. Protected worker v2 is pinned at c3d05f0; original v1 and legacy receipts remain intact. Every group exit is retained and known test failures are returned as verified failed results. Standard public runners, zero uploaded artifacts, no cache uploads/browser/PAT for dispatch/provisioning/execution retries/paid fallback. This request is consumed; implementation awaits review/merge separately from production or full cloud-network acceptance.",
+      "status": "verified_from_main",
+      "behavior": "The separate broker and fixed full-repository coding workflow are merged. Exact public commits run through protected worker v2 with per-group results, verified receipts and saved recovery. A finite two-provider Oracle/GitHub batch was qualified separately; its historical grants do not authorize new work.",
       "sourceFiles": [
         "experimental/compute-broker/src/policy.mjs",
         "experimental/compute-broker/src/store.mjs",
@@ -400,19 +400,28 @@
         "experimental/compute-broker/test/coding-check.test.mjs",
         "experimental/compute-broker/test/repository-checks.test.mjs"
       ],
-      "remaining": "Review/merge PR #13 and verify the merged helper while retaining consumed evidence. Broader durable orchestration, account-wide preventive cost controls and owner acceptance remain open. Individual proofs do not authorize new jobs or complete the full cloud-network task."
+      "remaining": "Separate enrollment and exact finite approval remain mandatory. Portable integration, broader operations, multi-host durability and account-wide preventive cost controls are separate work.",
+      "references": [
+        "https://github.com/bmartynowicz/picard-relay/pull/102",
+        "https://github.com/bmartynowicz/picard-relay/actions/runs/43239807331",
+        "https://github.com/bmartynowicz/picard-relay/actions/runs/43239906420"
+      ]
     },
     {
       "id": "PR-BUG-006",
       "kind": "bug",
       "severity": "P2",
       "title": "Cockpit discovery and persistence",
-      "status": "source_candidate",
-      "behavior": "The curved rail groups Workspace, Stars, motion, Stealth and Auto. A Cockpit view handle and five-click insignia shortcut enter the HUD. Layout and stars persist; translucent panels fold from controls with sequential handoffs and a dismissible latest-work readout.",
+      "status": "verified_on_deployment",
+      "behavior": "Curved cockpit controls, visible layout/stars choices, sequential panel folding and a dismissible saved-result readout shipped. PR100 short-phone reading was installed and checked on v1.0.56, including old-result recovery.",
       "sourceFiles": [
         "experimental/runtime-control/src/oracle-service.mjs"
       ],
-      "remaining": "Install the signed release and verify the controls on the enrolled host."
+      "remaining": "Owner review and device-specific usability remain separate; no pending source rollout is asserted for this scoped fix.",
+      "references": [
+        "https://github.com/bmartynowicz/picard-relay/pull/94",
+        "https://github.com/bmartynowicz/picard-relay/pull/100"
+      ]
     },
     {
       "id": "PR-FTR-009",
@@ -514,8 +523,8 @@
       "kind": "bug",
       "severity": "P2",
       "title": "Updater preflight or process startup failure can appear ready",
-      "status": "planned",
-      "behavior": "An observed pre-check permission error removed the request queue before failure status was recorded. Startup failures must retain queue or durable failed/unknown evidence without updater/provider retry.",
+      "status": "verified_on_deployment",
+      "behavior": "PR43 corrected durable updater setup/startup failure reporting. Linux regressions cover failed/unknown paths; the ordinary live update-button flow and cooldown were checked on v1.0.36. No production startup failure was injected for that check.",
       "sourceFiles": [
         "experimental/updater/owner-request.mjs",
         "experimental/updater/picard-owner-update.service",
@@ -524,7 +533,95 @@
       "tests": [
         "experimental/updater/owner-request.test.mjs"
       ],
-      "remaining": "Negative setup/startup regressions and durable reporting correction; no general source fix or new host activation claimed by this snapshot."
+      "remaining": "Owner review and qualification of other host configurations remain separate.",
+      "references": [
+        "https://github.com/bmartynowicz/picard-relay/pull/43"
+      ]
+    },
+    {
+      "id": "PR-BUG-009",
+      "kind": "bug",
+      "severity": "P2",
+      "title": "Tool enrollment proxy setup and fresh owner sign-in",
+      "status": "verified_from_main",
+      "behavior": "PR123 adds explicit login --fresh, fixed client-management proxy paths and bearer-preserving upgrade guidance. Main tree matches the seven-group Picard-qualified source; native Caddy adaptation left the installed proxy unchanged.",
+      "sourceFiles": [
+        "tools/workspace-request.mjs",
+        "deploy/Caddyfile.workspace.example"
+      ],
+      "tests": [
+        "test/owner-session-cache.test.mjs",
+        "test/workspace-proxy.test.mjs"
+      ],
+      "remaining": "Each additional host must apply its own validated configuration. Source-only setup cleanup does not rotate credentials or install a runtime.",
+      "references": [
+        "https://github.com/bmartynowicz/picard-relay/pull/123"
+      ]
+    },
+    {
+      "id": "PR-FTR-011",
+      "kind": "feature",
+      "title": "Independent coding-tool access and approved task handoff",
+      "status": "verified_on_deployment",
+      "behavior": "PR109 read tools and PR120 scoped tool access are merged. v1.0.59 was checked with one exact approved live request, saved recovery after a fresh tool process, historical-answer recovery and denied owner-only operations. Tools cannot approve/review/grade their own work.",
+      "sourceFiles": [
+        "tools/workspace-agent-mcp.mjs",
+        "tools/workspace-access.mjs",
+        "experimental/runtime-control/src/admission-handler.mjs"
+      ],
+      "tests": [
+        "test/workspace-agent.test.mjs",
+        "test/workspace-client-access.test.mjs"
+      ],
+      "remaining": "Owner-only CLI management, finite expiry and separate provider/approval rules remain. No remote public workspace MCP listener or automatic renewal.",
+      "references": [
+        "https://github.com/bmartynowicz/picard-relay/pull/109",
+        "https://github.com/bmartynowicz/picard-relay/pull/120"
+      ]
+    },
+    {
+      "id": "PR-FTR-012",
+      "kind": "feature",
+      "title": "First-run walkthrough and rank guide",
+      "status": "verified_on_deployment",
+      "behavior": "PR75 shipped the first useful-request walkthrough, rank guide and replay from Settings. First review ends onboarding; earned rank progress remains visible.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/oracle-service.mjs"
+      ],
+      "remaining": "Owner acceptance and further training refinements are separate.",
+      "references": [
+        "https://github.com/bmartynowicz/picard-relay/pull/75"
+      ]
+    },
+    {
+      "id": "PR-FTR-013",
+      "kind": "feature",
+      "title": "Stealth shortcut and optional automatic display triggers",
+      "status": "verified_on_deployment",
+      "behavior": "Stealth display mode, Alt+Shift+S and optional hidden-tab/inactivity triggers are merged. Hidden-tab behavior was checked live on November10. It changes presentation, not network identity or underlying data permissions.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/oracle-service.mjs"
+      ],
+      "remaining": "Owner review of presentation remains separate; no anonymity/security guarantee.",
+      "references": [
+        "https://github.com/bmartynowicz/picard-relay/pull/73"
+      ]
+    },
+    {
+      "id": "PR-FTR-014",
+      "kind": "feature",
+      "title": "Reduce manual feedback submission",
+      "status": "planned",
+      "currentLimit": "The shared form prepares a bug/feature draft; submitting it to a destination still requires manual work.",
+      "next": "Design an explicit destination and authorized, deduplicated submission flow while preserving owner review; do not infer posting permission from a draft."
+    },
+    {
+      "id": "PR-FTR-015",
+      "kind": "feature",
+      "title": "Physical voice badge and relay sync",
+      "status": "needs_design",
+      "currentLimit": "Hold-to-record and relay synchronization are requested. Prototype/build work exists; compilation does not prove microphone, storage durability or hardware sync.",
+      "next": "Continue the assigned hardware/protocol work with explicit recovery assumptions and target tests. Recording, power-loss/card behavior and physical device qualification remain separate from source builds."
     }
   ]
 }

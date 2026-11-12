@@ -6,7 +6,10 @@ Picard Relay gives bounded AI work a small, self-hosted home: approve a request,
 follow the job, then return to its saved answer. The cockpit puts readiness,
 activity and your next action in front of a slowly moving starfield.
 
-[![Picard cockpit with a spinning brass insignia, moving stars and projected activity counts](images/cockpit-overview.png)](images/picard-cockpit-walkthrough.gif)
+[![Curved cockpit with synthetic local data and a dismissible saved-result control](images/cockpit-curved-preview.jpg)](images/cockpit-curved-preview.jpg)
+
+This image shows the curved source layout with synthetic preview data. For
+dated installed-host evidence, see [Status](STATUS.md).
 
 **[Watch the 15-second walkthrough](images/picard-cockpit-walkthrough.gif)** ·
 [Video file (MP4)](images/picard-cockpit-walkthrough.mp4) ·
@@ -16,9 +19,9 @@ The silent recording shows the enrolled v1.0.33 console on November 5, 2026.
 The displayed Lieutenant rank and 28 completed jobs belong to that recorded
 relay. Your own relay shows its own work and progress.
 
-The recording predates the VM power reading and look-around controls added in
-v1.0.34. The steps below describe the current source; the timeline describes
-only what the recording shows.
+The recording predates the VM power reading, curved controls, short-phone
+reading layout, Stealth triggers and replayable onboarding. The steps below
+describe current source; the timeline describes only that earlier recording.
 
 ## Take the controls
 
@@ -46,10 +49,6 @@ restore it with **Show windshield readout** in the account menu.
 Main panels, VM CPU and Auto share one transition: the old panel folds into its
 control before the next opens. Click the same control, Close or exposed space,
 or press Escape to retract it. Reduced motion skips these animations.
-
-![Current curved cockpit with synthetic local data](images/cockpit-curved-preview.jpg)
-
-This image is a local source preview, not an installed-host or release claim.
 
 Refresh reads status.
 Reload the browser page to load a newly installed interface. The update button

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "updatedAt": "2026-11-12",
   "project": "Picard Relay",
-  "summary": "Self-hosted Node.js and SQLite delivery layer for exact approved AI requests, durable one-shot invocation and saved-result recovery.",
+  "summary": "Self-hosted bounded AI request workspace with durable saved answers, scoped local MCP access and a separate fixed-job compute broker.",
   "documentationIndex": "docs/README.md",
   "aiEntry": "llms.txt",
   "contributorInstructions": "AGENTS.md",
@@ -98,6 +98,28 @@
       "reusableBoardAdmissionEnabled": "configured owner across approved tasks",
       "otherwise": "configured owner and allowed task",
       "crossOwnerAccess": false
+    },
+    "workspaceMcp": {
+      "transport": "local-stdio",
+      "protocolVersion": "2025-06-18",
+      "readOnlyTools": [
+        "workspace_status",
+        "workspace_list",
+        "workspace_get"
+      ],
+      "optInAdditionalTools": [
+        "workspace_prepare",
+        "workspace_submit"
+      ],
+      "ownerApprovalTool": false,
+      "credentialsIndependentOfBrowser": true,
+      "contract": "docs/workspace-agent-contract.json"
+    },
+    "fixedProjectChecks": {
+      "separateBroker": true,
+      "requiresSeparateEnrollment": true,
+      "arbitraryGeneratedCode": false,
+      "guide": "experimental/compute-broker/CODING-WORKFLOW.md"
     }
   },
   "components": [
@@ -271,6 +293,11 @@
       "path": "docs/images/v1-workflow.svg",
       "textEquivalent": "docs/V1.md",
       "purpose": "Prepare an ordinary request, approve exact limits, follow durable progress, export and review the saved answer"
+    },
+    {
+      "path": "docs/images/workflows.svg",
+      "textEquivalent": "README.md",
+      "purpose": "Distinguish an exact approved AI proposal from a fixed enrolled project-check job and its receipt"
     }
   ],
   "unsupported": [
@@ -285,5 +312,19 @@
   ],
   "workspaceContract": "docs/workspace-contract.json",
   "computeBrokerContract": "experimental/compute-broker/contract.json",
-  "interfaceTour": "docs/interface-tour.json"
+  "interfaceTour": "docs/interface-tour.json",
+  "latestRecordedHost": {
+    "observedDate": "2026-11-12",
+    "version": "1.0.59",
+    "sourceCommit": "c62bab159f72c698c58347a60a2cfbe42d5a53b9",
+    "releaseHash": "31db816a0e8374d89a7d579ccacde5ceb2859fc6dd08d8ecd56c9eb3ac2905b6",
+    "scope": "One independently verified enrolled host; not a universal installed version.",
+    "statusGuide": "docs/STATUS.md"
+  },
+  "setupSource": {
+    "mergedMainCommit": "3aea7f727761677896a9b086efc837bd12dce3a7",
+    "runtimeDeploymentRequired": false,
+    "guide": "docs/WORKSPACE-AGENT.md",
+    "freshLoginCommand": "node tools/workspace-request.mjs login --origin HTTPS_ORIGIN --fresh"
+  }
 }
