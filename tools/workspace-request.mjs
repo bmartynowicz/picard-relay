@@ -51,7 +51,7 @@ function requireThat(condition, code = 'usage', details) {
   if (!condition) throw new WorkspaceError(code, details);
 }
 
-function checkedDraft(draft) {
+export function checkedDraft(draft) {
   const keys = ['requestId', ...fields].sort();
   requireThat(draft && typeof draft === 'object'
     && Object.keys(draft).sort().join(',') === keys.join(',')
@@ -177,7 +177,7 @@ function draftRef(response, requestId) {
   return ref;
 }
 
-async function verifyDraft(response, brief, ref) {
+export async function verifyDraft(response, brief, ref) {
   const {draftSha256, ...draft} = response.draft;
   const {payload, approval} = draft;
   const expectedContext = {title: brief.title, nextAction: '', latestFinding: brief.context};

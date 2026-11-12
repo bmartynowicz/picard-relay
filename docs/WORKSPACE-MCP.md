@@ -11,9 +11,11 @@ Reading never invokes an AI provider or consumes an execution allowance.
 ## Start it
 
 Use Node 24 and an explicitly configured HTTPS origin. No dependency installation
-is required. First establish an owner session through the existing
-[owner CLI](CLI-OWNER-SESSION.md). On Windows, the adapter reuses its origin-bound,
-current-user DPAPI cache, decrypting the session only in memory. It never asks for
+is required. Prefer [independent tool enrollment](WORKSPACE-AGENT.md) with
+`--mode read` for server-enforced scope that survives browser login changes.
+Without an enrolled credential, establish an owner session through the existing
+[owner CLI](CLI-OWNER-SESSION.md). On Windows, the adapter reuses the origin-bound,
+current-user DPAPI cache, decrypting credentials only in memory. It never asks for
 a password, logs in, or replaces another active owner session.
 
 ```sh
@@ -53,9 +55,13 @@ An expired, revoked, missing or wrong-origin session returns
 `owner_sign_in_required`. Sign in separately through the owner CLI; the next
 explicit tool call can use the new saved session. There is no automatic login,
 retry, credential refresh, password argument or token returned to the model.
-The existing owner session grants owner access at the server: read-only behavior
-is enforced by this adapter's fixed GET routes, not a new server-issued scoped
-credential. Other software with the same owner session retains its own authority.
+With an enrolled `read` tool credential, the server also enforces read-only
+access. For the legacy owner-session fallback, only the adapter's fixed GET
+routes enforce read-only behavior; other software with that owner session
+retains owner authority. An existing expired/unsafe tool cache fails closed and
+does not silently fall back to the owner session. The read-only adapter still
+exposes exactly three tools. Draft/submit tools require the separate opt-in
+[agent entrypoint](WORKSPACE-AGENT.md).
 
 ## Tools
 

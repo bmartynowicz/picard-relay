@@ -4,6 +4,7 @@ import {constants} from 'node:fs';
 import {isAbsolute} from 'node:path';
 import {createHash} from 'node:crypto';
 import {createOwnerSessionCache, validCachedSession} from './owner-session-cache.mjs';
+import {createWorkspaceAccessCache,validToolAccess} from './workspace-access-cache.mjs';
 
 export const WORKSPACE_READ_LIMITS = Object.freeze({frameBytes:16384, responseBytes:1048576, resultBytes:262144, historyRows:25, reviewEvents:5, cursors:32});
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
@@ -34,10 +35,10 @@ export async function readPrivateWorkspaceSession(filename){
 }
 
 // Fixed HTTPS GET only. No redirect, body, login, provider request or arbitrary URL.
-export function readWorkspaceHttps({origin,path,cookie}){
+export function readWorkspaceHttps({origin,path,cookie,authorization}){
   return new Promise((resolve,reject)=>{
     const request=httpsRequest(origin+path,{method:'GET',rejectUnauthorized:true,signal:AbortSignal.timeout(10000),
-      headers:{Accept:'application/json',Origin:origin,Cookie:cookie}},response=>{
+      headers:{Accept:'application/json',Origin:origin,...(authorization?{Authorization:authorization}:{Cookie:cookie})}},response=>{
       if(response.statusCode!==200){response.destroy();resolve({status:response.statusCode});return;}
       if(!/^application\/json(?:;|$)/i.test(response.headers['content-type']??'')){
         response.destroy();reject(Error('invalid_workspace_response'));return;
@@ -75,15 +76,16 @@ function review(value,graded=false){
 
 export function createReadOnlyWorkspace({origin,sessionFile,readSession,transport=readWorkspaceHttps,now=Date.now}={}){
   origin=workspaceOrigin(origin);
-  const load=readSession??(sessionFile?()=>readPrivateWorkspaceSession(sessionFile):()=>createOwnerSessionCache().read(origin));
+  const load=readSession??(sessionFile?()=>readPrivateWorkspaceSession(sessionFile):async()=>await createWorkspaceAccessCache().read(origin)??await createOwnerSessionCache().read(origin));
   let session=null;const cursors=new Set();
+  const valid=value=>validToolAccess(value,origin,now())||validCachedSession(value,origin,now());
   async function get(path,reference=false){
     check(process.env.NODE_TLS_REJECT_UNAUTHORIZED!=='0','tls_verification_required');
-    if(!validCachedSession(session,origin,now())){
+    if(!valid(session)){
       try{session=await load(origin);}catch{throw Error('owner_sign_in_required');}
     }
-    check(validCachedSession(session,origin,now()),'owner_sign_in_required');
-    let response;try{response=await transport({origin,path,cookie:session.cookie});}
+    check(valid(session),'owner_sign_in_required');
+    let response;try{response=await transport({origin,path,...(session.token?{authorization:'Bearer '+session.token}:{cookie:session.cookie})});}
     catch(error){throw Error(['workspace_response_too_large','invalid_workspace_response'].includes(error.message)?error.message:'workspace_read_failed');}
     if(response.status===401){session=null;throw Error('owner_sign_in_required');}
     if(response.status>=300&&response.status<400)throw Error('workspace_redirect_rejected');
@@ -97,7 +99,7 @@ export function createReadOnlyWorkspace({origin,sessionFile,readSession,transpor
     const result={readOnly:true,...value};const encoded=JSON.stringify(result);
     check(Buffer.byteLength(encoded)<=WORKSPACE_READ_LIMITS.resultBytes,'workspace_response_too_large');
     // Never reflect the authentication cookie, even if an upstream response echoes it.
-    check(!encoded.includes(session.cookie.split('=')[1]),'invalid_workspace_response');
+    check(!encoded.includes(session.token??session.cookie.split('=')[1]),'invalid_workspace_response');
     return result;
   }
   function result(value,ref){

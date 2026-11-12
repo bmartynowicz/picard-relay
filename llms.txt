@@ -13,6 +13,7 @@
 - [Structured workspace contract](docs/workspace-contract.json): routes, schemas, limits, persistence and unsupported behaviors.
 - [Read-only workspace MCP](docs/WORKSPACE-MCP.md): local stdio tools for owner status, request metadata and saved answers; no writes or provider calls.
 - [Workspace MCP contract](docs/workspace-mcp-contract.json): tool names, routes, protected-session requirements, bounds and protocol version.
+- [Approved agent workflow](docs/WORKSPACE-AGENT.md): independent revocable tool access, exact owner approval and saved-result recovery. [Machine contract](docs/workspace-agent-contract.json).
 
 ## Read first
 - [Documentation index](docs/README.md): reading order and source-of-truth rules.

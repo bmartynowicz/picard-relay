@@ -56,15 +56,24 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
  }
  return async(req,res)=>{
   const url=typeof req.url==='string'?req.url:'',readDraft=/^\/workspace\/drafts\/([a-f0-9-]{36})$/.exec(url),readResult=/^\/workspace\/requests\/([a-f0-9]{64})$/.exec(url),reviewPath=/^\/workspace\/reviews\/([a-f0-9]{64})$/.exec(url),gradePath=/^\/workspace\/grades\/([a-f0-9]{64})$/.exec(url),historyPath=url==='/workspace/history'||url.startsWith('/workspace/history?');
-  if(!(req.method==='GET'&&(url==='/workspace/config'||readDraft||readResult||historyPath)||req.method==='POST'&&(['/workspace/drafts','/workspace/approvals','/workspace/requests'].includes(url)||reviewPath||gradePath)))return false;
+  const revokeClient=/^\/workspace\/clients\/([a-f0-9-]{36})\/revoke$/.exec(url),clientManagement=url==='/workspace/clients'||!!revokeClient;
+  if(!(req.method==='GET'&&(url==='/workspace/config'||url==='/workspace/clients'||readDraft||readResult||historyPath)||req.method==='POST'&&(['/workspace/drafts','/workspace/approvals','/workspace/client-approvals','/workspace/requests','/workspace/clients'].includes(url)||revokeClient||reviewPath||gradePath)))return false;
   const reply=(status,value)=>{res.writeHead(status,headers);res.end(JSON.stringify(value));return true;};
   let origin;try{const host=req.headers.host,u=new URL('https://'+host);if(typeof host==='string'&&u.host===host&&!u.username&&!u.password&&u.pathname==='/'&&!u.search&&!u.hash)origin=u.origin;}catch{}
   if(!allowed.has(origin)||req.headers.origin!==undefined&&req.headers.origin!==origin||!['same-origin','none',undefined].includes(req.headers['sec-fetch-site'])||req.method==='POST'&&req.headers.origin!==origin)return reply(403,{error:'auth_failed'});
   try{
    const cookies=typeof req.headers.cookie==='string'&&req.headers.cookie.length<=4096?req.headers.cookie.split(';').map(x=>x.trim()).filter(x=>x.startsWith('__Host-PicardSession=')):[];
    const token=cookies.length===1?cookies[0].slice('__Host-PicardSession='.length):'';
-   if(!/^[A-Za-z0-9_-]{43}$/.test(token)||!await auth.authenticate(token))return reply(401,{error:'auth_failed'});
+   let client=null;
+   if(req.headers.authorization!==undefined){
+    // No credential mixing or fallback to an owner cookie on bearer failure.
+    if(cookies.length||typeof req.headers.authorization!=='string'||!req.headers.authorization.startsWith('Bearer '))return reply(401,{error:'auth_failed'});
+    client=store.authenticateWorkspaceClient(req.headers.authorization.slice(7),origin);
+    if(clientManagement||req.method==='POST'&&(!['/workspace/drafts','/workspace/requests'].includes(url)||client.mode!=='approved-work'))return reply(403,{error:'auth_failed'});
+   }else if(!/^[A-Za-z0-9_-]{43}$/.test(token)||!await auth.authenticate(token))return reply(401,{error:'auth_failed'});
+   if(req.method==='POST'&&(clientManagement||url==='/workspace/client-approvals')&&!await auth.authenticate(token,{fresh:true}))return reply(401,{error:'recent_owner_sign_in_required'});
    if(req.method==='GET'){
+    if(url==='/workspace/clients')return reply(200,{v:1,clients:store.listWorkspaceClients(origin)});
     if(historyPath){
      const query=new URL(url,'https://fixture.invalid').searchParams;
      if([...query.keys()].some(k=>k!=='cursor')||query.getAll('cursor').length>1||query.has('cursor')&&!/^[A-Za-z0-9_-]{1,256}$/.test(query.get('cursor')))stop('request_invalid');
@@ -92,6 +101,11 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
    if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(req.headers['content-type']??''))stop('request_invalid');
    let size=0;const chunks=[];for await(const part of req){const bytes=Buffer.from(part);size+=bytes.length;if(size>24576)stop('request_too_large');chunks.push(bytes);}
    let body;try{body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));}catch{stop('request_invalid');}
+   if(clientManagement){
+    if(revokeClient){if(!exact(body,[]))stop('request_invalid');return reply(200,{v:1,client:store.revokeWorkspaceClient(revokeClient[1],origin)});}
+    if(!exact(body,['label','mode','lifetimeMs']))stop('request_invalid');
+    return reply(201,{v:1,...store.createWorkspaceClient({origin,...body})});
+   }
    if(url==='/workspace/drafts'){
     policy();const d=await planWorkspaceDraft({body,binding,at:now(),grantId:randomUUID()});
     const saved=store.saveWorkspaceDraft(d);return reply(201,{v:1,draft:saved,registered:!!store.get(saved.payload.eventId),state:store.get(saved.payload.eventId)?.state??(saved.approval.expiresAt<=now()?'expired':'draft'),observedAt:new Date(now()).toISOString()});
@@ -104,19 +118,23 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
     if(!exact(body,['expectedRevision','score','note','resultSha256']))stop('request_invalid');
     await ownedResult(gradePath[1]);const grade=store.saveWorkspaceGrade({ref:gradePath[1],...body,reviewer:{kind:'owner'}});return reply(200,{v:1,grade});
    }
-   if(!exact(body,url==='/workspace/approvals'?['requestId']:['requestId','nonce','draftSha256','approve'])||!uuid.test(body.requestId??''))stop('request_invalid');
-   const d=draft(body.requestId),p=policy(),row=store.get(d.payload.eventId),sessionSha256=admissionHash(token);
+   const forClient=url==='/workspace/client-approvals';
+   if(!exact(body,forClient?['clientId','requestId','draftSha256']:url==='/workspace/approvals'?['requestId']:['requestId','nonce','draftSha256','approve'])||!uuid.test(body.requestId??''))stop('request_invalid');
+   const approvedClient=forClient?store.workspaceClient(body.clientId,origin):client;
+   if(forClient&&(approvedClient.mode!=='approved-work'||!uuid.test(body.clientId??'')))stop('approval_invalid');
+   const d=draft(body.requestId),p=policy(),row=store.get(d.payload.eventId),sessionSha256=approvedClient?.tokenSha256??admissionHash(token);
+   if(forClient&&body.draftSha256!==d.draftSha256)stop('approval_invalid');
    const identity={scope,sessionSha256,catalogueSha256:binding.configurationSha256,entryId:body.requestId,slotId:'workspace',inputSha256:d.draftSha256};
-   if(url==='/workspace/approvals'){
+   if(url==='/workspace/approvals'||forClient){
     if(row)return reply(200,{v:1,existing:true,ref:row.event_id,state:row.state});
     if(!ready())stop('admission_blocked');if(d.approval.expiresAt<=now())stop('approval_expired');
-    return reply(200,{v:1,ref:d.payload.eventId,draftSha256:d.draftSha256,...store.issue({...identity,catalogueExpiresAt:d.approval.expiresAt})});
+    return reply(200,{v:1,ref:d.payload.eventId,draftSha256:d.draftSha256,...(forClient?{clientId:approvedClient.id}:{}),...store.issue({...identity,catalogueExpiresAt:Math.min(d.approval.expiresAt,approvedClient?.expiresAt??Infinity)})});
    }
    if(body.approve!==true||body.draftSha256!==d.draftSha256)stop('approval_invalid');
-   const result=store.commitWorkspace({draft:d,proof:{...identity,nonce:body.nonce},currentAvailability,revalidate:()=>policy().catalogueSha256===p.catalogueSha256&&draft(body.requestId).draftSha256===d.draftSha256});
+   const result=store.commitWorkspace({draft:d,proof:{...identity,nonce:body.nonce},currentAvailability,authorize:()=>!client||store.workspaceClient(client.id,origin).tokenSha256===client.tokenSha256,revalidate:()=>policy().catalogueSha256===p.catalogueSha256&&draft(body.requestId).draftSha256===d.draftSha256});
    await afterCommit();return reply(result.duplicate?200:201,{v:1,...result});
   }catch(error){
-   const statuses={...failureStatuses,not_registered:404,draft_conflict:409,review_conflict:409,review_unavailable:409,review_invalid:503,grade_conflict:409,grade_unavailable:409,grade_invalid:503,queue_capacity:429,approval_capacity:429};
+   const statuses={...failureStatuses,not_registered:404,draft_conflict:409,review_conflict:409,review_unavailable:409,review_invalid:503,grade_conflict:409,grade_unavailable:409,grade_invalid:503,queue_capacity:429,approval_capacity:429,client_capacity:429};
    const code=Object.hasOwn(statuses,error?.code)?error.code:'workspace_unavailable';return reply(statuses[code]??503,{error:code,mayInvoke:false});
   }
  };

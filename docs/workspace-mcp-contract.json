@@ -10,11 +10,11 @@
   "methods": ["GET"],
   "routes": ["/workspace/config", "/workspace/history", "/workspace/drafts/<uuid-v4>", "/workspace/requests/<sha256-reference>"],
   "authentication": {
-    "windows": "existing origin-bound current-user DPAPI owner CLI session cache",
-    "posix": "explicit private current-user-owned regular session file",
+    "windows": "enrolled origin-bound current-user DPAPI tool cache preferred; existing owner CLI session fallback only when no tool cache exists",
+    "posix": "enrolled private tool cache preferred; explicit private current-user-owned regular session file overrides",
     "automaticLogin": false,
     "modelSuppliedCredentials": false,
-    "serverCredentialScope": "existing owner session; adapter enforces read-only routes"
+    "serverCredentialScope": "enrolled read mode is server-enforced; legacy owner session relies on adapter GET-only routes"
   },
   "limits": {
     "incomingFrameBytes": 16384,

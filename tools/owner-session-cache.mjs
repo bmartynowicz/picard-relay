@@ -9,8 +9,8 @@ export function validCachedSession(value,origin,now=Date.now()){
  return value?.v===1&&value.origin===origin&&cookiePattern.test(value.cookie??'')
   &&Number.isSafeInteger(value.expiresAt)&&value.expiresAt>now&&value.expiresAt<=now+28_800_000;
 }
-async function dpapi(action,data){
- const script=`$ErrorActionPreference='Stop'; try { Add-Type -AssemblyName System.Security; $r=[Console]::In.ReadToEnd()|ConvertFrom-Json; $b=[Convert]::FromBase64String($r.data); $e=[Text.Encoding]::UTF8.GetBytes('PicardRelay CLI owner session v1'); if($r.action -eq 'protect'){$v=[Security.Cryptography.ProtectedData]::Protect($b,$e,[Security.Cryptography.DataProtectionScope]::CurrentUser)} elseif($r.action -eq 'unprotect'){$v=[Security.Cryptography.ProtectedData]::Unprotect($b,$e,[Security.Cryptography.DataProtectionScope]::CurrentUser)} else {throw 'invalid action'}; [Console]::Out.Write([Convert]::ToBase64String($v)) } catch { [Console]::Error.Write('secure_session_storage_failed'); exit 1 }`;
+export async function dpapi(action,data,entropy='PicardRelay CLI owner session v1'){
+ const script=`$ErrorActionPreference='Stop'; try { Add-Type -AssemblyName System.Security; $r=[Console]::In.ReadToEnd()|ConvertFrom-Json; $b=[Convert]::FromBase64String($r.data); $e=[Text.Encoding]::UTF8.GetBytes($r.entropy); if($r.action -eq 'protect'){$v=[Security.Cryptography.ProtectedData]::Protect($b,$e,[Security.Cryptography.DataProtectionScope]::CurrentUser)} elseif($r.action -eq 'unprotect'){$v=[Security.Cryptography.ProtectedData]::Unprotect($b,$e,[Security.Cryptography.DataProtectionScope]::CurrentUser)} else {throw 'invalid action'}; [Console]::Out.Write([Convert]::ToBase64String($v)) } catch { [Console]::Error.Write('secure_session_storage_failed'); exit 1 }`;
  const executable=join(process.env.SystemRoot??'C:/Windows','System32/WindowsPowerShell/v1.0/powershell.exe');
  return await new Promise((resolve,reject)=>{
   const child=spawn(executable,['-NoProfile','-NonInteractive','-Command',script],{windowsHide:true,stdio:['pipe','pipe','pipe']});
@@ -21,7 +21,7 @@ async function dpapi(action,data){
    if(code!==0||size>32768||!/^[A-Za-z0-9+/]+=*$/.test(text))reject(Error('secure_session_storage_failed'));
    else resolve(Buffer.from(text,'base64'));
   });
-  child.stdin.on('error',()=>{});child.stdin.end(JSON.stringify({action,data:Buffer.from(data).toString('base64')}));
+  child.stdin.on('error',()=>{});child.stdin.end(JSON.stringify({action,entropy,data:Buffer.from(data).toString('base64')}));
  });
 }
 export function createOwnerSessionCache({directory=join(process.env.LOCALAPPDATA??join(homedir(),'AppData','Local'),'PicardRelay','OwnerCLI'),platform=process.platform,now=Date.now}={}){
