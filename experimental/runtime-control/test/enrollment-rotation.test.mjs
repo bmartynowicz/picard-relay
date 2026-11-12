@@ -82,6 +82,32 @@ test('host switch drains before activation, guards rollback and never probes the
  }
 });
 const fixture=async t=>{const f=await workspaceFixture();t.after(()=>f.close());return f;};
+
+test('active enrollment is only an authenticated allowlisted hash and health never registers work',async()=>{
+ const config={ownerId:'owner',allowedTaskId:'legacy',assistantId:'groq:openai/gpt-oss-20b',keyId:'fixture',secret:'SYNTHETIC_HEALTH_ONLY_12345678901234567890',admissionReusableBoardEnabled:true};
+ let id='a'.repeat(64),registered=0;
+ const adapter={kind:'groq-finite-admission',assistantId:config.assistantId,ready:true,reusableBoardEnabled:true,get activeEnrollmentId(){if(id==='throw')throw Error('PRIVATE_SECRET');return id;},registerSignedWork(){registered++;}};
+ const receiver=createReceiver({config,store:{consumeNonce:()=>true,scopedStats:()=>[]},assistantAdapter:adapter});
+ const denied=await receiver(new Request('https://fixture.invalid/bridge/v1',{method:'POST',headers:{'content-type':'application/json'},body:'{}'}));
+ assert.equal(denied.status,403);assert.doesNotMatch(await denied.text(),/activeEnrollmentId|aaaaaaaa/);
+ for(const value of ['a'.repeat(64),undefined,'PRIVATE_SECRET','throw']){id=value;const signed=await signRequest('https://fixture.invalid/bridge/v1',{v:1,action:'health',ownerId:config.ownerId},config),data=await verifyResponse(await receiver(signed.request),signed.nonce,config);assert.equal(data.activeEnrollmentId,value==='a'.repeat(64)?value:null);assert.doesNotMatch(JSON.stringify(data),/PRIVATE_SECRET/);}
+ assert.equal(registered,0);
+});
+
+test('signed health identifies the active enrollment after rotation without registering work',async t=>{
+ const f=await fixture(t),config={ownerId:f.binding.ownerId,allowedTaskId:f.binding.taskId,assistantId:f.binding.assistantId,keyId:'fixture',secret:'SYNTHETIC_HEALTH_ONLY_12345678901234567890',admissionReusableBoardEnabled:true};
+ async function health(){const handle=createReceiver({store:f.store.relay,config,assistantAdapter:f.router}),signed=await signRequest('https://fixture.invalid/bridge/v1',{v:1,action:'health',ownerId:config.ownerId},config);return verifyResponse(await handle(signed.request),signed.nonce,config);}
+ const original=f.binding.enrollmentId;
+ assert.equal((await health()).activeEnrollmentId,original);
+ assert.equal(f.calls,0);
+ await f.rotateEnrollment();
+ const rotated=f.binding.enrollmentId;
+ assert.notEqual(rotated,original);
+ assert.equal((await health()).activeEnrollmentId,rotated);
+ assert.equal(f.router.activeEnrollmentId,rotated);
+ assert.equal(f.calls,0);
+ assert.equal(f.store.relay.scopedStats({ownerId:config.ownerId,allowedTaskId:config.allowedTaskId}).reduce((sum,r)=>sum+r.count,0),0);
+});
 const complete=async f=>{const d=await f.prepare();await f.submit(d,await f.approve(d));assert.equal((await f.dispatcher.runOnce()).status,'completed');return d;};
 function mutate(f,fn){const db=new DatabaseSync(f.dbPath);try{fn(db);}finally{db.close();}}
 function snapshot(f){let result;mutate(f,db=>{result=canonical({jobs:db.prepare('SELECT * FROM relay_jobs ORDER BY event_id').all(),nonces:db.prepare('SELECT * FROM relay_nonces ORDER BY nonce').all()});});return result;}

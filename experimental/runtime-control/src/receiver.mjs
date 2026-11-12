@@ -38,9 +38,11 @@ export function createReceiver({store,config,assistantAdapter,canAccept=()=>true
    const ready=canAccept()&&assistantAdapter.ready===true&&assistantAdapter.assistantId===config.assistantId&&assistantAdapter.localTestOnly!==true&&!['synthetic-local-test-only','controlled-local-fixture-only'].includes(assistantAdapter.kind);
    let result;
    if(p.action==='health'&&Object.keys(p).length===3){
+    let activeEnrollmentId=null;
+    try{const value=assistantAdapter.activeEnrollmentId;if(config.admissionReusableBoardEnabled===true&&assistantAdapter.reusableBoardEnabled===true&&typeof value==='string'&&/^[a-f0-9]{64}$/.test(value))activeEnrollmentId=value;}catch{}
     let rows=null,health=null;try{rows=store.scopedStats({ownerId:p.ownerId,allowedTaskId:config.allowedTaskId});}catch{}
     try{health=runtimeHealth();}catch{}
-    result={ready,assistantId:config.assistantId,code:ready?'ready':'assistant_invocation_unavailable',...(config.admissionReusableBoardEnabled===true&&assistantAdapter.reusableBoardEnabled===true?{reusableBoard:true,approvedCompletionTokens:[512,4096]}:{}),diagnostics:healthDiagnostics({rows,runtimeHealth:health,providerReady:assistantAdapter.ready===true&&assistantAdapter.localTestOnly!==true&&!['synthetic-local-test-only','controlled-local-fixture-only'].includes(assistantAdapter.kind)&&assistantAdapter.assistantId===config.assistantId,accepting:ready})};
+    result={ready,assistantId:config.assistantId,code:ready?'ready':'assistant_invocation_unavailable',...(config.admissionReusableBoardEnabled===true&&assistantAdapter.reusableBoardEnabled===true?{reusableBoard:true,approvedCompletionTokens:[512,4096],activeEnrollmentId}:{}),diagnostics:healthDiagnostics({rows,runtimeHealth:health,providerReady:assistantAdapter.ready===true&&assistantAdapter.localTestOnly!==true&&!['synthetic-local-test-only','controlled-local-fixture-only'].includes(assistantAdapter.kind)&&assistantAdapter.assistantId===config.assistantId,accepting:ready})};
    }
    else if(p.action==='cancel'&&Object.keys(p).length===5&&typeof p.taskId==='string'&&p.taskId.length<=200&&typeof p.grantId==='string'&&p.grantId.length<=200){store.cancel(p.ownerId,p.taskId,p.grantId);result={state:'cancelled'};}
    else if(p.action==='result'&&Object.keys(p).length===6&&typeof p.taskId==='string'&&p.taskId.length>0&&p.taskId.length<=200&&typeof p.eventId==='string'&&/^[a-f0-9]{64}$/.test(p.eventId)&&typeof p.payloadHash==='string'&&/^[a-f0-9]{64}$/.test(p.payloadHash)){
