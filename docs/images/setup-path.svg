@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 180" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="180" viewBox="0 0 960 180" role="img" aria-labelledby="title desc">
 <title id="title">Your machine to your first saved answer</title>
 <desc id="desc">Four steps: prepare an existing Linux host and hostname; run guided setup with a verified Free key; create the owner sign-in over HTTPS; approve a request and keep its saved answer.</desc>
 <rect width="960" height="180" rx="12" fill="#0b1119"/>

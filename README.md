@@ -96,9 +96,9 @@ An uncertain outcome keeps its evidence and stops. Completed means an answer
 was saved, not that it is correct or that a change was accepted, merged or
 deployed. Saved-result recovery can remain available when new work is blocked.
 
-The runtime uses Node.js and SQLite without package dependencies. Production
-hosts need explicit Linux enrollment, HTTPS, provider setup and durable storage;
-there is no one-command production installer. Signed updates replace allowed
+The runtime uses Node.js and SQLite without package dependencies. The
+[guided setup candidate](docs/SETUP.md) prepares a fresh Linux host and workspace;
+existing hosts use their enrolled configuration. Signed updates replace allowed
 runtime source, while host setup, credentials and saved state stay separate.
 GitHub publishes releases; an enrolled host updater installs them.
 
@@ -110,14 +110,12 @@ rules. A CPU gauge does not measure available provider quota or budget.
 
 ## Current status and next work
 
-The latest recorded enrolled-host verification is **v1.0.59**, with independent
-tool access and saved-result recovery checked on November 12, 2026. The setup
-cleanup in [PR #123](https://github.com/bmartynowicz/picard-relay/pull/123) is
-merged and verified from main. Read [dated evidence](docs/STATUS.md) for the
-tested source and scope; each host has its own installed version.
+Read [dated evidence](docs/STATUS.md) for the tested source and verification
+scope. Each host has its own installed version; inspect System in your relay
+when you need its current identity.
 
-Unfinished areas include portable installation, a reusable task-board connector,
-less manual feedback submission, broader execution/provider support and the
+Unfinished areas include fresh-host installer qualification, a reusable
+task-board connector, broader execution/provider support and the
 physical voice badge. See [known work](docs/WORK-REGISTER.md) for the dated source
 snapshot. The owner's private board is the operational backlog and is not bundled.
 
