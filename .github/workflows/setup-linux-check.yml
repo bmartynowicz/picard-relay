@@ -28,3 +28,10 @@ jobs:
           npm run docs:check
       - name: Check pinned official binaries without installing services
         run: bash scripts/setup-linux.sh --check-assets
+      - name: Install on this disposable VM using synthetic credentials only
+        run: python3 test/fixtures/setup-linux-terminal.py
+      - name: Check real services and verified local HTTPS without calling AI
+        run: sudo -n --preserve-env=GITHUB_ACTIONS node test/fixtures/setup-linux-installed.mjs
+      - name: Stop only the fixture services
+        if: always()
+        run: sudo -n systemctl disable --now picard-relay.service picard-relay-web.service 2>/dev/null || true
