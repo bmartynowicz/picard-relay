@@ -17,6 +17,8 @@ Picard Relay accepts a narrowly approved AI request, records it durably, sends i
 
 **AI workspace access:** [Read-only workspace MCP](WORKSPACE-MCP.md) · [Machine-readable contract](workspace-mcp-contract.json)
 
+**Approved coding tasks:** [Independent tool access and request handoff](WORKSPACE-AGENT.md) · [Agent contract](workspace-agent-contract.json)
+
 **Owner CLI:** [Remember the Windows owner session securely](CLI-OWNER-SESSION.md)
 
 **Updating your relay?** [System update button and host connection](OWNER-UPDATES.md)

@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
-import {createHash,randomBytes} from 'node:crypto';
+import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {createRelayStore} from './relay-store.mjs';
 import {canonical} from './protocol.mjs';
 import {decodeInvocationError,encodeInvocationError} from './adapters.mjs';
@@ -209,9 +209,10 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
  function commitReusableBoard(options){return commitReusable({...options,source:'authenticated-reusable-board'});}
  function getReusableBoard(id){return getReusable(id,'authenticated-reusable-board');}
  function getWorkspaceWork(id){return workspaceEnabled===true?getReusable(id,'authenticated-owner-console'):null;}
- function commitWorkspace({draft,proof,currentAvailability,revalidate}){
+ function commitWorkspace({draft,proof,currentAvailability,revalidate,authorize=()=>true}){
   if(workspaceEnabled!==true)stop('production_admission_disabled');
   return commitReusable({payload:draft.payload,approval:draft.approval,currentAvailability,revalidate,source:'authenticated-owner-console',beforeInsert(p,old){
+   if(authorize()!==true)stop('auth_failed');
    const {row,record}=inspect(proof);
    if(proof.inputSha256!==draft.draftSha256||proof.entryId!==p.requestId||proof.slotId!=='workspace'||proof.catalogueSha256!==draft.configurationSha256)stop('approval_invalid');
    if(!old&&(record.used||record.expiresAt<=clock()))stop('approval_expired');
@@ -227,6 +228,45 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
  // New owner-console metadata uses a separate durable namespace. It neither
  // changes the schema nor rewrites any legacy grant, invocation or answer.
  const workspaceScope=()=>admissionHash(reusableBinding?.ownerId??'');
+ // Tool credentials live in their own bounded durable namespace. Only hashes
+ // are persisted; browser login/logout never changes these records.
+ const clientPrefix=()=>PREFIX+'workspace:'+workspaceScope()+':client:';
+ const clientId=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value);
+ function clientRecord(id){
+  if(workspaceEnabled!==true||!clientId(id))stop('auth_failed');
+  const rows=db.prepare('SELECT nonce,expires FROM relay_nonces WHERE nonce GLOB ? LIMIT 2').all(clientPrefix()+id+':*');
+  if(rows.length!==1||rows[0].expires!==ASSOCIATION_EXPIRY)stop('auth_failed');
+  const c=decode(rows[0]);
+  if(!exact(c,['v','id','ownerId','origin','label','mode','tokenSha256','createdAt','expiresAt','lastSeenAt','revokedAt'])||c.v!==1||c.id!==id||c.ownerId!==reusableBinding?.ownerId||typeof c.label!=='string'||c.label.length<1||c.label.length>80||!['read','approved-work'].includes(c.mode)||!hex(c.tokenSha256)||![c.createdAt,c.expiresAt,c.lastSeenAt].every(integer)||c.expiresAt<=c.createdAt||c.expiresAt-c.createdAt>2592000000||c.lastSeenAt<c.createdAt||!(c.revokedAt===null||integer(c.revokedAt)))stop('auth_failed');
+  try{if(new URL(c.origin).origin!==c.origin||!c.origin.startsWith('https://'))stop('auth_failed');}catch{stop('auth_failed');}
+  return {row:rows[0],record:c};
+ }
+ const publicClient=c=>{const {tokenSha256,ownerId,...metadata}=c;return metadata;};
+ function replaceClient(row,c){db.prepare('UPDATE relay_nonces SET nonce=? WHERE nonce=?').run(clientPrefix()+c.id+':'+Buffer.from(canonical(c)).toString('base64url'),row.nonce);}
+ function listWorkspaceClients(origin){
+  if(workspaceEnabled!==true)stop('production_admission_disabled');
+  const rows=db.prepare('SELECT nonce FROM relay_nonces WHERE nonce GLOB ? LIMIT 65').all(clientPrefix()+'*');
+  if(rows.length>64)stop('client_capacity');
+  return rows.map(row=>clientRecord(row.nonce.slice(clientPrefix().length,clientPrefix().length+36)).record).filter(c=>c.origin===origin).map(publicClient);
+ }
+ function createWorkspaceClient({origin,label,mode,lifetimeMs}){
+  if(workspaceEnabled!==true||typeof label!=='string'||!label.trim()||label.trim()!==label||label.length>80||/[\x00-\x1f\x7f]/.test(label)||!['read','approved-work'].includes(mode)||!integer(lifetimeMs)||lifetimeMs<60000||lifetimeMs>2592000000)stop('request_invalid');
+  try{if(new URL(origin).origin!==origin||!origin.startsWith('https://'))stop('request_invalid');}catch{stop('request_invalid');}
+  return transaction(()=>{
+   if(db.prepare('SELECT COUNT(*) AS n FROM relay_nonces WHERE nonce GLOB ?').get(clientPrefix()+'*').n>=64)stop('client_capacity');
+   const at=clock(),id=randomUUID(),token='pwt_'+id+'.'+randomBytes(32).toString('base64url');
+   const record={v:1,id,ownerId:reusableBinding.ownerId,origin,label,mode,tokenSha256:admissionHash(token),createdAt:at,expiresAt:at+lifetimeMs,lastSeenAt:at,revokedAt:null};
+   db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(clientPrefix()+id+':'+Buffer.from(canonical(record)).toString('base64url'),ASSOCIATION_EXPIRY);
+   return {client:publicClient(record),token};
+  });
+ }
+ function workspaceClient(id,origin){const {record:c}=clientRecord(id),at=clock();if(c.origin!==origin||c.revokedAt!==null||at<c.lastSeenAt||at>=c.expiresAt)stop('auth_failed');return c;}
+ function authenticateWorkspaceClient(token,origin){
+  if(typeof token!=='string'||!/^pwt_[a-f0-9-]{36}\.[A-Za-z0-9_-]{43}$/.test(token))stop('auth_failed');
+  return transaction(()=>{const id=token.slice(4,40),c=workspaceClient(id,origin);if(admissionHash(token)!==c.tokenSha256)stop('auth_failed');
+   const {row}=clientRecord(id),updated={...c,lastSeenAt:clock()};replaceClient(row,updated);return updated;});
+ }
+ function revokeWorkspaceClient(id,origin){return transaction(()=>{const {row,record:c}=clientRecord(id);if(c.origin!==origin||clock()<c.lastSeenAt)stop('auth_failed');const updated={...c,revokedAt:c.revokedAt??clock()};replaceClient(row,updated);return publicClient(updated);});}
  const draftPrefix=id=>PREFIX+'workspace:'+workspaceScope()+':draft:'+id+':';
  function getWorkspaceDraft(requestId){
   if(workspaceEnabled!==true||typeof requestId!=='string'||!/^[a-f0-9-]{36}$/.test(requestId))return null;
@@ -445,7 +485,7 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
    if(changed.changes!==1)return null;const claimed=get(row.event_id);return {...claimed,request_id:claimed.event_id};
   });
  }
- return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,readHistoricalWork,commitWorkspace,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,workspaceReviewedRefs,workspaceProgressVersion,saveWorkspaceReview,workspaceGrade,saveWorkspaceGrade,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,pendingGrantAssociated,reconcileEligible,claimEligible,
+ return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,readHistoricalWork,commitWorkspace,createWorkspaceClient,listWorkspaceClients,workspaceClient,authenticateWorkspaceClient,revokeWorkspaceClient,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,workspaceReviewedRefs,workspaceProgressVersion,saveWorkspaceReview,workspaceGrade,saveWorkspaceGrade,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,pendingGrantAssociated,reconcileEligible,claimEligible,
   close(){db.close();if(!relayStore)relay.close();},
  });
 }

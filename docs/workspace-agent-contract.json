@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "capability": "scoped-owner-approved-workspace-mcp",
+  "entrypoint": "tools/workspace-agent-mcp.mjs",
+  "managementEntrypoint": "tools/workspace-access.mjs",
+  "guide": "docs/WORKSPACE-AGENT.md",
+  "transport": "local-stdio",
+  "protocolVersion": "2025-06-18",
+  "tools": ["workspace_status", "workspace_list", "workspace_get", "workspace_prepare", "workspace_submit"],
+  "authentication": {
+    "credential": "opaque origin-bound owner-scoped tool token; hash only on server",
+    "modes": ["read", "approved-work"],
+    "defaultLifetimeDays": 7,
+    "maximumLifetimeDays": 30,
+    "maximumRetainedClients": 64,
+    "windowsStorage": "current-user DPAPI in stable user profile ToolAccess cache",
+    "posixStorage": "owned 0700 directory and 0600 regular single-link file",
+    "browserSessionIndependent": true,
+    "automaticLogin": false,
+    "automaticRenewal": false,
+    "ownerCredentialFallback": false,
+    "modelSuppliedLongLivedCredentials": false
+  },
+  "ownerOnlyRoutes": ["GET /workspace/clients", "POST /workspace/clients", "POST /workspace/clients/<uuid-v4>/revoke", "POST /workspace/client-approvals"],
+  "clientWriteRoutes": ["POST /workspace/drafts", "POST /workspace/requests"],
+  "approval": {
+    "requiresRecentOwnerSession": true,
+    "maximumLifetimeMs": 60000,
+    "bindings": ["owner", "origin", "client-token-hash", "request-id", "draft-hash", "configuration-hash", "expiry"],
+    "atomicConsumptionWithRequest": true,
+    "revocationCheckedAtCommit": true,
+    "alreadyCommittedWorkCancelledByRevocation": false
+  },
+  "limits": {
+    "incomingFrameBytes": 16384,
+    "httpResponseBytes": 1048576,
+    "httpDeadlineMs": 10000,
+    "maxProviderCalls": 1,
+    "maxOutputTokens": 4096,
+    "automaticRetries": 0,
+    "paidFallback": false,
+    "newDependencies": 0,
+    "newListeners": 0
+  },
+  "recovery": "read original request identity; never resubmit automatically or recreate an uncertain request",
+  "notImplemented": ["owner approval tool", "review writes", "grading writes", "arbitrary execution", "other providers", "remote MCP endpoint", "automatic credential refresh", "owner browser settings UI"]
+}
