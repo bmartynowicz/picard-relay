@@ -3,10 +3,17 @@ import os
 import pty
 import select
 import signal
+import subprocess
 import time
 
 if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_OS") != "Linux":
     raise SystemExit("This fixture is only for a disposable GitHub Linux runner.")
+
+# GitHub deliberately makes /opt writable for runner tools. Restore the normal
+# root-owned fresh-host parent in this disposable VM, never in the installer.
+subprocess.run(["sudo", "-n", "stat", "-c", "%u:%g %a %n", "/", "/opt", "/etc", "/etc/systemd", "/etc/systemd/system", "/var", "/var/lib"], check=True)
+subprocess.run(["sudo", "-n", "chown", "root:root", "/opt"], check=True)
+subprocess.run(["sudo", "-n", "chmod", "0755", "/opt"], check=True)
 
 pid, fd = pty.fork()
 if pid == 0:
