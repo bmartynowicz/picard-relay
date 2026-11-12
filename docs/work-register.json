@@ -189,9 +189,22 @@
       "id": "PR-FTR-002",
       "kind": "feature",
       "title": "Portable host onboarding and installation",
-      "status": "planned",
+      "status": "source_candidate",
       "currentLimit": "Manual advanced host enrollment; no general one-command installer or cross-platform qualification.",
-      "next": "Design and qualify clean-host installation without weakening state, signature or ownership checks."
+      "next": "Design and qualify clean-host installation without weakening state, signature or ownership checks.",
+      "behavior": "Guided fresh-host setup creates protected runtime/configuration, owner bootstrap and reusable Free workspace on an existing Linux host; no provider call or cloud provisioning.",
+      "sourceFiles": [
+        "scripts/setup-linux.sh",
+        "scripts/setup-linux.mjs",
+        "scripts/setup-linux-core.mjs",
+        "docs/SETUP.md"
+      ],
+      "tests": [
+        "test/setup-linux.test.mjs",
+        "test/fixtures/setup-linux-lifecycle.mjs",
+        "test/fixtures/setup-linux-owner-use.mjs"
+      ],
+      "remaining": "Full fresh-machine systemd and public-HTTPS acceptance, additional architectures/distributions and updater/key-replacement enrollment remain separate. Existing installs are refused; production state is untouched."
     },
     {
       "id": "PR-FTR-003",

@@ -45,6 +45,16 @@
       "requiresProvider": false,
       "opensListener": false,
       "liveCloudExecutionEnabled": false
+    },
+    {
+      "kind": "guided_fresh_host_setup",
+      "command": "sudo bash scripts/setup-linux.sh",
+      "guide": "docs/SETUP.md",
+      "freshHostOnly": true,
+      "providerCallsDuringSetup": 0,
+      "requiresOwnerVerifiedFreeProject": true,
+      "updaterEnrolled": false,
+      "qualification": "candidate; full fresh-host systemd/public HTTPS acceptance separate"
     }
   ],
   "runtime": {
@@ -236,6 +246,7 @@
     "npm run docs:check"
   ],
   "guides": [
+    "docs/SETUP.md",
     "docs/WORKSPACE-AGENT.md",
     "docs/WORKSPACE-MCP.md",
     "docs/CLI-OWNER-SESSION.md",
@@ -298,6 +309,10 @@
       "path": "docs/images/workflows.svg",
       "textEquivalent": "README.md",
       "purpose": "Distinguish an exact approved AI proposal from a fixed enrolled project-check job and its receipt"
+    },
+    {
+      "path": "docs/images/setup-path.svg",
+      "textEquivalent": "docs/SETUP.md"
     }
   ],
   "unsupported": [

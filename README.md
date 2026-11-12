@@ -10,18 +10,20 @@ sending it once, then reopen its saved answer whenever you need it.
 
 <a id="choose-your-starting-point"></a>
 
-## Run your first useful request
+## Get started
 
-**[Start here: turn a rough note into a checklist →](docs/QUICKSTART.md)**
+**New to Picard? [Set up your relay →](docs/SETUP.md)**
 
-You need your relay's HTTPS address, owner sign-in and a ready Free Groq
-workspace. The guide takes you from **New request** to a saved checklist you can
-copy and use. You approve the call yourself; Picard does not carry out the list.
+The guided setup prepares an existing Linux machine, installs the runtime and
+HTTPS, and helps you connect your Groq Free project. It makes no AI call during
+setup. You create your owner sign-in in the browser, then send your first task.
 
-**No relay yet?** A production installer is still missing. An operator must
-[set up a Linux host](docs/QUICKSTART.md#before-you-start) first. The optional
-[local demo](#try-it-locally) lets you explore with synthetic answers; it does
-not connect a real model.
+Already have a relay? **[Turn a rough note into a saved checklist →](docs/QUICKSTART.md)**
+
+The setup candidate targets fresh Ubuntu 22.04/24.04 or Oracle Linux 9 hosts
+with a public hostname. It refuses existing installs; updater and key-replacement
+host support remain separate. See the guide's [qualification and limits](docs/SETUP.md#qualification-and-limits).
+Want to explore first? The [local demo](#try-it-locally) needs no provider key.
 
 [![Curved cockpit with projected activity and a floating saved-result control](docs/images/cockpit-curved-preview.jpg)](docs/COCKPIT-TOUR.md)
 

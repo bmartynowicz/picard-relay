@@ -7,23 +7,20 @@ sending another model request. This is the real-request path on your own relay.
 
 ## Before you start
 
+**New relay? [Start with guided setup](SETUP.md).** It takes you from an existing
+Linux machine to your owner sign-in and an enabled Free workspace. Return here
+when your relay opens in the browser.
+
 Have these ready:
 
-- Your relay's **HTTPS address** and **owner sign-in**, supplied by whoever set
-  up your host. Picard does not provide a shared hosted account.
+- Your relay's **HTTPS address** and **owner sign-in**. Picard runs on your
+  machine; it does not provide a shared hosted account.
 - An enabled request workspace and a configured **Groq Free** key/enrollment.
   Your operator completes [provider setup](DEPLOYMENT.md#configuration-and-credentials)
   and [workspace activation](V1.md#activation-and-limits); signing in alone
   does not enroll either one.
 - **Ready for new work** in Overview. If blocked, read the reason in Groq before
   approving anything. Existing saved answers can remain readable.
-
-**Don't have a relay?** Stop here for operator setup. Picard does not yet have
-a one-command production installer. An operator must configure a Linux host,
-Node.js 24, persistent storage, HTTPS, owner authentication and the explicitly
-enrolled Free provider/workspace. Follow [the installation boundary](OPERATIONS.md#installation-boundary)
-and [manual host setup](DEPLOYMENT.md). Cloning this repository or running the
-demo does not complete that setup. Keep passwords and API keys out of chat.
 
 Already set up? Use your own relay address and continue below.
 

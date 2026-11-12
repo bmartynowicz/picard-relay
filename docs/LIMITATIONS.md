@@ -21,7 +21,7 @@ This page describes the current source contract. Installation-specific settings 
 | Cockpit | Visible layout switch, optional SVG starfield, projected counts and expanding reading decks | The browser remembers display preferences locally. Pause and reduced motion apply to animations. Refresh reads data. Browser reload loads a changed interface. |
 | Updates | Signed source publication and separately enrolled Linux host updater | GitHub Actions does not deploy. The runtime bundle has 20 allowed modules; host support, Node, configuration and state are outside it. |
 | Cost | Retained Free-policy enrollment, recorded workflow usage and estimated rolling Codex savings; no paid fallback | No live billing/quota verification or monetary guarantee. Rolling savings needs complete comparable records; provider tokens are separate from Codex credit estimates. |
-| Portability | Offline preview and Linux-qualified signed runtime | No general production installer, bundled production Board app or cross-platform host qualification. |
+| Portability | Offline preview, Linux-qualified signed runtime and [fresh-host setup candidate](SETUP.md) | Full fresh-host/systemd/public-TLS acceptance remains separate; no existing-install migration, bundled Board or cross-platform host qualification. Setup does not enroll updater/key replacement. |
 
 The console's reviewed-correction note is deliberately specific to one immutable historical proposal. It is not a general review editor or automatic validation of every answer. It never rewrites the original generated response.
 
