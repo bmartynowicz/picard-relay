@@ -27,11 +27,14 @@ const usage = `Usage:
   node tools/workspace-request.mjs result --origin HTTPS_ORIGIN --ref REQUEST_ID_OR_REF [--wait-ms 30000]
 
   node tools/workspace-request.mjs login --origin HTTPS_ORIGIN
+  node tools/workspace-request.mjs login --origin HTTPS_ORIGIN --fresh
   node tools/workspace-request.mjs forget-session --origin HTTPS_ORIGIN
 
 Windows securely remembers the owner session with current-user DPAPI until
 the server expires or revokes it (at most 8 hours). The password is never saved.
 Live commands reuse a valid saved session before prompting without echo.
+Use login --fresh for a new password check before owner-only tool management.
+It replaces the active owner session only after successful sign-in.
 For workflow accounting, append --comparison ID --usage-settings PRIVATE_SETTINGS.json
 to submit/result. This links the saved request, including later Picard fixes,
 without another provider invocation. Keep these metadata files private.
@@ -153,9 +156,10 @@ export async function openWorkspace(origin, password, {fetchImpl = fetch,session
   return async (...args) => (await request(...args)).data;
 }
 
-export async function connectWorkspace(origin,{fetchImpl=fetch,cache=createOwnerSessionCache(),passwordPrompt=()=>ownerPassword(false,origin),onNotice=message=>process.stderr.write(message+'\n')}={}){
+export async function connectWorkspace(origin,{fetchImpl=fetch,cache=createOwnerSessionCache(),passwordPrompt=()=>ownerPassword(false,origin),onNotice=message=>process.stderr.write(message+'\n'),fresh=false}={}){
   origin=exactHttpsOrigin(origin);
-  const saved=await cache.read(origin);
+  requireThat(typeof fresh==='boolean','usage');
+  const saved=fresh?null:await cache.read(origin);
   if(validCachedSession(saved,origin)){
     try{
       const request=await openWorkspace(origin,undefined,{fetchImpl,sessionCookie:saved.cookie});
@@ -296,7 +300,7 @@ async function main(args = process.argv.slice(2)) {
     prepare: {input: {type: 'string'}, out: {type: 'string'}},
     submit: {...live, file: {type: 'string'}, approve: {type: 'boolean'}},
     result: {...live, ref: {type: 'string'}},
-    login: {...live},
+    login: {...live, fresh:{type:'boolean'}},
     'forget-session': {origin:{type:'string'}},
   };
   requireThat(Object.hasOwn(options, command));
@@ -317,7 +321,7 @@ async function main(args = process.argv.slice(2)) {
   }
   if(command==='login'){
     const origin=exactHttpsOrigin(values.origin);
-    await connectWorkspace(origin,{passwordPrompt:()=>ownerPassword(values['password-stdin'],origin)});
+    await connectWorkspace(origin,{fresh:values.fresh===true,passwordPrompt:()=>ownerPassword(values['password-stdin'],origin)});
     console.log(JSON.stringify({state:'signed_in',origin}));return;
   }
   requireThat(values.origin && (command === 'submit'

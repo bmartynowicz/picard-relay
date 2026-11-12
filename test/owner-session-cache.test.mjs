@@ -15,6 +15,42 @@ test('valid session is checked with GET and reused without prompting or another 
  await request('/workspace/config');assert.equal(prompts,0);assert.equal(cache.writes.length,0);
  assert.deepEqual(calls,[['/workspace/config','GET'],['/workspace/config','GET']]);
 });
+
+test('explicit fresh sign-in skips the saved session and performs exactly one password check',async()=>{
+ const saved=valid(),cache=memory(saved);let prompts=0,reads=0;const calls=[];
+ cache.read=async()=>{reads++;return cache.value;};
+ const replacement='__Host-PicardSession='+'B'.repeat(43);
+ const request=await connectWorkspace(origin,{fresh:true,cache,onNotice:()=>{},passwordPrompt:async()=>{prompts++;return 'synthetic fresh password';},fetchImpl:async(url,options)=>{
+  calls.push([new URL(url).pathname,options.method]);
+  if(new URL(url).pathname==='/auth/login'){
+   assert.equal(options.headers.Cookie,undefined);assert.equal(JSON.parse(options.body).password,'synthetic fresh password');
+   return Response.json({ok:true},{headers:{'Set-Cookie':replacement+'; Secure; HttpOnly; Max-Age=28800; Path=/'}});
+  }
+  assert.equal(options.headers.Cookie,replacement);return Response.json({ready:true});
+ }});
+ assert.equal(reads,0);assert.equal(prompts,1);assert.equal(cache.clears,0);assert.equal(cache.writes.length,1);
+ assert.equal(cache.value.cookie,replacement);assert(!JSON.stringify(cache.value).includes('synthetic fresh password'));
+ assert.deepEqual(calls,[['/auth/login','POST']]);await request('/workspace/config');
+ assert.deepEqual(calls,[['/auth/login','POST'],['/workspace/config','GET']]);
+});
+
+test('cancelled, rejected or interrupted fresh sign-in preserves the existing cache and never retries',async()=>{
+ for(const mode of ['cancelled','rejected','offline']){
+  const saved=valid(),cache=memory(saved);let requests=0,prompts=0;
+  await assert.rejects(connectWorkspace(origin,{fresh:true,cache,onNotice:()=>{},passwordPrompt:async()=>{prompts++;if(mode==='cancelled')throw Error('cancelled');return 'dummy';},fetchImpl:async(url,options)=>{
+   requests++;assert.equal(new URL(url).pathname,'/auth/login');assert.equal(options.headers.Cookie,undefined);
+   if(mode==='offline')throw Error('offline');return Response.json({error:'auth_failed'},{status:401});
+  }}),mode==='cancelled'?/cancelled/:mode==='offline'?{code:'response_unconfirmed'}:{code:'auth_failed'});
+  assert.equal(prompts,1);assert.equal(requests,mode==='cancelled'?0:1);assert.equal(cache.value,saved);assert.equal(cache.writes.length,0);assert.equal(cache.clears,0);
+ }
+});
+
+test('fresh sign-in validates its origin and flag before requesting a password',async()=>{
+ let prompts=0;const passwordPrompt=async()=>{prompts++;return 'dummy';};
+ await assert.rejects(connectWorkspace('http://picard.example',{fresh:true,passwordPrompt}),{code:'invalid_origin'});
+ await assert.rejects(connectWorkspace(origin,{fresh:'true',passwordPrompt}),{code:'usage'});
+ assert.equal(prompts,0);
+});
 test('revoked session prompts once and remembers only a bounded session, never the password',async()=>{
  const cache=memory(valid());let prompts=0;const paths=[];
  await connectWorkspace(origin,{cache,onNotice:()=>{},passwordPrompt:async()=>{prompts++;return 'synthetic password';},fetchImpl:async(url,options)=>{

@@ -73,6 +73,13 @@ The public source feed may briefly serve a cached previous envelope after GitHub
 
 ## Routine read-only checks
 
+For enrolled coding tools, signed runtime installation and host HTTPS routing
+are separate. Follow [the workspace proxy upgrade steps](WORKSPACE-AGENT.md#upgrade-an-existing-https-proxy)
+for the fixed client-management routes and bearer-header preservation. A recent
+owner sign-in for enrollment/approval is available through
+`workspace-request.mjs login --origin HTTPS_ORIGIN --fresh`; it is never renewed
+automatically by the MCP process.
+
 On the conventional enrolled host, inspect fixed unit metadata:
 
 ```sh

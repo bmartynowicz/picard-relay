@@ -3,9 +3,45 @@
 relay.example.com {
     @read {
         method GET
-        path / /auth/state /status /jobs /updates /groq/key /workspace/config /workspace/history /request-catalogue
+        path / /auth/state /status /jobs /updates /groq/key /request-catalogue
     }
     handle @read {
+        reverse_proxy 127.0.0.1:8787
+    }
+    # Workspace handlers must preserve Authorization for enrolled tool access.
+    # Do not copy header_up -Authorization into these proxy blocks.
+    @workspaceRead {
+        method GET
+        path /workspace/config /workspace/history /workspace/clients
+    }
+    handle @workspaceRead {
+        reverse_proxy 127.0.0.1:8787
+    }
+    @workspaceResult {
+        method GET
+        path_regexp workspaceResult ^/workspace/(drafts/[a-f0-9-]{36}|requests/[a-f0-9]{64})$
+    }
+    handle @workspaceResult {
+        reverse_proxy 127.0.0.1:8787
+    }
+    @workspaceWrite {
+        method POST
+        path /workspace/drafts /workspace/approvals /workspace/requests /workspace/clients /workspace/client-approvals
+    }
+    handle @workspaceWrite {
+        request_body {
+            max_size 24KB
+        }
+        reverse_proxy 127.0.0.1:8787
+    }
+    @workspaceRecord {
+        method POST
+        path_regexp workspaceRecord ^/workspace/((reviews|grades)/[a-f0-9]{64}|clients/[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}/revoke)$
+    }
+    handle @workspaceRecord {
+        request_body {
+            max_size 24KB
+        }
         reverse_proxy 127.0.0.1:8787
     }
     @groqkey {
@@ -30,26 +66,16 @@ relay.example.com {
     }
     @result {
         method GET
-        path_regexp results ^/(workspace/(drafts/[a-f0-9-]{36}|requests/[a-f0-9]{64})|requests/[a-f0-9]{64})$
+        path_regexp results ^/requests/[a-f0-9]{64}$
     }
     handle @result {
         reverse_proxy 127.0.0.1:8787
     }
     @write {
         method POST
-        path /auth/setup /auth/login /auth/logout /updates /workspace/drafts /workspace/approvals /workspace/requests /request-approvals /requests /bridge/v1
+        path /auth/setup /auth/login /auth/logout /updates /request-approvals /requests /bridge/v1
     }
     handle @write {
-        request_body {
-            max_size 24KB
-        }
-        reverse_proxy 127.0.0.1:8787
-    }
-    @review {
-        method POST
-        path_regexp review ^/workspace/(reviews|grades)/[a-f0-9]{64}$
-    }
-    handle @review {
         request_body {
             max_size 24KB
         }
