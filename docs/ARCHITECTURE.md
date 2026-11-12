@@ -24,13 +24,20 @@ The arrows describe logical responsibilities. The finite-admission path and the 
 | --- | --- |
 | HTTPS proxy | Trusted TLS and routing to a loopback listener. It does not grant provider authority. |
 | Owner session | Permits private console reads and the supported owner approval flow. It is not arbitrary task execution authority. |
+| Scoped tool token | Independent owner/origin-bound access for reads, or opt-in draft preparation and approved submission. It cannot manage clients, approve work or write reviews/grades. |
 | Signed bridge | Authenticates transport, exact payload identity, time and nonce. The server still validates request scope and availability. |
 | Finite catalogue | Fixes owner/task/model, exact input/context hash, request/grant identities, slots and expiry. |
 | Approval proof | Binds the authenticated owner session to one enrolled entry, slot and input hash. |
+| Client-bound approval | A recent owner session issues a one-use nonce for one client token hash, exact workspace draft/configuration and expiry. Consumption is atomic with request registration. |
 | Retained cost enrollment | Binds the allowed Free-policy account/project/key/model evidence. This is configuration evidence, not a current billing check. |
 | Durable marker and invocation state | Consume one-shot authority before external I/O and prevent an uncertain outcome from being replayed. |
 
 The current provider is Groq `openai/gpt-oss-20b`. There is no automatic provider/model substitution, paid fallback, tool use or execution of generated commands.
+
+The separate [compute broker](../experimental/compute-broker/README.md) routes
+fixed approved operations such as exact-source project checks. It has its own
+provider enrollment, finite authority and saved receipt. An AI proposal is not
+an execution request, and a workspace credential grants no broker authority.
 
 ## States and recovery
 

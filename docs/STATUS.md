@@ -1,8 +1,64 @@
 # Verification status
 
-Last documentation review: **November 8, 2026 UTC**. This page separates a reusable source contract from one enrolled host's dated observations. Read [Limitations](LIMITATIONS.md) and [known work](WORK-REGISTER.md) alongside it.
+Last documentation review: **November 12, 2026**. This page separates current
+source, an enrolled host's dated observations and historical recordings.
+Read [Limitations](LIMITATIONS.md) and [known work](WORK-REGISTER.md) alongside it.
 
-## Latest recorded host release — v1.0.34 flight instruments
+## Latest recorded host verification — v1.0.59
+
+On November 12, the enrolled host was independently checked on **v1.0.59 /
+sequence 59001**, source `c62bab159f72c698c58347a60a2cfbe42d5a53b9`, physical
+release `31db816a0e8374d89a7d579ccacde5ceb2859fc6dd08d8ecd56c9eb3ac2905b6`.
+All 20 installed files matched the signed manifest. Service and saved-result
+recovery were ready; SELinux remained Enforcing. See
+[PR #120](https://github.com/bmartynowicz/picard-relay/pull/120) and its
+[signing workflow](https://github.com/bmartynowicz/picard-relay/actions/runs/43227403811).
+
+The scoped tool adapter completed one exact owner-approved request over real
+stdio MCP and verified HTTPS. A fresh tool process recovered that answer and
+an older saved answer with unchanged hashes. Historical jobs and invocation
+markers were preserved. The tool credential could not manage clients or
+approve its own work. Generated output was not executed or accepted
+automatically; measured provider tokens did not establish a billed-dollar value.
+
+Independent tool credentials, owner-only management and exact client-bound
+approval are therefore implemented and live-qualified on this host. This is
+not an always-on public MCP service, arbitrary-code executor, universal
+provider router or claim about every installation. Other hosts need explicit
+enrollment and the fixed proxy routes described in [the setup guide](WORKSPACE-AGENT.md).
+
+## Setup cleanup — merged and checked from main
+
+[PR #123](https://github.com/bmartynowicz/picard-relay/pull/123) merged at
+`3aea7f727761677896a9b086efc837bd12dce3a7` on November 12. It adds explicit
+`login --fresh`, correct workspace proxy routes and an existing-host upgrade
+checklist. The clean main checkout passed owner/CLI tests normally and jitless,
+workspace/proxy checks, CLI help and documentation validation.
+
+Its complete Git tree equals source `71c7c41215b6aa74759e85cc851fe2937410011c`,
+which passed all seven repository groups through the
+[Picard coordinator](https://github.com/bmartynowicz/picard-relay/actions/runs/43239807331)
+and [protected worker](https://github.com/bmartynowicz/picard-relay/actions/runs/43239906420).
+Saved receipt recovery was verified, with zero uploads and execution retries.
+Native Caddy v2.11.7 adapted the committed template into four fixed workspace
+handlers without changing the installed configuration or proxy process.
+No additional provider request, owner sign-in or runtime deployment was needed.
+
+## Later cockpit and onboarding checks
+
+The first-run walkthrough and rank guide shipped in
+[PR #75](https://github.com/bmartynowicz/picard-relay/pull/75), with replay from
+Settings and retained rank progress. The curved HUD, persistent view choices,
+translucent folding panels and dismissible saved-result readout are in current
+source. [PR #100](https://github.com/bmartynowicz/picard-relay/pull/100) shipped
+v1.0.56 short-phone reading improvements, checked on November 11 at portrait,
+short-height and landscape sizes with old-result recovery.
+
+These dated checks do not replace testing on a user's own device. The hero
+image in the overview is explicitly a synthetic local preview. The v1.0.33
+recording remains an earlier walkthrough; it is not relabeled as current footage.
+
+## Historical flight-instrument baseline — v1.0.34
 
 On November 6, 2026, the enrolled host installed **v1.0.34 / sequence 34001**
 after [PR #38](https://github.com/bmartynowicz/picard-relay/pull/38). Source:

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" role="img" aria-labelledby="title desc">
+  <title id="title">Two ways Picard can help</title>
+  <desc id="desc">For AI proposals: write a brief, approve its exact input, make one Groq call, then review the saved answer. For fixed project checks: pin a public commit, approve a fixed job, run the enrolled CI worker, then verify its receipt. Saved results are read without repeating execution.</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#d7bf80"/></marker></defs>
+  <style>text{font-family:system-ui,-apple-system,Segoe UI,sans-serif;fill:#edf0e9}.title{font-size:27px;font-weight:650}.label{font-size:19px;font-weight:650}.small{font-size:16px;fill:#bcc9cc}.tag{font-size:14px;letter-spacing:1.8px;fill:#e7cc89}.node{fill:#1b272c;stroke:#607780;stroke-width:1.3}.approve{fill:#332d1d;stroke:#d7bf80;stroke-width:1.6}.line{fill:none;stroke:#d7bf80;stroke-width:2;marker-end:url(#arrow)}</style>
+  <rect width="960" height="460" rx="16" fill="#10191e"/>
+  <text x="36" y="48" class="title">Two ways Picard can help</text>
+  <text x="36" y="78" class="small">Choose the workflow. Keep its approval and result.</text>
+  <text x="36" y="113" class="tag">AI PROPOSAL</text>
+  <rect x="36" y="130" width="195" height="94" rx="10" class="node"/>
+  <rect x="267" y="130" width="195" height="94" rx="10" class="approve"/>
+  <rect x="498" y="130" width="195" height="94" rx="10" class="node"/>
+  <rect x="729" y="130" width="195" height="94" rx="10" class="node"/>
+  <text x="54" y="162" class="label">Write a brief</text><text x="54" y="193" class="small">A bounded request</text>
+  <text x="285" y="162" class="label">Exact approval</text><text x="285" y="193" class="small">Owner-approved input</text>
+  <text x="516" y="162" class="label">One Groq call</text><text x="516" y="193" class="small">Text or code proposal</text>
+  <text x="747" y="162" class="label">Saved answer</text><text x="747" y="193" class="small">Review and reopen</text>
+  <path d="M235 177H259M466 177H490M697 177H721" class="line"/>
+  <text x="36" y="254" class="tag">FIXED PROJECT CHECK</text>
+  <rect x="36" y="271" width="195" height="94" rx="10" class="node"/>
+  <rect x="267" y="271" width="195" height="94" rx="10" class="approve"/>
+  <rect x="498" y="271" width="195" height="94" rx="10" class="node"/>
+  <rect x="729" y="271" width="195" height="94" rx="10" class="node"/>
+  <text x="54" y="303" class="label">Pinned commit</text><text x="54" y="334" class="small">Exact public source</text>
+  <text x="285" y="303" class="label">Approved job</text><text x="285" y="334" class="small">Scope + allowance</text>
+  <text x="516" y="303" class="label">CI worker</text><text x="516" y="334" class="small">Fixed test plan</text>
+  <text x="747" y="303" class="label">Verified receipt</text><text x="747" y="334" class="small">Source + check results</text>
+  <path d="M235 318H259M466 318H490M697 318H721" class="line"/>
+  <path d="M36 397H924" stroke="#50656b"/>
+  <text x="36" y="429" class="small">Read saved results without repeating work. Generated code is not executed.</text>
+</svg>

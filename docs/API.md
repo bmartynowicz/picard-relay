@@ -4,6 +4,14 @@ These interfaces belong to the signed-runtime source under `experimental/runtime
 
 ## Browser console routes
 
+For workspace MCP credentials and owner-only client management, follow
+[the scoped-tool guide](WORKSPACE-AGENT.md) and
+[machine-readable agent contract](workspace-agent-contract.json). Those routes
+accept an enrolled bearer credential with fixed permissions; console-only
+routes still require the owner session. Do not mix bearer and owner-cookie
+credentials. The [proxy example](../deploy/Caddyfile.workspace.example) keeps
+workspace paths explicit and preserves their authentication headers.
+
 | Method and path | Authentication / purpose |
 | --- | --- |
 | `GET /` | Public shell; private content is read only after sign-in. |
@@ -84,12 +92,12 @@ Source references: [console and service](../experimental/runtime-control/src/ora
 
 ## V1 owner workspace routes
 
-These routes exist only with explicit workspace activation, on the existing exact HTTPS-origin and owner-session boundary. No owner, provider, marker path or grant may be supplied by the browser. All POST bodies reject unknown fields. The [structured contract](workspace-contract.json) gives limits and field schemas.
+These routes require explicit workspace activation. The owner console uses the exact HTTPS-origin and owner-session boundary. Enrolled tools may read workspace data; approved-work tools may also prepare drafts and submit an owner-approved request. Approval, review and grading remain owner-only. Client-bound tool approval uses the separate owner-only `/workspace/client-approvals` route. No owner, provider, marker path or grant may be supplied by a client. All POST bodies reject unknown fields. The [workspace contract](workspace-contract.json) gives limits and field schemas; the [agent contract](workspace-agent-contract.json) defines tool permissions and approval bindings.
 
 | Method and path | Purpose / exact body |
 | --- | --- |
 | GET /workspace/config | Typed readiness, fixed provider/model, limits, unknown usage/billing and setup checks. |
-| GET /workspace/history?cursor=... | Owner-only named job metadata, at most 25 rows; only the returned cursor is accepted. |
+| GET /workspace/history?cursor=... | Owner-scoped named job metadata, at most 25 rows; only the returned cursor is accepted. |
 | POST /workspace/drafts | Inert durable draft: {requestId,taskId,title,requestText,context,purpose}. requestId is UUIDv4; taskId may be empty. |
 | GET /workspace/drafts/<requestId> | Recover the original draft and its recorded state. |
 | POST /workspace/approvals | {requestId}; issues a 60-second session-bound proof for the immutable draft. |

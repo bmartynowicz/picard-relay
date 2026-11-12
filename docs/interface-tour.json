@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-11",
+  "updatedAt": "2026-11-12",
   "title": "Your relay. Your cockpit.",
   "summary": "Optional space cockpit for bounded AI work: readiness and activity remain visible while task-specific reading decks open on demand.",
   "textEquivalent": "docs/COCKPIT-TOUR.md",
@@ -200,8 +200,8 @@
   "knownWork": [
     {
       "id": "PR-BUG-006",
-      "state": "source_candidate",
-      "summary": "Curved instruments group layout, Stealth, stars and motion. Layout, stars and windshield readout dismissal are remembered in the browser."
+      "state": "verified_on_deployment",
+      "summary": "Curved controls, persistent display choices, panel handoffs and readout dismissal shipped; short-phone reading was checked on v1.0.56. The source recording above remains v1.0.33."
     }
   ],
   "relatedGuides": [
@@ -214,8 +214,8 @@
     "docs/FLIGHT-INSTRUMENTS.md"
   ],
   "suggestedCaption": "Your relay. Your cockpit. Follow AI work at a glance, open the details when you need them, and come back to the saved answer.",
-  "behaviorSourceCommit": "075d15b080dec941cf976663c431fbea2daa6631",
-  "behaviorSourceReviewDate": "2026-11-08",
+  "behaviorSourceCommit": "3aea7f727761677896a9b086efc837bd12dce3a7",
+  "behaviorSourceReviewDate": "2026-11-12",
   "recordedRenderingContract": {
     "starCount": 128,
     "svgPlanes": 2,
@@ -231,5 +231,12 @@
     "reducedMotion": "static scene",
     "mediaBundledInSignedRuntime": false,
     "performanceBenchmark": false
+  },
+  "currentLayoutPreview": {
+    "path": "docs/images/cockpit-curved-preview.jpg",
+    "bytes": 54379,
+    "sha256": "5818508ad5ab913ce324333a1d401f34cef0b5095d139b63d4f89f993d3b0d2b",
+    "syntheticPreview": true,
+    "scope": "Existing curved-layout source preview, reviewed against current controls; not a new installed-host capture."
   }
 }
