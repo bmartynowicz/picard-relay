@@ -54,7 +54,7 @@
       "providerCallsDuringSetup": 0,
       "requiresOwnerVerifiedFreeProject": true,
       "updaterEnrolled": false,
-      "qualification": "candidate; full fresh-host systemd/public HTTPS acceptance separate"
+      "qualification": "Actual Ubuntu 24.04 x86-64 wizard, systemd and verified local-CA HTTPS passed in disposable CI (43307474518); public ACME, real key and other target platforms separate"
     }
   ],
   "runtime": {

@@ -202,9 +202,11 @@
       "tests": [
         "test/setup-linux.test.mjs",
         "test/fixtures/setup-linux-lifecycle.mjs",
-        "test/fixtures/setup-linux-owner-use.mjs"
+        "test/fixtures/setup-linux-owner-use.mjs",
+        "test/fixtures/setup-linux-terminal.py",
+        "test/fixtures/setup-linux-installed.mjs"
       ],
-      "remaining": "Full fresh-machine systemd and public-HTTPS acceptance, additional architectures/distributions and updater/key-replacement enrollment remain separate. Existing installs are refused; production state is untouched."
+      "remaining": "Actual Ubuntu 24.04 x86-64 wizard/services/local-CA TLS passed in disposable CI 43307474518 with zero model requests. Public ACME, real-key and other-platform acceptance plus updater/key-replacement enrollment remain separate. Existing installs are refused; production state is untouched."
     },
     {
       "id": "PR-FTR-003",

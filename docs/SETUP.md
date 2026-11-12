@@ -108,11 +108,21 @@ This is a **fresh-host setup candidate**, separate from the already deployed
 relay. Its generated configuration is checked against the production validators.
 The Linux fixture uses real ownership and file modes, runs as an unprivileged
 service UID, and exercises first sign-in, exact approval, one synthetic answer
-and saved-result recovery after restart. That fixture does not obtain a public
-certificate, install host services, prove a real Free key, or qualify every
-distribution/architecture. Full fresh-machine/systemd/HTTPS acceptance remains a
-separate target check; do not describe this candidate as a universally qualified
-installer.
+and saved-result recovery after restart.
+
+The [actual-installer check](https://github.com/bmartynowicz/picard-relay/actions/runs/43307474518)
+also passed on a disposable **Ubuntu 24.04 x86-64 VM**: the real private-terminal
+wizard completed, its key stayed hidden, both systemd services started, and an
+HTTPS client verified the local test certificate before creating the owner and
+reading workspace readiness. No model request or consumed marker was created;
+a rerun changed no saved state. CI's writable `/opt` parent was first restored
+to normal root-owned `0755` in that disposable VM; the installer itself continues
+to refuse an unsafe parent.
+
+The CI-only hostname uses a local CA explicitly trusted by that fixture client.
+This does not qualify public DNS/ACME certificate issuance, a real Groq key,
+Oracle Linux 9, Ubuntu 22.04 or ARM64. Those target checks remain separate;
+do not describe this candidate as a universally qualified installer.
 
 The first version installs reviewed source. It does **not** enroll the signed
 host updater, the **Update** button, or the **Replace key** host socket. Runtime

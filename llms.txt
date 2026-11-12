@@ -16,7 +16,7 @@
 - [Project map](docs/project-map.json): machine-readable paths, limits and source-versus-host identity.
 - [Workspace contract](docs/workspace-contract.json): routes, schemas, bounds and saved state.
 - [Work register](docs/work-register.json): sanitized dated bugs/features, separate from the private operational board.
-- [Status](docs/STATUS.md): latest recorded enrolled-host verification v1.0.59, November 12, 2026; merged setup cleanup in PR123. Do not infer another host's installed version.
+- [Status](docs/STATUS.md): dated source/host evidence. Inspect physical installed identity for the current host; never infer it from a source merge or an older snapshot.
 - [Limitations](docs/LIMITATIONS.md): supported features and explicit gaps.
 
 ## Authority and cost
