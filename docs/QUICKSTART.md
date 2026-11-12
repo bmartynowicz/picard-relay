@@ -16,9 +16,9 @@ Have these ready:
 - Your relay's **HTTPS address** and **owner sign-in**. Picard runs on your
   machine; it does not provide a shared hosted account.
 - An enabled request workspace and a configured **Groq Free** key/enrollment.
-  Your operator completes [provider setup](DEPLOYMENT.md#configuration-and-credentials)
-  and [workspace activation](V1.md#activation-and-limits); signing in alone
-  does not enroll either one.
+  Guided setup configures these together. For an existing manual installation,
+  use [provider setup](DEPLOYMENT.md#configuration-and-credentials) and
+  [workspace activation](V1.md#activation-and-limits).
 - **Ready for new work** in Overview. If blocked, read the reason in Groq before
   approving anything. Existing saved answers can remain readable.
 

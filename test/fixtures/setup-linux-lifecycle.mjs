@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {buildSetup,setupPaths,assertFresh,writePrivateSetup} from '../../scripts/setup-linux-core.mjs';
+import {buildSetup,setupPaths,assertFresh,writePrivateSetup,serviceUnits} from '../../scripts/setup-linux-core.mjs';
 
 assert.equal(process.platform,'linux');assert.equal(process.getuid(),0);
 const directory=fs.mkdtempSync('/run/picard-setup-qualification-');fs.chmodSync(directory,0o755);
@@ -30,6 +30,16 @@ try{
  for(const file of [...allowed.map(v=>'experimental/runtime-control/'+v),'test/fixtures/setup-linux-owner-use.mjs']){
   const target=codeRoot+'/'+file;fs.mkdirSync(path.dirname(target),{recursive:true,mode:0o755});fs.writeFileSync(target,fs.readFileSync(source+'/'+file),{mode:0o444});
  }
+ fs.mkdirSync(paths.code+'/bin',{recursive:true,mode:0o755});
+ fs.copyFileSync(process.execPath,paths.code+'/bin/node');fs.chmodSync(paths.code+'/bin/node',0o555);
+ // Only a syntax fixture: no web process is started and no certificate requested.
+ fs.writeFileSync(paths.code+'/bin/caddy','#!/bin/sh\nexit 0\n',{mode:0o555});
+ const units=serviceUnits(paths);
+ fs.writeFileSync(paths.units+'/picard-relay.service',units.relay);fs.writeFileSync(paths.units+'/picard-relay-web.service',units.web);
+ const verified=spawnSync('/usr/bin/systemd-analyze',['verify',paths.units+'/picard-relay.service',paths.units+'/picard-relay-web.service'],{encoding:'utf8',timeout:10000,maxBuffer:65536});
+ assert.equal(verified.status,0,verified.stderr);
+ const denied=spawnSync(process.execPath,['--input-type=module','-e','import fs from "node:fs";try{fs.readFileSync(process.argv[1]);process.exit(1);}catch(e){if(e.code!=="EACCES")throw e;}',plan.env.GROQ_API_KEY_FILE],{uid:65533,gid:65533,encoding:'utf8',timeout:5000});
+ assert.equal(denied.status,0,denied.stderr);
  const r=spawnSync(process.execPath,[codeRoot+'/test/fixtures/setup-linux-owner-use.mjs',input],{uid:65534,gid:65534,encoding:'utf8',timeout:40000,maxBuffer:65536});
  assert.equal(r.status,0,r.stdout+'\n'+r.stderr);assert.match(r.stdout,/first_use_and_restart_passed/);
  for(const f of plan.privateFiles){const s=fs.lstatSync(f.file);assert.equal(s.mode&0o777,f.mode);assert.equal(s.nlink,1);assert.equal(s.uid,f.owner==='relay'?65534:0);}
