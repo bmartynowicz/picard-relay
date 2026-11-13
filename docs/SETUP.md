@@ -159,7 +159,7 @@ rollback regressions are separate from that result.
 
 The CI-only hostname uses a local CA explicitly trusted by that fixture client.
 This does not qualify public DNS/ACME certificate issuance, a real Groq key,
-native Oracle VM/SELinux operation or Ubuntu 22.04. Oracle containers are not
+native Oracle Cloud deployment or Ubuntu 22.04. Oracle containers are not
 Oracle cloud machines. See the PR's exact source and results before relying on a
 platform check; do not describe this as a universally qualified installer.
 

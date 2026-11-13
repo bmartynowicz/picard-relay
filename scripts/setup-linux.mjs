@@ -72,7 +72,7 @@ export async function main(args=process.argv.slice(2)){
  console.log('Verifying the official signing tool and the fixed signed Picard release.');
  const signed=await prepareSignedSetup(root);
  try{
- console.log('\nSet up Picard on this machine\nThe installer creates the relay and HTTPS services, protected owner sign-in and Free workspace.\nUpdate and Replace key are connected. Signed updates are checked every five minutes and on request.\nNo cloud machine, firewall change or AI call is made.\n');
+ console.log('\nSet up Picard on this machine\nThe installer creates the relay and HTTPS services, protected owner sign-in and Free workspace.\nUpdate and Replace key are connected. Signed updates are checked every five minutes and on request.\nOracle Linux installs standard SELinux labeling tools if needed.\nNo cloud machine, firewall change or AI call is made.\n');
  const answers={hostname:await question('Relay hostname (for example picard.example.com): '),
   networkConfirmed:await question('Does that hostname point here, with TCP 80 and 443 allowed? Type yes: ')==='yes',
   freeConfirmed:await question('In Groq Console, is this project on the Free plan with no paid fallback? Type yes: ')==='yes',

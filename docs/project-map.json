@@ -54,7 +54,7 @@
       "providerCallsDuringSetup": 0,
       "requiresOwnerVerifiedFreeProject": true,
       "updaterEnrolled": true,
-      "qualification": "Installer source 940b1246584ec87a8e92112165da68a4470da7d0 passed actual wizard/systemd/local-CA HTTPS/Update/key replacement and old/new synthetic answers on Ubuntu 24.04 x64/ARM64 VMs and Oracle Linux 9 x64/ARM64 systemd containers (43337985805). Public ACME, real key, Ubuntu 22.04 and native Oracle SELinux installation remain separate.",
+      "qualification": "Initial four-target installer checks passed in43338760813. Native Oracle Linux9.8 KVM, own UEK kernel,1GB RAM and SELinux Enforcing passed with the labeling/readiness fix in PR143 (43474455372); separate native OCI/public ACME/real-key acceptance remains installation-specific.",
       "keyReplacementEnrolled": true,
       "signedRuntime": true
     }

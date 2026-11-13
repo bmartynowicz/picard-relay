@@ -190,8 +190,8 @@
       "kind": "feature",
       "title": "Portable host onboarding and installation",
       "status": "source_candidate",
-      "currentLimit": "Fresh-host-only signed setup extension in PR141; target qualification is tracked separately from public ACME, real keys and native Oracle SELinux.",
-      "next": "Review PR141 and separately qualify native fresh Oracle SELinux/public ACME/real-key acceptance; do not reinstall the existing relay.",
+      "currentLimit": "Fresh-host only; native Oracle Linux executable labeling and readiness correction is in PR143.",
+      "next": "Review the native Oracle setup correction and its qualification; keep OCI control-plane/public ACME/real-key acceptance installation-specific.",
       "behavior": "Guided fresh-host setup verifies the signed runtime and enrolls protected Update and Replace key support, owner bootstrap and a reusable Free workspace; no provider call or cloud provisioning.",
       "sourceFiles": [
         "scripts/setup-linux.sh",
@@ -199,7 +199,8 @@
         "scripts/setup-linux-core.mjs",
         "docs/SETUP.md",
         "scripts/setup-linux-trust.mjs",
-        "scripts/setup-linux-host.mjs"
+        "scripts/setup-linux-host.mjs",
+        "scripts/setup-linux-selinux.mjs"
       ],
       "tests": [
         "test/setup-linux.test.mjs",
@@ -209,9 +210,10 @@
         "test/fixtures/setup-linux-installed.mjs",
         "test/setup-linux-trust.test.mjs",
         "test/fixtures/setup-linux-seed.mjs",
-        "test/fixtures/setup-linux-oracle.Dockerfile"
+        "test/fixtures/setup-linux-oracle.Dockerfile",
+        "test/fixtures/oracle-native-vm.py"
       ],
-      "remaining": "Source 940b124 passed actual Ubuntu 24.04 x64/ARM64 VM and Oracle Linux 9 x64/ARM64 systemd-container wizard, signed release, Update up-to-date, protected key replacement and old/new synthetic-answer checks in 43337985805. Zero external model calls. Public ACME, real keys, Ubuntu 22.04 and native Oracle SELinux installation remain separate; existing relays are refused and untouched."
+      "remaining": "Native Oracle Linux9.8 KVM with an Oracle UEK kernel,1GB RAM and Enforcing SELinux passed the complete synthetic maintenance/saved-result fixture in43474455372. Initial four-target checks remain recorded separately. Native OCI deployment, public ACME and real-key acceptance are host-specific; existing installs are refused."
     },
     {
       "id": "PR-FTR-003",
