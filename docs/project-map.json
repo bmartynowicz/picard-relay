@@ -53,8 +53,10 @@
       "freshHostOnly": true,
       "providerCallsDuringSetup": 0,
       "requiresOwnerVerifiedFreeProject": true,
-      "updaterEnrolled": false,
-      "qualification": "Actual Ubuntu 24.04 x86-64 wizard, systemd and verified local-CA HTTPS passed in disposable CI (43307474518); public ACME, real key and other target platforms separate"
+      "updaterEnrolled": true,
+      "qualification": "Signed setup extension in PR141; actual Ubuntu x64/ARM64 and Oracle Linux 9 systemd-container checks are separate from native Oracle SELinux, public ACME and real-key acceptance",
+      "keyReplacementEnrolled": true,
+      "signedRuntime": true
     }
   ],
   "runtime": {

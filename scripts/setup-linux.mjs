@@ -38,7 +38,9 @@ export async function main(args=process.argv.slice(2)){
  check(/\n?ID=(?:ubuntu|"?ol"?)\n/.test(os)&&(/VERSION_ID="(?:22\.04|24\.04)"/.test(os)||/\n?ID="?ol"?\n/.test(os)&&/VERSION_ID="9(?:\.[0-9]+)?"/.test(os)),'supported_host_required');
  const paths=setupPaths();assertFresh(paths);
  for(const name of new Set([...SETUP_UNITS,'picard-relay.service','picard-updater.service','picard-update-fetch.service','picard-owner-update.service','picard-updater-activity.service','picard-groq-replacement@.service'])){
-  const r=spawnSync('/usr/bin/systemctl',['show','--property=LoadState','--value',name],{encoding:'utf8',timeout:5000});
+  // systemd cannot show a bare template: probe a never-started instance so an
+  // existing template is still detected without creating or starting a unit.
+  const r=spawnSync('/usr/bin/systemctl',['show','--property=LoadState','--value',name.replace('@.service','@setup-probe.service')],{encoding:'utf8',timeout:5000});
   check([0,1,4].includes(r.status)&&r.stdout.trim()==='not-found','existing_service_refused');
  }
  for(const name of [RELAY_USER,'picard-relay-web','picard-relay'])accountAbsent(name);

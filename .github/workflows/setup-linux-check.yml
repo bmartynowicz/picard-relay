@@ -73,5 +73,5 @@ jobs:
       - name: Preserve bounded Oracle failure diagnostics and remove only its fixture
         if: ${{ always() && matrix.oracle }}
         run: |
-          docker exec picard-oracle-setup journalctl --no-pager -n 60 -u board-event-relay.service -u picard-groq-replacement@* -u picard-updater.service || true
+          docker exec picard-oracle-setup journalctl --no-pager -n 60 -u board-event-relay.service -u 'picard-groq-replacement@*' -u picard-updater.service || true
           docker rm -f picard-oracle-setup || true
