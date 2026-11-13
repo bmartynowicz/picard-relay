@@ -1,0 +1,49 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,readFile,readdir,rm,writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createHash} from 'node:crypto';
+import {buildLanding} from '../examples/landing/build-static.mjs';
+import {relayAddress} from '../examples/landing/setup-flow.mjs';
+
+test('public landing contains only browser files and works under a repository subpath',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'picard-public-landing-'));
+ try{
+  const sourceSha='a'.repeat(40),result=await buildLanding({outputDir:dir,sourceSha});
+  assert.deepEqual((await readdir(dir)).sort(),['.nojekyll','build.json','console.css','index.html','landing.css','landing.js','mark.svg','setup-flow.js'].sort());
+  const html=await readFile(join(dir,'index.html'),'utf8');
+  assert.ok(!html.includes('<!-- PICARD_'));assert.ok(!html.includes('Local setup concept'));
+  assert.ok(html.includes('Your server. Your workspace.'));
+  assert.ok(html.includes('connect-src \'none\''));assert.ok(html.includes('name="referrer" content="no-referrer"'));
+  const base='https://example.github.io/picard-relay/';
+  for(const asset of ['mark.svg','console.css','landing.css','landing.js']){
+   assert.ok(html.includes('"./'+asset+'"'));
+   assert.equal(new URL('./'+asset,base).pathname,'/picard-relay/'+asset);
+  }
+  assert.ok((await readFile(join(dir,'landing.js'),'utf8')).includes("from './setup-flow.js'"));
+  assert.ok((await readFile(join(dir,'landing.css'),'utf8')).includes("url('./mark.svg')"));
+  const manifest=JSON.parse(await readFile(join(dir,'build.json'),'utf8'));
+  assert.equal(manifest.sourceSha,sourceSha);
+  for(const [name,evidence] of Object.entries(manifest.files)){
+   const bytes=await readFile(join(dir,name));assert.equal(bytes.length,evidence.bytes);
+   assert.equal(createHash('sha256').update(bytes).digest('hex'),evidence.sha256);
+  }
+  assert.ok(result.totalBytes<100000);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('publication refuses to overwrite existing output or accept a false source identity',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'picard-public-landing-'));
+ try{
+  await writeFile(join(dir,'keep.txt'),'preserve');
+  await assert.rejects(buildLanding({outputDir:dir}),/landing_output_not_empty/);
+  assert.equal(await readFile(join(dir,'keep.txt'),'utf8'),'preserve');
+  await assert.rejects(buildLanding({outputDir:dir,sourceSha:'main'}),/landing_source_sha/);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('public relay entry only navigates to a plain HTTPS origin',()=>{
+ assert.equal(relayAddress(' https://relay.example '),'https://relay.example/#overview');
+ for(const address of ['http://relay.example','https://owner:secret@relay.example','https://relay.example/private','https://relay.example/?key=secret','https://relay.example/#secret','javascript:alert(1)','bad address'])assert.throws(()=>relayAddress(address));
+});

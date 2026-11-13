@@ -1,6 +1,6 @@
-# Picard setup cockpit concept
+# Picard setup cockpit
 
-A local-only first visit to Picard, using the actual console's 3D insignia,
+A first visit to Picard, using the actual console's 3D insignia,
 starfield, navigation materials, curved HUD and translucent reading panels.
 Setup replaces operational instruments until the visitor has a relay of their own.
 
@@ -39,8 +39,31 @@ motion uses the static state; without JavaScript the setup guide remains availab
   `console-parts.json` are rebuilt after upstream console changes.
 - The loopback preview server serves six exact public asset paths and GET/HEAD
   only, with no directory browsing, relay endpoints or external connections.
-- This is a reviewable onboarding concept, not a hosted site or finished cloud
-  provisioning service. Actual server setup still uses the existing reviewed
-  installer and the user's own Oracle/hosting account.
-- Public URL/hosting and whether to embed this welcome mode in a future signed
-  runtime remain decisions for Brian. No production site or working relay changes.
+- Actual server setup still uses the existing reviewed installer and the user's
+  own Oracle/hosting account. This page does not provision cloud resources.
+- Embedding this welcome mode in a future signed runtime remains separate work.
+  Publishing the static site does not update a working relay.
+
+## Public V1 on GitHub Pages
+
+The public site uses GitHub Pages for this public repository, separate from any
+relay VM. It needs no running server, provider key, dependency installation or
+paid service. The dedicated `gh-pages` branch contains only built public assets;
+the repository's source, docs, runtime and private operator files are excluded.
+
+Build an empty output directory from the merged source, passing its exact SHA:
+
+```sh
+npm run test:landing
+npm run build:landing -- dist/landing FULL_MERGED_SOURCE_SHA
+```
+
+The builder composes the existing mark/starfield, makes assets relative for
+`/picard-relay/`, uses `.js` for the small navigation module, removes the local
+preview label, and adds static CSP/referrer policies. `build.json` records the
+source SHA and SHA-256 of every public payload. It refuses nonempty output.
+
+Publish only that directory to the dedicated Pages branch and configure Pages
+to serve its root. `.nojekyll` preserves the built files. Verify the HTTPS page,
+all asset types/hashes, setup panels, reduced motion and entry into an existing
+relay after each publication. A source merge does not itself update the site.
