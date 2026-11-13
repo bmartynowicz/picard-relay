@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import net from 'node:net';
+import {labelFreshSetupExecutables} from './setup-linux-selinux.mjs';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {createInterface} from 'node:readline/promises';
@@ -8,6 +9,7 @@ import {Writable} from 'node:stream';
 import {setupPaths,assertFresh,validateAnswers,buildSetup,writePrivateSetup,serviceUnits,hash,NODE_VERSION,CADDY_VERSION} from './setup-linux-core.mjs';
 import {prepareSignedSetup} from './setup-linux-trust.mjs';
 import {RELAY_USER,SETUP_UNITS,installInitialRelease,installHostSupport} from './setup-linux-host.mjs';
+import {checkHealth} from '../experimental/updater/fixed-service-adapter.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 function check(ok,code){if(!ok)throw Error(code);}
@@ -27,6 +29,23 @@ function mkdir(dir,uid,gid,mode){fs.mkdirSync(dir,{mode});fs.chownSync(dir,uid,g
 function exclusive(file,body,mode){fs.writeFileSync(file,body,{flag:'wx',mode});fs.chmodSync(file,mode);}
 function accountAbsent(name){const r=spawnSync('/usr/bin/getent',['passwd',name],{timeout:5000});check(r.status===2,'existing_account_refused');const g=spawnSync('/usr/bin/getent',['group',name],{timeout:5000});check(g.status===2,'existing_group_refused');}
 function checkedInput(file,max){const s=fs.lstatSync(file);check(s.isFile()&&s.nlink===1&&s.size>0&&s.size<=max&&!s.isSymbolicLink(),'invalid_setup_input');return fs.readFileSync(file);}
+async function healthyInstalledRuntime(paths,release){
+ const deadline=Date.now()+20000;
+ while(Date.now()<deadline){
+  try{
+   const pid=Number(command('/usr/bin/systemctl',['show','board-event-relay.service','--property=MainPID','--value']));
+   const h=await new Promise((resolve,reject)=>{const socket=net.createConnection(paths.state+'/control.sock');let raw='';
+    socket.setTimeout(1000,()=>socket.destroy(Error('startup_health_timeout')));socket.on('error',reject);
+    socket.on('connect',()=>socket.write('{"v":1,"action":"health"}\n'));
+    socket.on('data',b=>{raw+=b.toString('utf8');if(raw.length>4096){socket.destroy(Error('startup_health_oversize'));return;}if(raw.includes('\n')){socket.destroy();try{resolve(JSON.parse(raw.trim()));}catch(e){reject(e);}}});
+    socket.on('end',()=>reject(Error('startup_health_incomplete')));
+   });
+   if(checkHealth(h,{release,pid}))return;
+  }catch{}
+  await new Promise(resolve=>setTimeout(resolve,500));
+ }
+ throw Error('installed_runtime_not_ready');
+}
 export async function main(args=process.argv.slice(2)){
  if(args.includes('--help')){console.log('Fresh Linux setup: sudo bash scripts/setup-linux.sh\nRequires an existing systemd Linux host, a hostname pointing to it, inbound TCP 80/443, and an owner-verified Groq Free key. Existing installs are refused. No provider call is made.');return;}
  check(args.length===2,'use_setup_linux_sh');
@@ -78,6 +97,7 @@ export async function main(args=process.argv.slice(2)){
   installInitialRelease(paths,signed);
   const plan=buildSetup(answers,{paths});answers.apiKey='';writePrivateSetup(plan,{uid,gid});
   installHostSupport({paths,checkout:root,signed,uid,gid});
+  const selinux=labelFreshSetupExecutables(paths);
   const template=fs.readFileSync(path.join(root,'deploy/Caddyfile.workspace.example'),'utf8');
   check(template.includes('relay.example.com {')&&!template.includes('admin off'),'proxy_template_invalid');
   exclusive(paths.code+'/Caddyfile','{\n    admin off\n}\n'+template.replace('relay.example.com {',plan.origin.slice(8)+' {'),0o444);
@@ -88,8 +108,9 @@ export async function main(args=process.argv.slice(2)){
   command('/usr/bin/systemctl',['daemon-reload']);started=true;
   command('/usr/bin/systemctl',['enable','--now',...SETUP_UNITS]);
   for(const unit of SETUP_UNITS)check(command('/usr/bin/systemctl',['is-active',unit])==='active','service_not_active');
+  await healthyInstalledRuntime(paths,signed.release);
   command('/usr/bin/systemctl',['start','picard-updater-activity.service']);
-  exclusive(paths.code+'/installation.json',JSON.stringify({v:1,kind:'signed-source-install',installedAt:new Date().toISOString(),node:NODE_VERSION,caddy:CADDY_VERSION,version:signed.manifest.version,releaseHash:signed.release,sourceCommit:signed.manifest.sourceCommit,updaterEnrolled:true,keyReplacementEnrolled:true,trustSha256:signed.trustSha256,files:signed.files.map(({path:file,bytes})=>({file,sha256:hash(bytes)}))},null,2)+'\n',0o444);
+  exclusive(paths.code+'/installation.json',JSON.stringify({v:1,kind:'signed-source-install',installedAt:new Date().toISOString(),node:NODE_VERSION,caddy:CADDY_VERSION,version:signed.manifest.version,releaseHash:signed.release,sourceCommit:signed.manifest.sourceCommit,updaterEnrolled:true,keyReplacementEnrolled:true,selinux,trustSha256:signed.trustSha256,files:signed.files.map(({path:file,bytes})=>({file,sha256:hash(bytes)}))},null,2)+'\n',0o444);
   fs.unlinkSync(paths.code+'/INSTALL-INCOMPLETE');
   console.log(`\nInstalled. Open ${plan.origin} to create your owner sign-in.\nYour one-hour setup code is in ${paths.config}/first-sign-in.txt.\nRead it privately with: sudo cat ${paths.config}/first-sign-in.txt\nThen choose New request. Update and Replace key are connected.\nGuide: https://github.com/bmartynowicz/picard-relay/blob/main/docs/SETUP.md\n`);
   try{const r=await fetch(plan.origin+'/auth/state',{redirect:'error',signal:AbortSignal.timeout(15000)});check(r.status===200,'https_not_ready');await r.body?.cancel();console.log('Public HTTPS responds. No AI request was sent.');}
