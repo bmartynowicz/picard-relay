@@ -77,3 +77,5 @@ test('actual loopback composition authenticates Requests and commits one fixed j
   assert.deepEqual(f.store.relay.stats().map(r=>({...r})),[{state:'queued',count:1}]);
  }finally{await service.shutdown();}
 });
+
+test('measurement activation is explicit and bound into the admission configuration digest',()=>{const config={ownerId:'owner',allowedTaskId:'task',assistantId:'groq:openai/gpt-oss-20b',keyId:'fixture',consoleOrigins:['https://fixture.invalid']},args={config,enrollmentId:'a'.repeat(64),keySha256:'b'.repeat(64),markerDirectory:'/fixture'};const old=admissionConfigurationDigest(args);assert.equal(admissionConfigurationDigest({...args,config:{...config,admissionMeasurementRunsEnabled:false}}),old);assert.notEqual(admissionConfigurationDigest({...args,config:{...config,admissionMeasurementRunsEnabled:true}}),old);});

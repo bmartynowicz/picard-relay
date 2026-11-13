@@ -37,3 +37,13 @@ export async function verifyRequest(request,c,consumeNonce,now=Date.now()){
 }
 export async function signedResponse(payload,status,nonce,c){const body=JSON.stringify(payload);return new Response(body,{status,headers:{'content-type':'application/json','cache-control':'no-store','x-bridge-response':await mac(c.secret,`board-bridge-response-v1\n${nonce}\n${status}\n${await digest(body)}`)},});}
 export async function verifyResponse(response,nonce,c){const body=await boundedBody(response);if(!equal(response.headers.get('x-bridge-response'),await mac(c.secret,`board-bridge-response-v1\n${nonce}\n${response.status}\n${await digest(body)}`)))throw new ProtocolError('response_authentication_denied');try{return JSON.parse(body);}catch{throw new ProtocolError('invalid_json');}}
+
+// Signed Board attestations: v2 adds an independent immutable measurement run.
+// Caller authentication and server-side exact owner approval remain mandatory.
+export function validReusableApprovalShape(a){
+ if(!a||typeof a!=='object'||Array.isArray(a))return false;
+ const keys=['v','purpose','enrollmentId','inputSha256','issuedAt','expiresAt'];
+ if(a.v===2){keys.push('measurementRunId','measurementEnvelopeSha256','previousEventId','previousResultSha256');if(![a.previousEventId,a.previousResultSha256].every(x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x)))return false;if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(a.measurementRunId??'')||!/^[a-f0-9]{64}$/.test(a.measurementEnvelopeSha256??''))return false;}else if(a.v!==1)return false;
+ if(Object.hasOwn(a,'maxCompletionTokens')){keys.push('maxCompletionTokens');if(a.maxCompletionTokens!==4096)return false;}
+ return Object.keys(a).sort().join(',')===keys.sort().join(',');
+}
