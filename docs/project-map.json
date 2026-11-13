@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-12",
+  "updatedAt": "2026-11-13",
   "project": "Picard Relay",
   "summary": "Self-hosted bounded AI request workspace with durable saved answers, scoped local MCP access and a separate fixed-job compute broker.",
   "documentationIndex": "docs/README.md",
@@ -54,7 +54,7 @@
       "providerCallsDuringSetup": 0,
       "requiresOwnerVerifiedFreeProject": true,
       "updaterEnrolled": true,
-      "qualification": "Initial four-target installer checks passed in43338760813. Native Oracle Linux9.8 KVM, own UEK kernel,1GB RAM and SELinux Enforcing passed with the labeling/readiness fix in PR143 (43474455372); separate native OCI/public ACME/real-key acceptance remains installation-specific.",
+      "qualification": "Implementation source 5bd64b244e0eab0030387ec43fd22433b72f2149 passed native Oracle Linux 9.8 KVM with its own UEK kernel, 1 GB RAM and SELinux Enforcing in 43486575595; four-target setup in 43486575453; all seven Picard repository groups and saved receipt recovery in 43487084597 / 43487157562. Public ACME and real-key acceptance remain installation-specific, separate from synthetic CI.",
       "keyReplacementEnrolled": true,
       "signedRuntime": true
     }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-12",
+  "updatedAt": "2026-11-13",
   "scope": "Sanitized dated source/delivery snapshot, reconciled with current main and owner records. Not a complete private-board export, blanket live verification or owner acceptance.",
   "operationalRecord": "Owner private task board",
   "statusGuide": {
@@ -213,7 +213,7 @@
         "test/fixtures/setup-linux-oracle.Dockerfile",
         "test/fixtures/oracle-native-vm.py"
       ],
-      "remaining": "Native Oracle Linux9.8 KVM with an Oracle UEK kernel,1GB RAM and Enforcing SELinux passed the complete synthetic maintenance/saved-result fixture in43474455372. Initial four-target checks remain recorded separately. Native OCI deployment, public ACME and real-key acceptance are host-specific; existing installs are refused."
+      "remaining": "Implementation 5bd64b244e0eab0030387ec43fd22433b72f2149 passed native Oracle Linux 9.8 KVM / UEK / 1 GB RAM / SELinux Enforcing in 43486575595 and four-target setup in 43486575453. Picard coordinator 43487084597 / worker 43487157562 verified all seven repository groups and saved receipt recovery. Synthetic CI does not qualify a particular OCI deployment, public ACME or real key. Existing installs are refused."
     },
     {
       "id": "PR-FTR-003",

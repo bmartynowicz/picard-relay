@@ -183,6 +183,14 @@ executable labels and waits for private runtime health before reporting success.
 Its test still uses a local CA and synthetic key; check the PR's exact source
 and results separately from public HTTPS, real-key and OCI control-plane checks.
 
+Implementation `5bd64b244e0eab0030387ec43fd22433b72f2149` passed the
+[native Oracle fixture](https://github.com/bmartynowicz/picard-relay/actions/runs/43486575595)
+and [four-target setup](https://github.com/bmartynowicz/picard-relay/actions/runs/43486575453).
+Picard's [coordinator](https://github.com/bmartynowicz/picard-relay/actions/runs/43487084597)
+and [protected worker](https://github.com/bmartynowicz/picard-relay/actions/runs/43487157562)
+verified all seven repository groups and saved result recovery after restart.
+This evidence uses synthetic requests and a local CA, not a live provider key.
+
 Model work remains fixed to Groq `openai/gpt-oss-20b`, one exact approval per
 call, at most 4096 output tokens, no model tools, retries, code execution or paid
 fallback. Keep your host's own billing controls in place.
