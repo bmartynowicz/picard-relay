@@ -85,6 +85,9 @@ disable_root: true
     # listener outside localhost are supplied to this disposable guest.
     guest("sudo cloud-init status --wait", timeout=180)
     guest("test \"$(getenforce)\" = Enforcing && uname -r && systemd-detect-virt && cat /etc/oracle-release")
+    # Log otherwise-suppressed denials in this disposable guest. This grants no
+    # permissions and does not turn enforcement off.
+    guest("sudo semodule -DB && test \"$(getenforce)\" = Enforcing", timeout=90)
     archive = state / "source.tar"
     with archive.open("wb") as stream:
         run(["git", "archive", "--format=tar", "HEAD"], stdout=stream)
@@ -93,6 +96,7 @@ disable_root: true
          str(archive), "picard-ci@127.0.0.1:/tmp/picard-source.tar"], timeout=60)
     guest("sudo mkdir /workspace && sudo tar --no-same-owner -xf /tmp/picard-source.tar -C /workspace")
     guest("cd /workspace && sudo env GITHUB_ACTIONS=true RUNNER_OS=Linux python3 test/fixtures/setup-linux-terminal.py", timeout=450)
+    guest("sudo ps -eo label,pid,comm | grep -E 'node|caddy' || true")
     guest("cd /workspace && sudo env GITHUB_ACTIONS=true PICARD_QUALIFICATION_ENV=oraclelinux9-native-kvm /usr/local/lib/board-event-relay/node --jitless test/fixtures/setup-linux-installed.mjs", timeout=200)
     guest("test \"$(getenforce)\" = Enforcing && uname -r")
     print(json.dumps({"state": "native_oracle_setup_passed", "imageSha256": IMAGE_SHA256,
