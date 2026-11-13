@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - 'scripts/setup-linux*'
-      - 'test/setup-linux.test.mjs'
+      - 'test/setup-linux*.test.mjs'
       - 'test/fixtures/setup-linux-*'
       - 'deploy/Caddyfile.workspace.example'
       - '.github/workflows/setup-linux-check.yml'
@@ -60,7 +60,7 @@ jobs:
         if: matrix.oracle
         shell: bash
         run: |
-          docker run -d --name picard-oracle-setup --privileged --cgroupns=host --tmpfs /run --tmpfs /tmp -v /sys/fs/cgroup:/sys/fs/cgroup:rw -v "$PWD:/workspace:ro" picard-oracle-qualification
+          docker run -d --name picard-oracle-setup --privileged --cgroupns=host --tmpfs /run --tmpfs /tmp:rw,exec,nosuid,nodev -v /sys/fs/cgroup:/sys/fs/cgroup:rw -v "$PWD:/workspace:ro" picard-oracle-qualification
           for attempt in $(seq 1 60); do
             if docker exec picard-oracle-setup systemctl show --property=SystemState --value | grep -Eq '^(starting|running|degraded)$'; then break; fi
             sleep 1

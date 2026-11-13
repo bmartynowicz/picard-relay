@@ -46,7 +46,7 @@ try{
  const markerHashes=()=>fs.readdirSync(data+'/markers').sort().map(name=>[name,createHash('sha256').update(fs.readFileSync(data+'/markers/'+name)).digest('hex')]);
  const retained=markerHashes(),release=fs.readlinkSync(code+'/current');assert.equal(retained.length,1);
  assert.equal((await call('/updates')).body.enabled,true);assert.equal((await call('/groq/key')).body.enabled,true);
- const update=await call('/updates',{});assert.equal(update.status,202);
+ const update=await call('/updates',{});assert.equal(update.status,202,JSON.stringify(update.body));
  const updated=await poll('/updates',r=>['up_to_date','installed','held','failed','unknown'].includes(r.body.state));assert.equal(updated.body.state,'up_to_date',JSON.stringify(updated.body));
  assert.equal(fs.readlinkSync(code+'/current'),release);assert.deepEqual(markerHashes(),retained);
  assert.equal((await call('/workspace/requests/'+firstRef)).body.result.body,first.body.result.body);
