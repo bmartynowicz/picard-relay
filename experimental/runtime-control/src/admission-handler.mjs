@@ -26,15 +26,15 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
  async function earnedProgress(){
   const version=store.workspaceProgressVersion();
   if(earnedCache?.version===version)return earnedCache.value;
-  let acceptedWork=0;
-  for(const ref of store.workspaceReviewedRefs()){
+  let completedWork=0;
+  for(const ref of store.workspaceCompletedRefs()){
    const saved=await ownedResult(ref);
-   if(saved.state==='completed'&&saved.resultAvailable&&saved.result.kind==='information'&&saved.review.latest?.decision==='accepted')acceptedWork++;
-   if(acceptedWork===100)break;
+   if(saved.state==='completed'&&saved.resultAvailable&&saved.result.kind==='information')completedWork++;
+   if(completedWork===100)break;
   }
-  // A concurrent review must not turn a mixed snapshot into earned credit.
+  // A concurrent completion or review must not turn a mixed snapshot into credit.
   if(version!==store.workspaceProgressVersion())throw Error('progress_changed');
-  const value={v:1,acceptedWork,atLeast:acceptedWork===100};earnedCache={version,value};return value;
+  const value={v:2,completedWork,atLeast:completedWork===100};earnedCache={version,value};return value;
  }
  function draft(id){const d=store.getWorkspaceDraft(id);if(!d)stop('not_registered');return validateWorkspaceDraft(d,binding);}
  async function ownedResult(ref){

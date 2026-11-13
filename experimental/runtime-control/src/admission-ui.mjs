@@ -77,7 +77,7 @@ const TRAINING_MARKUP=String.raw`<section class="training" aria-labelledby="trai
 <dt>Cadet</dt><dd>Sign in to check setup and history.</dd>
 <dt>Ensign</dt><dd>Finish setup to send a request and review its answer.</dd>
 <dt>Lieutenant</dt><dd>Review a saved answer to unlock more templates, context, task links and code exports.</dd>
-${WORK_RANKS.map(([rank,count])=>'<dt>'+rank+'</dt><dd>'+count+' accepted results.</dd>').join('')}
+${WORK_RANKS.map(([rank,count])=>'<dt>'+rank+'</dt><dd>'+count+' completed results.</dd>').join('')}
 </dl></details></section>`;
 
 const WORKSPACE_STYLE=String.raw`
@@ -127,14 +127,14 @@ function workNotice(text,warn=false){$('request-notice').textContent=text;$('req
 function rememberProgress(c){
  const age=Date.now()-Date.parse(c?.observedAt),t=c?.training,s=c?.setup;
  if(!c||!Number.isFinite(age)||age< -5000||age>=60000||t?.v!==1||typeof t.hasSavedResult!=='boolean'||typeof t.hasReviewedResult!=='boolean'||t.hasReviewedResult&&!t.hasSavedResult||!s||['ownerAuthentication','durableStorage','providerEnrollment'].some(k=>typeof s[k]!=='boolean'))return;
- const p=c.progress,acceptedWork=p?.v===1&&Number.isSafeInteger(p.acceptedWork)&&p.acceptedWork>=0&&p.acceptedWork<=100&&typeof p.atLeast==='boolean'&&p.atLeast===(p.acceptedWork===100)?p.acceptedWork:null;
- workProgress={reviewed:workProgress?.reviewed===true||t.hasReviewedResult,saved:workProgress?.saved===true||t.hasSavedResult,setup:workProgress?.setup===true||s.ownerAuthentication&&s.durableStorage&&s.providerEnrollment||t.hasSavedResult,acceptedWork};
+ const p=c.progress,completedWork=p?.v===2&&Number.isSafeInteger(p.completedWork)&&p.completedWork>=0&&p.completedWork<=100&&typeof p.atLeast==='boolean'&&p.atLeast===(p.completedWork===100)?p.completedWork:null;
+ workProgress={reviewed:workProgress?.reviewed===true||t.hasReviewedResult,saved:workProgress?.saved===true||t.hasSavedResult,setup:workProgress?.setup===true||s.ownerAuthentication&&s.durableStorage&&s.providerEnrollment||t.hasSavedResult,completedWork};
 }
 function trainingState(){
  if(!workProgress)return null;
  const current=workFresh&&workResult?.resultAvailable===true,reviewed=workProgress.reviewed||workGraduated||current&&workResult.review.revision>0,saved=workProgress.saved||reviewed||current,setup=workProgress.setup||saved;
- const n=workProgress.acceptedWork,rank=reviewed?(workRanks.findLast(([,count])=>n>=count)?.[0]??'Lieutenant'):setup?'Ensign':'Cadet';
- return {rank,acceptedWork:n,setup,saved,reviewed,step:reviewed?3:saved?2:setup?1:0};
+ const n=workProgress.completedWork,rank=reviewed?(workRanks.findLast(([,count])=>n>=count)?.[0]??'Lieutenant'):setup?'Ensign':'Cadet';
+ return {rank,completedWork:n,setup,saved,reviewed,step:reviewed?3:saved?2:setup?1:0};
 }
 function workAdvanced(){return trainingState()?.reviewed===true;}
 function clearTraining(){
@@ -156,7 +156,7 @@ function renderTraining(){
   walkthroughReviewed=t.reviewed;
  }
  const copy=t.reviewed?['Lieutenant earned','Advanced tools unlocked: code templates, context, task links and code/handoff exports.','Use advanced tools']:t.saved?['Ensign','Review a saved answer to earn Lieutenant and unlock advanced tools.','Review your first result']:t.setup?['Welcome aboard, Ensign','Setup complete. Complete and review your first request to unlock advanced tools.','Start your first request']:['Cadet','Finish setup to earn Ensign and unlock your first request.','Check setup'];
- if(t.reviewed){const n=t.acceptedWork,next=workRanks.find(([,count])=>n<count);copy[0]=t.rank+(t.rank==='Lieutenant'?' earned':'');copy[1]=n===null?'Work milestones unavailable.':next?n+' accepted '+(n===1?'result':'results')+' · '+(next[1]-n)+' to '+next[0]+'.':'100+ accepted results. Admiral earned.';}
+ if(t.reviewed){const n=t.completedWork,next=workRanks.find(([,count])=>n<count);copy[0]=t.rank+(t.rank==='Lieutenant'?' earned':'');copy[1]=n===null?'Work milestones unavailable.':next?n+' completed '+(n===1?'result':'results')+' · '+(next[1]-n)+' to '+next[0]+'.':'100+ completed results. Admiral earned.';}
  $('training-rank').textContent=t.rank;$('training-rank').hidden=false;$('logo-wrap').dataset.rank=t.rank.toLowerCase();$('training-title').textContent=copy[0];$('training-next').textContent=copy[1];$('training-action').textContent=nextActionState()?.label??copy[2];$('training-action').disabled=workBusy;
  $('training-progress').hidden=false;$('training-progress').value=t.step;$('training-progress').setAttribute('aria-label',t.rank+' · '+t.step+' of 3 training steps complete');
  for(const [id,label,earned]of [['training-setup','Setup',t.setup],['training-result','First result',t.saved],['training-review','Review',t.reviewed]]){$(id).dataset.earned=String(earned);$(id).setAttribute('aria-label',label+' · '+(earned?'complete':'next'));}

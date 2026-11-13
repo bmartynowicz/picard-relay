@@ -1,6 +1,6 @@
 # Owner updates, earned ranks and the space window
 
-Updated November 12, 2026. The cockpit and ranks are in the signed-runtime source;
+Updated November 13, 2026. The cockpit and ranks are in the signed-runtime source;
 the latest recorded enrolled-host identity is v1.0.59. Use the [visual tour](COCKPIT-TOUR.md)
 for controls and the walkthrough, and [Status](STATUS.md) for dated installation
 evidence. Other hosts still need a signed release; the owner-update bridge needs
@@ -17,30 +17,33 @@ HUD so a host can receive the update button without changing its appearance.
 Open **Rank guide** from **Your progress** for all ranks and unlocks.
 The first-run walkthrough ends after the first review and can be replayed from
 **Settings → Replay walkthrough**. Rank progress remains visible. A 1–5 quality
-grade is separate from the output-bound acceptance review used for rank credit.
+grade and acceptance review are separate from usage-based rank credit.
 
 Training remains Cadet → Ensign → Lieutenant. Setup, a saved result and an
 output-bound owner review teach the existing workflow. After training:
 
-| Rank | Accepted results |
+| Rank | Completed information results |
 | --- | ---: |
 | Commander | 5 |
 | Captain | 25 |
 | Admiral | 100 or more |
 
-These initial thresholds are product defaults for review. Each distinct request
-earns at most one credit when its validated completed result is information and
-its **latest** output-bound review is accepted. Changes-requested, uncertain,
-failed, empty, incomplete and question outcomes earn no work credit. Changing an
-accepted review can reduce the current count/rank. A review still completes
-training even if it asks for changes.
+The owner clarified the progression in chat while discussing issue #121: learn the workflow first,
+then progress by using it. Each distinct request earns at most one credit when
+its validated completed result is nonempty information. An acceptance review is
+not required for each result. Failed, uncertain, incomplete and question outcomes
+earn no work credit. Reviews remain unchanged: no automatic acceptance is made,
+and requesting changes does not erase usage. The first output-bound review still
+completes training even if it asks for changes. Prior valid completed work counts
+toward milestones, but higher ranks remain gated on completing training.
 
-The server derives credit from owner-scoped durable reviews across tasks, never
+The server derives credit from owner-scoped durable completed results across tasks, never
 the currently loaded history page. It validates original request/result identity
 and hashes, caps the display at 100+, and fails to unknown on inconsistent
 evidence. A process-local cache invalidates on same-connection SQLite changes or
 another connection's data version; no second progress ledger or schema migration
-is introduced. Rank never authorizes execution, another provider, money, retries
+is introduced. Configuration progress is version 2 with `completedWork` and
+`atLeast`; clients must not reinterpret legacy `acceptedWork` as usage. Rank never authorizes execution, another provider, money, retries
 or broader API access. Higher ranks add a brass crown, etched wings and a center
 inlay to the same spinning insignia. Locked templates/context/code/handoff
 exports are hidden; history, original answers and recovery remain available.
