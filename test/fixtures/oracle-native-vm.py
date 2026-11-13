@@ -101,7 +101,8 @@ disable_root: true
 finally:
     if vm is not None and vm.poll() is None:
         try:
-            guest("sudo journalctl --no-pager -n 60 -u board-event-relay.service -u picard-updater.service -u 'picard-groq-replacement@*'", timeout=15)
+            guest("sudo journalctl --no-pager -n 45 -u board-event-relay.service -u picard-relay-web.service -u picard-updater.service -u 'picard-groq-replacement@*'", timeout=15)
+            guest("sudo ls -ldZ /usr/local/lib/board-event-relay /usr/local/lib/board-event-relay/node /etc/board-event-relay /var/lib/board-event-relay; id board-event-relay; sudo systemctl show board-event-relay --property=User,Group,ReadWritePaths,SELinuxContext; sudo ausearch -m AVC,USER_AVC -ts boot | tail -n 70", timeout=15)
         except (subprocess.SubprocessError, OSError):
             pass
         vm.terminate()
