@@ -1,0 +1,25 @@
+name: Check native Oracle Linux setup
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/setup-oracle-native.yml'
+      - 'test/fixtures/oracle-native-vm.py'
+permissions:
+  contents: read
+jobs:
+  native-oracle:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install official distribution virtualization tools on this disposable runner
+        run: |
+          test -c /dev/kvm
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils cloud-image-utils acl
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Run the real installer in a pinned Oracle guest with SELinux enforcing
+        run: python3 test/fixtures/oracle-native-vm.py

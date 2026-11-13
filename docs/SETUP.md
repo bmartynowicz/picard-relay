@@ -15,10 +15,13 @@ Then you create your sign-in and send a useful first request.
   or machine. Check that your existing host and network are free to use.
 - A **hostname pointing to that machine**. Your DNS provider's A record points
   to its public IPv4 address. If you publish an AAAA record, IPv6 must also reach
-  this machine. Allow inbound **TCP 80 and 443** in its existing cloud and host
+  this machine. Allow inbound **TCP 443** in its existing cloud and host
   firewall. Keep SSH restricted to your own addresses. The installer does not
   edit network rules or disable SELinux. FIPS hosts are refused; the bundled
   Node process uses its own OpenSSL defaults without changing the host policy.
+  HTTP port 80 is optional for redirects and the HTTP certificate challenge;
+  Caddy can issue certificates over port 443 using its default TLS-ALPN challenge.
+  See [Caddy's challenge documentation](https://caddyserver.com/docs/automatic-https#tls-alpn-challenge).
 - A **Groq Free project and a key from that same project**. In
   [Groq Console](https://console.groq.com/), check the project's plan, copy its
   organization/project IDs, and create or select its API key. Do not upgrade
@@ -46,6 +49,13 @@ must match the reviewed checkout exactly; a mismatch stops setup. Update your
 checkout to the published source before trying again. It asks for your hostname
 and Free-project details. **The key is hidden while you enter it.** Review the
 destination, signed version and update schedule; type `install` to continue.
+
+On SELinux hosts, setup persistently labels the two service executables using
+the distribution's ordinary custom-service executable type. Oracle Linux may
+need the standard labeling management tools, installed from its existing signed
+OS repositories after you confirm installation. Enforcement and network booleans
+stay unchanged. This uses the distribution's default custom-service domain;
+it does not add a dedicated Picard SELinux confinement policy.
 
 It creates the `board-event-relay` and `picard-relay-web` service users, the two
 long-running services, and these directories:
@@ -83,7 +93,8 @@ sudo rm -- /etc/board-event-relay/first-sign-in.txt
 ```
 
 If the browser shows a certificate warning, stop and check the hostname/DNS and
-TCP 80/443. Caddy obtains its certificate automatically when those are reachable.
+TCP 443. Caddy obtains its certificate automatically over HTTPS; opening HTTP
+port 80 is optional.
 Never enter the key or owner password through an HTTP page or bypass a warning.
 
 ## 4. Save your first useful answer
@@ -152,7 +163,7 @@ rollback regressions are separate from that result.
 
 The CI-only hostname uses a local CA explicitly trusted by that fixture client.
 This does not qualify public DNS/ACME certificate issuance, a real Groq key,
-native Oracle VM/SELinux operation or Ubuntu 22.04. Oracle containers are not
+native Oracle Cloud deployment or Ubuntu 22.04. Oracle containers are not
 Oracle cloud machines. See the PR's exact source and results before relying on a
 platform check; do not describe this as a universally qualified installer.
 
@@ -162,6 +173,23 @@ release identity. Existing relay upgrades and migrations remain outside this
 command: it refuses both the older `/opt/picard-relay` layout and existing
 versioned installs, users, support directories, units and occupied ports. Use
 [operations](OPERATIONS.md) for an existing host.
+
+The [native Oracle qualification](https://github.com/bmartynowicz/picard-relay/pull/143)
+adds an official checksum-pinned Oracle Linux 9.8 VM, its own Oracle kernel,
+1 GB RAM and SELinux Enforcing. This exposed executables incorrectly retaining
+the library file label, which left services in systemd's domain and blocked
+the private socket and proxy connection. The candidate corrects persistent
+executable labels and waits for private runtime health before reporting success.
+Its test still uses a local CA and synthetic key; check the PR's exact source
+and results separately from public HTTPS, real-key and OCI control-plane checks.
+
+Implementation `5bd64b244e0eab0030387ec43fd22433b72f2149` passed the
+[native Oracle fixture](https://github.com/bmartynowicz/picard-relay/actions/runs/43486575595)
+and [four-target setup](https://github.com/bmartynowicz/picard-relay/actions/runs/43486575453).
+Picard's [coordinator](https://github.com/bmartynowicz/picard-relay/actions/runs/43487084597)
+and [protected worker](https://github.com/bmartynowicz/picard-relay/actions/runs/43487157562)
+verified all seven repository groups and saved result recovery after restart.
+This evidence uses synthetic requests and a local CA, not a live provider key.
 
 Model work remains fixed to Groq `openai/gpt-oss-20b`, one exact approval per
 call, at most 4096 output tokens, no model tools, retries, code execution or paid

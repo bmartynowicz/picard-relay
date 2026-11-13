@@ -3,7 +3,7 @@
 set -euo pipefail
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 if [[ ${1:-} == --help ]]; then
-  printf '%s\n' 'Fresh Linux setup: sudo bash scripts/setup-linux.sh' 'Ubuntu 22.04/24.04 or Oracle Linux 9, x86-64/ARM64, systemd.' 'Requires your hostname, inbound TCP 80/443, and an owner-verified Groq Free key.'
+  printf '%s\n' 'Fresh Linux setup: sudo bash scripts/setup-linux.sh' 'Ubuntu 22.04/24.04 or Oracle Linux 9, x86-64/ARM64, systemd.' 'Requires your hostname, inbound TCP 443, and an owner-verified Groq Free key. HTTP port 80 is optional.'
   exit 0
 fi
 check_assets=false
