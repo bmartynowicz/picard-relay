@@ -97,6 +97,9 @@ disable_root: true
     guest("sudo mkdir /workspace && sudo tar --no-same-owner -xf /tmp/picard-source.tar -C /workspace")
     guest("cd /workspace && sudo env GITHUB_ACTIONS=true RUNNER_OS=Linux python3 test/fixtures/setup-linux-terminal.py", timeout=450)
     guest("sudo ps -eo label,pid,comm | grep -E 'node|caddy' || true")
+    # Restore the vendor's ordinary audit configuration before exercising the
+    # authenticated maintenance flow. Enforcement was never disabled.
+    guest("sudo semodule -B && test \"$(getenforce)\" = Enforcing", timeout=90)
     guest("cd /workspace && sudo env GITHUB_ACTIONS=true PICARD_QUALIFICATION_ENV=oraclelinux9-native-kvm /usr/local/lib/board-event-relay/node --jitless test/fixtures/setup-linux-installed.mjs", timeout=200)
     guest("test \"$(getenforce)\" = Enforcing && uname -r")
     print(json.dumps({"state": "native_oracle_setup_passed", "imageSha256": IMAGE_SHA256,

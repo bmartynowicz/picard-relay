@@ -47,6 +47,13 @@ checkout to the published source before trying again. It asks for your hostname
 and Free-project details. **The key is hidden while you enter it.** Review the
 destination, signed version and update schedule; type `install` to continue.
 
+On SELinux hosts, setup persistently labels the two service executables using
+the distribution's ordinary custom-service executable type. Oracle Linux may
+need the standard labeling management tools, installed from its existing signed
+OS repositories after you confirm installation. Enforcement and network booleans
+stay unchanged. This uses the distribution's default custom-service domain;
+it does not add a dedicated Picard SELinux confinement policy.
+
 It creates the `board-event-relay` and `picard-relay-web` service users, the two
 long-running services, and these directories:
 
@@ -162,6 +169,15 @@ release identity. Existing relay upgrades and migrations remain outside this
 command: it refuses both the older `/opt/picard-relay` layout and existing
 versioned installs, users, support directories, units and occupied ports. Use
 [operations](OPERATIONS.md) for an existing host.
+
+The [native Oracle qualification](https://github.com/bmartynowicz/picard-relay/pull/143)
+adds an official checksum-pinned Oracle Linux 9.8 VM, its own Oracle kernel,
+1 GB RAM and SELinux Enforcing. This exposed executables incorrectly retaining
+the library file label, which left services in systemd's domain and blocked
+the private socket and proxy connection. The candidate corrects persistent
+executable labels and waits for private runtime health before reporting success.
+Its test still uses a local CA and synthetic key; check the PR's exact source
+and results separately from public HTTPS, real-key and OCI control-plane checks.
 
 Model work remains fixed to Groq `openai/gpt-oss-20b`, one exact approval per
 call, at most 4096 output tokens, no model tools, retries, code execution or paid
