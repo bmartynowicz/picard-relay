@@ -32,7 +32,7 @@ export async function prepareSignedSetup(checkout){
  let phase='assets';
  try{
   await installVerifiedCosign({file,
-   download:a=>exec('/usr/bin/curl',['--fail','--location','--silent','--show-error','--proto','=https','--proto-redir','=https','--max-redirs','5','--connect-timeout','10','--max-time','90','--max-filesize',String(a.maxBytes),'--header','Accept: application/octet-stream','--header','X-GitHub-Api-Version: 2022-11-28','--output',file(a.name),a.url],{env,timeout:95000,maxBuffer:4096}),
+   download:async a=>{try{await exec('/usr/bin/curl',['--fail','--location','--silent','--show-error','--proto','=https','--proto-redir','=https','--max-redirs','5','--connect-timeout','10','--max-time','90','--max-filesize',String(a.maxBytes),'--header','Accept: application/octet-stream','--header','X-GitHub-Api-Version: 2022-11-28','--write-out','%{http_code}','--output',file(a.name),a.url],{env,timeout:95000,maxBuffer:4096});}catch(error){const status=String(error.stdout??'').trim();throw Error(/^\d{3}$/.test(status)?'setup_signing_asset_http_'+status:'setup_signing_asset_download_failed');}},
    digest:a=>digestBoundedFile(file(a.name),a.maxBytes),executable:name=>fs.chmod(file(name),0o700),run:(name,args)=>run(file(name),args),
    install:()=>fs.chmod(file('cosign'),0o700)
   },{assets:setupCosignAssets(process.arch)});
@@ -53,5 +53,5 @@ export async function prepareSignedSetup(checkout){
   const source=await Promise.all(valid.files.map(async f=>({file:f.path,bytes:await fs.readFile(path.join(checkout,'experimental/runtime-control',f.path))})));
   phase='checkout';requireCheckoutRuntime(valid.files,name=>source.find(f=>f.file===name).bytes);
   return {...valid,manifestBytes:packet.manifestBytes,policy,trust,cosign:await fs.readFile(file('cosign')),trustSha256:createHash('sha256').update(trust).digest('hex'),cleanup};
- }catch(error){await cleanup();throw Error(/^[a-z_]+$/.test(error.message)?error.message:'setup_trust_'+phase+'_failed');}
+ }catch(error){await cleanup();throw Error(/^[a-z0-9_]+$/.test(error.message)?error.message:'setup_trust_'+phase+'_failed');}
 }
