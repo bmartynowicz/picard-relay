@@ -15,10 +15,13 @@ Then you create your sign-in and send a useful first request.
   or machine. Check that your existing host and network are free to use.
 - A **hostname pointing to that machine**. Your DNS provider's A record points
   to its public IPv4 address. If you publish an AAAA record, IPv6 must also reach
-  this machine. Allow inbound **TCP 80 and 443** in its existing cloud and host
+  this machine. Allow inbound **TCP 443** in its existing cloud and host
   firewall. Keep SSH restricted to your own addresses. The installer does not
   edit network rules or disable SELinux. FIPS hosts are refused; the bundled
   Node process uses its own OpenSSL defaults without changing the host policy.
+  HTTP port 80 is optional for redirects and the HTTP certificate challenge;
+  Caddy can issue certificates over port 443 using its default TLS-ALPN challenge.
+  See [Caddy's challenge documentation](https://caddyserver.com/docs/automatic-https#tls-alpn-challenge).
 - A **Groq Free project and a key from that same project**. In
   [Groq Console](https://console.groq.com/), check the project's plan, copy its
   organization/project IDs, and create or select its API key. Do not upgrade
@@ -90,7 +93,8 @@ sudo rm -- /etc/board-event-relay/first-sign-in.txt
 ```
 
 If the browser shows a certificate warning, stop and check the hostname/DNS and
-TCP 80/443. Caddy obtains its certificate automatically when those are reachable.
+TCP 443. Caddy obtains its certificate automatically over HTTPS; opening HTTP
+port 80 is optional.
 Never enter the key or owner password through an HTTP page or bypass a warning.
 
 ## 4. Save your first useful answer

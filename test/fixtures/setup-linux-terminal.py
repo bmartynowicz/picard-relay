@@ -24,7 +24,7 @@ if pid == 0:
 
 answers = [
     (b"Relay hostname (for example picard.example.com): ", b"picard.localhost"),
-    (b"with TCP 80 and 443 allowed? Type yes: ", b"yes"),
+    (b"with TCP 443 allowed? Type yes: ", b"yes"),
     (b"with no paid fallback? Type yes: ", b"yes"),
     (b"A short name for that Groq project: ", b"Synthetic qualification only"),
     (b"Groq organization ID: ", b"org_synthetic_no_provider"),

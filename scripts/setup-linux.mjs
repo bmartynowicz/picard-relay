@@ -47,7 +47,7 @@ async function healthyInstalledRuntime(paths,release){
  throw Error('installed_runtime_not_ready');
 }
 export async function main(args=process.argv.slice(2)){
- if(args.includes('--help')){console.log('Fresh Linux setup: sudo bash scripts/setup-linux.sh\nRequires an existing systemd Linux host, a hostname pointing to it, inbound TCP 80/443, and an owner-verified Groq Free key. Existing installs are refused. No provider call is made.');return;}
+ if(args.includes('--help')){console.log('Fresh Linux setup: sudo bash scripts/setup-linux.sh\nRequires an existing systemd Linux host, a hostname pointing to it, inbound TCP 443, and an owner-verified Groq Free key. HTTP port 80 is optional. Existing installs are refused. No provider call is made.');return;}
  check(args.length===2,'use_setup_linux_sh');
  check(process.platform==='linux'&&process.getuid()===0&&process.stdin.isTTY&&process.stdout.isTTY,'root_private_terminal_required');
  check(process.versions.node===NODE_VERSION,'pinned_node_required');
@@ -74,7 +74,7 @@ export async function main(args=process.argv.slice(2)){
  try{
  console.log('\nSet up Picard on this machine\nThe installer creates the relay and HTTPS services, protected owner sign-in and Free workspace.\nUpdate and Replace key are connected. Signed updates are checked every five minutes and on request.\nOracle Linux installs standard SELinux labeling tools if needed.\nNo cloud machine, firewall change or AI call is made.\n');
  const answers={hostname:await question('Relay hostname (for example picard.example.com): '),
-  networkConfirmed:await question('Does that hostname point here, with TCP 80 and 443 allowed? Type yes: ')==='yes',
+  networkConfirmed:await question('Does that hostname point here, with TCP 443 allowed? Type yes: ')==='yes',
   freeConfirmed:await question('In Groq Console, is this project on the Free plan with no paid fallback? Type yes: ')==='yes',
   accountLabel:await question('A short name for that Groq project: '),organizationId:await question('Groq organization ID: '),projectId:await question('Groq project ID: '),
   keyProjectConfirmed:await question('Is the key from this same Free project? Type yes: ')==='yes',apiKey:await question('Groq key (hidden): ',{secret:true})};
@@ -114,7 +114,7 @@ export async function main(args=process.argv.slice(2)){
   fs.unlinkSync(paths.code+'/INSTALL-INCOMPLETE');
   console.log(`\nInstalled. Open ${plan.origin} to create your owner sign-in.\nYour one-hour setup code is in ${paths.config}/first-sign-in.txt.\nRead it privately with: sudo cat ${paths.config}/first-sign-in.txt\nThen choose New request. Update and Replace key are connected.\nGuide: https://github.com/bmartynowicz/picard-relay/blob/main/docs/SETUP.md\n`);
   try{const r=await fetch(plan.origin+'/auth/state',{redirect:'error',signal:AbortSignal.timeout(15000)});check(r.status===200,'https_not_ready');await r.body?.cancel();console.log('Public HTTPS responds. No AI request was sent.');}
-  catch{console.log('Public HTTPS is not confirmed yet. Check DNS and inbound TCP 80/443, then open the address. Do not bypass certificate warnings or rerun setup.');}
+  catch{console.log('Public HTTPS is not confirmed yet. Check DNS and inbound TCP 443, then open the address. HTTP port 80 is optional. Do not bypass certificate warnings or rerun setup.');}
  }catch(e){
   if(started){spawnSync('/usr/bin/systemctl',['disable','--now',...SETUP_UNITS],{timeout:30000,stdio:'ignore'});}
   console.error('Setup stopped. Partial files and identities were preserved; services started by this attempt were stopped. Do not delete state or rerun to reset it. See docs/SETUP.md.');throw e;
