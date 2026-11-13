@@ -1,0 +1,27 @@
+{
+  "status": "Local setup cockpit concept only; no publication or provisioning",
+  "visualThesis": "Enter the actual Picard cockpit before installation, then carry the same interface into your own relay.",
+  "contentPlan": [
+    "Actual branded console header and starfield",
+    "Welcome action opens server, install and connect steps from the HUD",
+    "Product navigation explains each working area until your relay is connected",
+    "Enter your own HTTPS relay to continue first sign-in there"
+  ],
+  "interactionThesis": [
+    "The existing 3D rotating product insignia",
+    "Actual quadratic curved HUD with expanding/retracting translucent panels",
+    "Existing bounded starfield pauses on hidden tab or reduced motion"
+  ],
+  "sources": [
+    "experimental/runtime-control/src/oracle-service.mjs",
+    "docs/SETUP.md",
+    "docs/LIMITATIONS.md"
+  ],
+  "constraints": [
+    "No fake activity, job counts, completion checks or earned ranks",
+    "No key/password capture, provider calls or remote installation",
+    "No extra libraries, external fonts, telemetry or production changes",
+    "Setup guides are instructions; the user runs and approves the existing installer",
+    "Relay transition is direct HTTPS navigation, with no credential or state forwarding"
+  ]
+}
