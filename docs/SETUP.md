@@ -138,17 +138,29 @@ and saved-result recovery after restart.
 The earlier source-only installer passed on a disposable Ubuntu 24.04 x86-64 VM
 ([recorded check](https://github.com/bmartynowicz/picard-relay/actions/runs/43307474518)).
 That result does not qualify this signed setup extension. Its separate
-[qualification PR](https://github.com/bmartynowicz/picard-relay/pull/141) runs the
+[qualification PR](https://github.com/bmartynowicz/picard-relay/pull/141) includes a
+[passing four-target check](https://github.com/bmartynowicz/picard-relay/actions/runs/43337985805)
+of installer source `940b1246584ec87a8e92112165da68a4470da7d0`. It ran the
 actual wizard, services and authenticated Update/Replace key endpoints on Ubuntu
 24.04 x64/ARM64 VMs and Oracle Linux 9 x64/ARM64 systemd containers. It checks a
 synthetic saved answer before and after replacement, then saves new synthetic
-work under the new enrollment. No external model is called by these fixtures.
+work under the new enrollment. All four passed; each retained its old answer and
+saved a new synthetic answer after replacement, with two consumed markers and
+zero external model calls. Update reported up to date against the same signed
+release; this check did not apply a newer publication. Updater transaction and
+rollback regressions are separate from that result.
 
 The CI-only hostname uses a local CA explicitly trusted by that fixture client.
 This does not qualify public DNS/ACME certificate issuance, a real Groq key,
 native Oracle VM/SELinux operation or Ubuntu 22.04. Oracle containers are not
 Oracle cloud machines. See the PR's exact source and results before relying on a
 platform check; do not describe this as a universally qualified installer.
+
+The existing Oracle Linux 9.8 relay was also inspected read-only at
+2026-11-13 00:30 UTC: v1.0.61's physical release hash matched, SELinux was Enforcing,
+and its Update path, updater timer and key-replacement socket were active. No
+host files were changed. This confirms the reused maintenance contract on that
+already enrolled host, rather than a fresh installation there.
 
 The signed extension enrolls the fixed host updater, the **Update** button and
 the **Replace key** host socket. It starts with a verified immutable runtime and

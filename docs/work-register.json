@@ -191,7 +191,7 @@
       "title": "Portable host onboarding and installation",
       "status": "source_candidate",
       "currentLimit": "Fresh-host-only signed setup extension in PR141; target qualification is tracked separately from public ACME, real keys and native Oracle SELinux.",
-      "next": "Qualify the signed installer, authenticated maintenance endpoints and preserved old/new synthetic work on the declared Linux architectures.",
+      "next": "Review PR141 and separately qualify native fresh Oracle SELinux/public ACME/real-key acceptance; do not reinstall the existing relay.",
       "behavior": "Guided fresh-host setup verifies the signed runtime and enrolls protected Update and Replace key support, owner bootstrap and a reusable Free workspace; no provider call or cloud provisioning.",
       "sourceFiles": [
         "scripts/setup-linux.sh",
@@ -211,7 +211,7 @@
         "test/fixtures/setup-linux-seed.mjs",
         "test/fixtures/setup-linux-oracle.Dockerfile"
       ],
-      "remaining": "Existing installations are refused, including older standalone layouts. Ubuntu 24.04 x64/ARM64 and Oracle Linux 9 systemd-container checks in PR141 do not prove native Oracle VM/SELinux, Ubuntu 22.04, real-key or public ACME acceptance. Production state is untouched."
+      "remaining": "Source 940b124 passed actual Ubuntu 24.04 x64/ARM64 VM and Oracle Linux 9 x64/ARM64 systemd-container wizard, signed release, Update up-to-date, protected key replacement and old/new synthetic-answer checks in 43337985805. Zero external model calls. Public ACME, real keys, Ubuntu 22.04 and native Oracle SELinux installation remain separate; existing relays are refused and untouched."
     },
     {
       "id": "PR-FTR-003",

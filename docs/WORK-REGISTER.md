@@ -10,7 +10,7 @@ or permission to start every item. [Structured records](work-register.json) ·
 | ID | Work | Current limit / next step |
 | --- | --- | --- |
 | PR-FTR-001 | Additional provider connectors | Paused. The text workspace has one fixed Groq model; compute-provider enrollment is a separate contract. |
-| PR-FTR-002 | Portable host installation | [Guided fresh-host setup candidate](SETUP.md): actual Ubuntu 24.04 x86-64 install/services/local TLS checked in CI. Signed Update/Replace key enrollment is in the follow-up candidate; Ubuntu x64/ARM64 and Oracle 9 container qualification is tracked in PR141. Public ACME, real keys and native Oracle SELinux remain separate. Existing installs are refused. |
+| PR-FTR-002 | Portable host installation | [Guided fresh-host setup candidate](SETUP.md): actual Ubuntu 24.04 x86-64 install/services/local TLS checked in CI. Signed Update/Replace key enrollment, retained answers and new synthetic work passed on Ubuntu x64/ARM64 VMs and Oracle 9 x64/ARM64 containers in PR141. Public ACME, real keys and native Oracle SELinux remain separate. Existing installs are refused. |
 | PR-FTR-004 | Execute generated work | Generated output stays inert. Deterministic fixtures and fixed CI operations do not enable arbitrary model-generated code. |
 | PR-FTR-005 | Reusable task-board connector | The original private Board is application-specific and not bundled. A portable consuming client needs its own authorization/integration work. |
 | PR-FTR-014 | Less manual feedback submission | The shared form prepares a draft; destination submission is still manual. A safe, deduplicated posting flow remains to design. |

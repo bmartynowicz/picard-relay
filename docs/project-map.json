@@ -54,7 +54,7 @@
       "providerCallsDuringSetup": 0,
       "requiresOwnerVerifiedFreeProject": true,
       "updaterEnrolled": true,
-      "qualification": "Signed setup extension in PR141; actual Ubuntu x64/ARM64 and Oracle Linux 9 systemd-container checks are separate from native Oracle SELinux, public ACME and real-key acceptance",
+      "qualification": "Installer source 940b1246584ec87a8e92112165da68a4470da7d0 passed actual wizard/systemd/local-CA HTTPS/Update/key replacement and old/new synthetic answers on Ubuntu 24.04 x64/ARM64 VMs and Oracle Linux 9 x64/ARM64 systemd containers (43337985805). Public ACME, real key, Ubuntu 22.04 and native Oracle SELinux installation remain separate.",
       "keyReplacementEnrolled": true,
       "signedRuntime": true
     }
