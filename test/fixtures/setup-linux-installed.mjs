@@ -4,9 +4,14 @@ import assert from 'node:assert/strict';
 import {request} from 'node:https';
 import {spawnSync} from 'node:child_process';
 import {createHash,randomUUID} from 'node:crypto';
+import {fileURLToPath} from 'node:url';
 assert.equal(process.env.GITHUB_ACTIONS,'true');assert.equal(process.platform,'linux');assert.equal(process.getuid(),0);
 const data='/var/lib/board-event-relay',code='/usr/local/lib/board-event-relay',configuration='/etc/board-event-relay';
 const caFile='/var/lib/picard-relay-web/.local/share/caddy/pki/authorities/local/root.crt';
+// The service UID cannot traverse the hosted runner's private home directory.
+// Stage only the synthetic fixture, not the repository or credentials.
+const fixture=fs.mkdtempSync('/tmp/picard-installed-fixture-');fs.chmodSync(fixture,0o755);
+fs.copyFileSync(fileURLToPath(new URL('./setup-linux-seed.mjs',import.meta.url)),fixture+'/seed.mjs');fs.chmodSync(fixture+'/seed.mjs',0o444);
 let cookie='';
 async function call(url,body){
  const ca=fs.readFileSync(caFile);
@@ -32,7 +37,7 @@ try{
   const env=Object.fromEntries(active.toString('utf8').split('\0').filter(v=>/^(BRIDGE_|GROQ_)/.test(v)).map(v=>[v.slice(0,v.indexOf('=')),v.slice(v.indexOf('=')+1)]));
   assert.equal(systemctl('show','board-event-relay.service','--property=MainPID','--value'),pid);
   systemctl('stop','board-event-relay.service');
-  const seeded=spawnSync('/usr/sbin/runuser',['-u','board-event-relay','--',code+'/node','--jitless','test/fixtures/setup-linux-seed.mjs'],{input:JSON.stringify({cookie,env}),encoding:'utf8',timeout:30000,maxBuffer:32768,env:{PATH:'/usr/sbin:/usr/bin:/sbin:/bin',GITHUB_ACTIONS:'true',OPENSSL_CONF:'/etc/picard-updater/openssl.cnf'}});
+  const seeded=spawnSync('/usr/sbin/runuser',['-u','board-event-relay','--',code+'/node','--jitless',fixture+'/seed.mjs'],{cwd:'/',input:JSON.stringify({cookie,env}),encoding:'utf8',timeout:30000,maxBuffer:32768,env:{PATH:'/usr/sbin:/usr/bin:/sbin:/bin',GITHUB_ACTIONS:'true',OPENSSL_CONF:'/etc/picard-updater/openssl.cnf'}});
   assert.equal(seeded.status,0,seeded.stdout+'\n'+seeded.stderr);const row=JSON.parse(seeded.stdout.split('\n').find(v=>v.startsWith('{"fixtureRef"')));assert.equal(row.externalModelCalls,0);
   systemctl('start','board-event-relay.service');return row;
  }
@@ -59,4 +64,4 @@ try{
  assert.notEqual(rerun.status,0);assert.deepEqual(files.map(digest),before);
  const osRelease=fs.readFileSync('/etc/os-release','utf8');
  console.log(JSON.stringify({state:'fresh_host_services_passed',platform:osRelease.match(/^PRETTY_NAME=(.+)$/m)?.[1],environment:process.env.PICARD_QUALIFICATION_ENV??'hosted-vm',architecture:process.arch,actualInstaller:true,signedRelease:true,updater:'up_to_date',keyReplacement:'replaced',oldResultPreserved:true,newWorkAfterReplacement:true,tls:'local CA explicitly trusted by fixture client; verification enabled',ownerSetup:true,workspaceReady:true,externalModelRequests:0,syntheticResponses:2,markers:2,rerunChangedState:false,publicAcmeQualified:false}));
-}finally{spawnSync('/usr/bin/systemctl',['disable','--now','board-event-relay.service','picard-relay-web.service','picard-groq-replacement.socket','picard-owner-update.path','picard-updater.timer','picard-updater-activity.timer'],{timeout:30000,stdio:'ignore'});}
+}finally{spawnSync('/usr/bin/systemctl',['disable','--now','board-event-relay.service','picard-relay-web.service','picard-groq-replacement.socket','picard-owner-update.path','picard-updater.timer','picard-updater-activity.timer'],{timeout:30000,stdio:'ignore'});fs.rmSync(fixture,{recursive:true});}
