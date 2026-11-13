@@ -10,6 +10,8 @@ your relay address, owner sign-in and a ready Free Groq workspace.
 [Check the prerequisites](QUICKSTART.md#before-you-start) before you start;
 the [local demo](QUICKSTART.md#try-it-locally) uses synthetic answers only.
 
+[Controlled measurement reruns](CONTROLLED-MEASUREMENT-RUNS.md) describes the disabled-by-default independent-run authority and staged approval gates.
+
 ## Reference guides
 
 | Your next step | Read |
