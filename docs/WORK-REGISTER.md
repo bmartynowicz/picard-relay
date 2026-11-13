@@ -9,6 +9,7 @@ or permission to start every item. [Structured records](work-register.json) ·
 
 | ID | Work | Current limit / next step |
 | --- | --- | --- |
+| PR-FEAT-MEASUREMENT-RUNS | Controlled independent measurement reruns | Source candidate; strict new owner approval and separate durable authority, disabled by default. Board migration, signed runtime rollout/configuration binding and real-call approval remain separate gates. See [contract](CONTROLLED-MEASUREMENT-RUNS.md). |
 | PR-FTR-001 | Additional provider connectors | Paused. The text workspace has one fixed Groq model; compute-provider enrollment is a separate contract. |
 | PR-FTR-002 | Portable host installation | [Guided fresh-host setup candidate](SETUP.md): actual Ubuntu 24.04 x86-64 install/services/local TLS checked in CI. Signed Update/Replace key enrollment, retained answers and new synthetic work passed on Ubuntu x64/ARM64 VMs and Oracle 9 x64/ARM64 containers in PR141. Native Oracle Linux9.8/UEK/Enforcing SELinux with1GB RAM also passed with the labeling/readiness correction in PR143. OCI/public ACME/real-key checks remain host-specific. Existing installs are refused. |
 | PR-FTR-004 | Execute generated work | Generated output stays inert. Deterministic fixtures and fixed CI operations do not enable arbitrary model-generated code. |

@@ -83,7 +83,7 @@ export function readGroqReplacementHistory(file,sha256,current,identity){
  return {...source,record,priorEnrollmentIds:priorGroqEnrollmentIds(record,current)};
 }
 export function admissionConfigurationDigest({config,enrollmentId,keySha256,markerDirectory}){
- return admissionHash(canonical({v:1,ownerId:config.ownerId,taskId:config.allowedTaskId,assistantId:config.assistantId,keyId:config.keyId,consoleOrigins:[...config.consoleOrigins].sort(),enrollmentId,keySha256,markerDirectory,legacyBaselineFile:config.admissionLegacyBaselineFile??'',legacyBaselineSha256:config.admissionLegacyBaselineSha256??'',...(config.admissionSignedBridgeEnabled===true?{signedBridgeAdmission:true}:{}),...(config.admissionReusableBoardEnabled===true?{reusableBoardAdmission:true}:{})}));
+ return admissionHash(canonical({v:1,ownerId:config.ownerId,taskId:config.allowedTaskId,assistantId:config.assistantId,keyId:config.keyId,consoleOrigins:[...config.consoleOrigins].sort(),enrollmentId,keySha256,markerDirectory,legacyBaselineFile:config.admissionLegacyBaselineFile??'',legacyBaselineSha256:config.admissionLegacyBaselineSha256??'',...(config.admissionSignedBridgeEnabled===true?{signedBridgeAdmission:true}:{}),...(config.admissionReusableBoardEnabled===true?{reusableBoardAdmission:true}:{}),...(config.admissionMeasurementRunsEnabled===true?{measurementRunAdmission:true}:{})}));
 }
 export function readLegacyAdmissionMarkers(directory,expectedNames){
  let fd;try{
@@ -112,6 +112,7 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
  if(activationEnabled!==true)return null;
  if(process.platform!=='linux'||config?.admissionEnabled!==true||config.consoleEnabled!==true||!config.consoleOrigins?.length||env.BRIDGE_PROVIDER!=='groq'||env.GROQ_ENABLED!=='true'||env.GROQ_ONE_SHOT!=='true'||config.assistantId!=='groq:openai/gpt-oss-20b')stop('admission_configuration_invalid');
  if(config.admissionReusableBoardEnabled===true&&config.admissionSignedBridgeEnabled!==true)stop('admission_configuration_invalid');
+ if(config.admissionMeasurementRunsEnabled===true&&config.admissionReusableBoardEnabled!==true)stop('admission_configuration_invalid');
  if(config.workspaceEnabled===true&&config.admissionReusableBoardEnabled!==true)stop('admission_configuration_invalid');
  // Anchor to the EXISTING retained enrollment and key. A catalogue cannot invent
  // another enrollment to evade an old shared uncertainty/cost latch.
@@ -140,11 +141,11 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
  const loadBoundFiles=()=>{for(const old of boundFiles){if(fs.realpathSync(old.file)!==old.file||fingerprint(fs.lstatSync(old.file,{bigint:true}))!==old.identity)stop('admission_configuration_changed');}return catalogueLoader();};
  const loadPolicy=()=>{if(hasReplacement&&!history)stop('groq_replacement_invalid');return loadBoundFiles();};
  readBoundAdmissionPolicy(loadBoundFiles,binding);
- const adapter=createAdmissionAssistantAdapter({activationEnabled:true,signedBridgeEnabled:config.admissionSignedBridgeEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBoardEnabled:config.admissionReusableBoardEnabled===true,bridgeKeyId:config.keyId,loadPolicy,binding,apiKey,markerDirectory,now,fetchImpl,priorEnrollmentIds:history?.priorEnrollmentIds});
+ const adapter=createAdmissionAssistantAdapter({activationEnabled:true,signedBridgeEnabled:config.admissionSignedBridgeEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBoardEnabled:config.admissionReusableBoardEnabled===true,measurementRunsEnabled:config.admissionMeasurementRunsEnabled===true,bridgeKeyId:config.keyId,loadPolicy,binding,apiKey,markerDirectory,now,fetchImpl,priorEnrollmentIds:history?.priorEnrollmentIds});
  const groqReplacement=createGroqReplacementBridge({enabled:env.BRIDGE_GROQ_KEY_REPLACEMENT_ENABLED==='true'&&config.workspaceEnabled===true,project:e.accountLabel,enrollmentId:binding.enrollmentId,now});
  return {adapter,attach({store,control,auth,baseHtml}){
   if(!auth)stop('admission_configuration_invalid');
-  const admissionStore=createAdmissionStore({activationEnabled:true,dbPath:config.dbPath,relayStore:store,now,loadLegacyBaseline,legacyBinding:{...binding,enrollmentId:legacyEnrollmentId},reusableBoardEnabled:config.admissionReusableBoardEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBinding:{ownerId:binding.ownerId,enrollmentId:binding.enrollmentId},readLegacyMarkers:names=>readLegacyAdmissionMarkers(markerDirectory,names)});
+  const admissionStore=createAdmissionStore({activationEnabled:true,dbPath:config.dbPath,relayStore:store,now,loadLegacyBaseline,legacyBinding:{...binding,enrollmentId:legacyEnrollmentId},reusableBoardEnabled:config.admissionReusableBoardEnabled===true,measurementRunsEnabled:config.admissionMeasurementRunsEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBinding:{ownerId:binding.ownerId,enrollmentId:binding.enrollmentId},readLegacyMarkers:names=>readLegacyAdmissionMarkers(markerDirectory,names)});
   try{
   adapter.attachStore(admissionStore,{accepting:()=>control.accepting});
   const handler=createAdmissionHandler({activationEnabled:true,store:admissionStore,auth,loadPolicy,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability});
