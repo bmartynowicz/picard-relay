@@ -53,8 +53,10 @@
       "freshHostOnly": true,
       "providerCallsDuringSetup": 0,
       "requiresOwnerVerifiedFreeProject": true,
-      "updaterEnrolled": false,
-      "qualification": "Actual Ubuntu 24.04 x86-64 wizard, systemd and verified local-CA HTTPS passed in disposable CI (43307474518); public ACME, real key and other target platforms separate"
+      "updaterEnrolled": true,
+      "qualification": "Installer source 940b1246584ec87a8e92112165da68a4470da7d0 passed actual wizard/systemd/local-CA HTTPS/Update/key replacement and old/new synthetic answers on Ubuntu 24.04 x64/ARM64 VMs and Oracle Linux 9 x64/ARM64 systemd containers (43337985805). Public ACME, real key, Ubuntu 22.04 and native Oracle SELinux installation remain separate.",
+      "keyReplacementEnrolled": true,
+      "signedRuntime": true
     }
   ],
   "runtime": {

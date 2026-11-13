@@ -190,23 +190,28 @@
       "kind": "feature",
       "title": "Portable host onboarding and installation",
       "status": "source_candidate",
-      "currentLimit": "Manual advanced host enrollment; no general one-command installer or cross-platform qualification.",
-      "next": "Design and qualify clean-host installation without weakening state, signature or ownership checks.",
-      "behavior": "Guided fresh-host setup creates protected runtime/configuration, owner bootstrap and reusable Free workspace on an existing Linux host; no provider call or cloud provisioning.",
+      "currentLimit": "Fresh-host-only signed setup extension in PR141; target qualification is tracked separately from public ACME, real keys and native Oracle SELinux.",
+      "next": "Review PR141 and separately qualify native fresh Oracle SELinux/public ACME/real-key acceptance; do not reinstall the existing relay.",
+      "behavior": "Guided fresh-host setup verifies the signed runtime and enrolls protected Update and Replace key support, owner bootstrap and a reusable Free workspace; no provider call or cloud provisioning.",
       "sourceFiles": [
         "scripts/setup-linux.sh",
         "scripts/setup-linux.mjs",
         "scripts/setup-linux-core.mjs",
-        "docs/SETUP.md"
+        "docs/SETUP.md",
+        "scripts/setup-linux-trust.mjs",
+        "scripts/setup-linux-host.mjs"
       ],
       "tests": [
         "test/setup-linux.test.mjs",
         "test/fixtures/setup-linux-lifecycle.mjs",
         "test/fixtures/setup-linux-owner-use.mjs",
         "test/fixtures/setup-linux-terminal.py",
-        "test/fixtures/setup-linux-installed.mjs"
+        "test/fixtures/setup-linux-installed.mjs",
+        "test/setup-linux-trust.test.mjs",
+        "test/fixtures/setup-linux-seed.mjs",
+        "test/fixtures/setup-linux-oracle.Dockerfile"
       ],
-      "remaining": "Actual Ubuntu 24.04 x86-64 wizard/services/local-CA TLS passed in disposable CI 43307474518 with zero model requests. Public ACME, real-key and other-platform acceptance plus updater/key-replacement enrollment remain separate. Existing installs are refused; production state is untouched."
+      "remaining": "Source 940b124 passed actual Ubuntu 24.04 x64/ARM64 VM and Oracle Linux 9 x64/ARM64 systemd-container wizard, signed release, Update up-to-date, protected key replacement and old/new synthetic-answer checks in 43337985805. Zero external model calls. Public ACME, real keys, Ubuntu 22.04 and native Oracle SELinux installation remain separate; existing relays are refused and untouched."
     },
     {
       "id": "PR-FTR-003",

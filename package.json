@@ -23,7 +23,7 @@
     "demo:fixtures": "node examples/fixture-tasks.mjs",
     "demo:admission-preview": "node examples/admission-preview.mjs",
     "preview:v1": "node examples/workspace-preview.mjs",
-    "test:setup": "node --test test/setup-linux.test.mjs && node --jitless --test test/setup-linux.test.mjs"
+    "test:setup": "node --test test/setup-linux.test.mjs test/setup-linux-trust.test.mjs && node --jitless --test test/setup-linux.test.mjs test/setup-linux-trust.test.mjs"
   },
   "license": "MIT"
 }

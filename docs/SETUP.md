@@ -1,8 +1,9 @@
 # Set up your Picard Relay
 
 Run Picard on a Linux machine you already have. The guided setup installs the
-runtime and HTTPS services, creates private storage, and connects your Groq Free
-project. Then you create your sign-in and send a useful first request.
+signed runtime and HTTPS services, creates private storage, and connects your
+Groq Free project. Update and Replace key are connected during installation.
+Then you create your sign-in and send a useful first request.
 
 ![Choose a host, run guided setup, create your sign-in, then save your first answer](images/setup-path.svg)
 
@@ -16,7 +17,8 @@ project. Then you create your sign-in and send a useful first request.
   to its public IPv4 address. If you publish an AAAA record, IPv6 must also reach
   this machine. Allow inbound **TCP 80 and 443** in its existing cloud and host
   firewall. Keep SSH restricted to your own addresses. The installer does not
-  edit network rules or disable SELinux.
+  edit network rules or disable SELinux. FIPS hosts are refused; the bundled
+  Node process uses its own OpenSSL defaults without changing the host policy.
 - A **Groq Free project and a key from that same project**. In
   [Groq Console](https://console.groq.com/), check the project's plan, copy its
   organization/project IDs, and create or select its API key. Do not upgrade
@@ -39,21 +41,29 @@ sudo bash scripts/setup-linux.sh
 
 Use a reviewed checkout from this repository. The script downloads pinned
 official Node.js 24.22.1 and Caddy 2.11.9 binaries, checks their SHA-256 hashes,
-and asks for your hostname and Free-project details. **The key is hidden while
-you enter it.** Review the destination and type `install` to continue.
+and verifies the official signing tool and the signed Picard release. Its runtime
+must match the reviewed checkout exactly; a mismatch stops setup. Update your
+checkout to the published source before trying again. It asks for your hostname
+and Free-project details. **The key is hidden while you enter it.** Review the
+destination, signed version and update schedule; type `install` to continue.
 
-It creates the `picard-relay` and `picard-relay-web` service users, the two
-systemd services, and these directories:
+It creates the `board-event-relay` and `picard-relay-web` service users, the two
+long-running services, and these directories:
 
 | Location | Contains |
 | --- | --- |
-| `/opt/picard-relay` | Read-only runtime, private copies of Node/Caddy, proxy configuration and source-file hashes |
-| `/etc/picard-relay` | Protected key, Free-project confirmation and admission policy |
-| `/var/lib/picard-relay` | Private owner sign-in, SQLite workspace and consumed-call markers |
+| `/usr/local/lib/board-event-relay` | Immutable signed releases, current release pointer, private Node/Caddy and proxy configuration |
+| `/etc/board-event-relay` | Protected key, Free-project confirmation and admission policy |
+| `/var/lib/board-event-relay` | Private owner sign-in, SQLite workspace, consumed-call markers and private control socket |
 | `/var/lib/picard-relay-web` | HTTPS certificates and Caddy state |
+| `/usr/local/lib/picard-updater`, `/etc/picard-updater` | Root-controlled updater, signing trust and fixed publication policy |
+| `/var/lib/picard-updater*`, `/var/lib/picard-update-requests` | Update checkpoints, restricted download inbox, status and owner request queue |
+| `/usr/local/lib/picard-groq-replacement`, `/var/lib/picard-groq-replacement` | Restricted key-replacement helper and status |
 
-There is no npm install, container, extra browser library, or setup polling
-service on the host. Setup makes **no AI call**. A Free-plan confirmation is
+There is no npm install, container or extra browser library on the host. The
+updater checks the fixed signed publication every five minutes; a small observer
+refreshes update status each minute. Other helpers run only on demand. Setup
+makes **no AI call**. A Free-plan confirmation is
 recorded evidence from you, not a live billing guarantee.
 
 ## 3. Create your sign-in
@@ -61,7 +71,7 @@ recorded evidence from you, not a live billing guarantee.
 Open the printed **HTTPS address**. In the terminal, read your private setup code:
 
 ```sh
-sudo cat /etc/picard-relay/first-sign-in.txt
+sudo cat /etc/board-event-relay/first-sign-in.txt
 ```
 
 Enter the code and choose your owner password in Picard. The code expires after
@@ -69,7 +79,7 @@ one hour and cannot create another owner after it has been used. Keep the code
 private. When sign-in is complete you can remove only that note:
 
 ```sh
-sudo rm -- /etc/picard-relay/first-sign-in.txt
+sudo rm -- /etc/board-event-relay/first-sign-in.txt
 ```
 
 If the browser shows a certificate warning, stop and check the hostname/DNS and
@@ -85,16 +95,31 @@ answer, copy what is useful, and record your review. Follow the
 ready-to-use example. **Rank guide** explains the unlocks; **Settings → Replay
 walkthrough** brings the steps back later.
 
+## Update or replace your key
+
+In **System**, choose **Check for updates**. Picard checks the fixed signed source
+and reports the result. The five-minute timer also checks automatically; only
+valid newer runtime publications are eligible. Host support and Node stay outside
+that runtime update. See [updates](OWNER-UPDATES.md) for cooldowns and held states.
+
+In **Groq**, choose **Replace key**. Sign in again if asked, enter a key from the
+same verified Free project and confirm the plan. The protected local helper
+stages a new enrollment and briefly reconnects the relay. Saved answers, old
+enrollments, consumed-call markers and uncertainty stops remain in place.
+Replacement itself makes no model request; a working key still needs a separately
+approved first request. Never put a key in chat or a GitHub issue.
+
 ## If setup stops
 
 Setup preserves partial files and identities instead of deleting or replacing
 them. A rerun refuses them. Do not wipe the database, markers, policy or owner
 state to make the error disappear.
 
-For a service problem, inspect `sudo systemctl status picard-relay
+For a service problem, inspect `sudo systemctl status board-event-relay
 picard-relay-web` and the corresponding journal privately. Share only a
 sanitized error, never credential files or owner state. If startup fails after
-this attempt starts services, it stops/disables both; partial installation stays
+this attempt starts services, it stops/disables its services, socket and timers;
+partial installation stays
 available for investigation. A public HTTPS check can remain pending after the
 services start, usually requiring DNS/network diagnosis rather than reinstalling.
 
@@ -110,26 +135,33 @@ The Linux fixture uses real ownership and file modes, runs as an unprivileged
 service UID, and exercises first sign-in, exact approval, one synthetic answer
 and saved-result recovery after restart.
 
-The [actual-installer check](https://github.com/bmartynowicz/picard-relay/actions/runs/43307474518)
-also passed on a disposable **Ubuntu 24.04 x86-64 VM**: the real private-terminal
-wizard completed, its key stayed hidden, both systemd services started, and an
-HTTPS client verified the local test certificate before creating the owner and
-reading workspace readiness. No model request or consumed marker was created;
-a rerun changed no saved state. CI's writable `/opt` parent was first restored
-to normal root-owned `0755` in that disposable VM; the installer itself continues
-to refuse an unsafe parent.
+The earlier source-only installer passed on a disposable Ubuntu 24.04 x86-64 VM
+([recorded check](https://github.com/bmartynowicz/picard-relay/actions/runs/43307474518)).
+That result does not qualify this signed setup extension. Its separate
+[qualification PR](https://github.com/bmartynowicz/picard-relay/pull/141) includes a
+[passing four-target check](https://github.com/bmartynowicz/picard-relay/actions/runs/43337985805)
+of installer source `940b1246584ec87a8e92112165da68a4470da7d0`. It ran the
+actual wizard, services and authenticated Update/Replace key endpoints on Ubuntu
+24.04 x64/ARM64 VMs and Oracle Linux 9 x64/ARM64 systemd containers. It checks a
+synthetic saved answer before and after replacement, then saves new synthetic
+work under the new enrollment. All four passed; each retained its old answer and
+saved a new synthetic answer after replacement, with two consumed markers and
+zero external model calls. Update reported up to date against the same signed
+release; this check did not apply a newer publication. Updater transaction and
+rollback regressions are separate from that result.
 
 The CI-only hostname uses a local CA explicitly trusted by that fixture client.
 This does not qualify public DNS/ACME certificate issuance, a real Groq key,
-Oracle Linux 9, Ubuntu 22.04 or ARM64. Those target checks remain separate;
-do not describe this candidate as a universally qualified installer.
+native Oracle VM/SELinux operation or Ubuntu 22.04. Oracle containers are not
+Oracle cloud machines. See the PR's exact source and results before relying on a
+platform check; do not describe this as a universally qualified installer.
 
-The first version installs reviewed source. It does **not** enroll the signed
-host updater, the **Update** button, or the **Replace key** host socket. Runtime
-version may show unknown until release identity is enrolled. See
-[updates](OWNER-UPDATES.md) and [operations](OPERATIONS.md) for those separate
-host capabilities. Existing relay upgrades, migrations and credential replacement
-are outside this command. It refuses existing users, paths and occupied ports.
+The signed extension enrolls the fixed host updater, the **Update** button and
+the **Replace key** host socket. It starts with a verified immutable runtime and
+release identity. Existing relay upgrades and migrations remain outside this
+command: it refuses both the older `/opt/picard-relay` layout and existing
+versioned installs, users, support directories, units and occupied ports. Use
+[operations](OPERATIONS.md) for an existing host.
 
 Model work remains fixed to Groq `openai/gpt-oss-20b`, one exact approval per
 call, at most 4096 output tokens, no model tools, retries, code execution or paid

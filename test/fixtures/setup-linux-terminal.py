@@ -11,14 +11,16 @@ if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_OS") != 
 
 # GitHub deliberately makes /opt writable for runner tools. Restore the normal
 # root-owned fresh-host parent in this disposable VM, never in the installer.
-subprocess.run(["sudo", "-n", "stat", "-c", "%u:%g %a %n", "/", "/opt", "/etc", "/etc/systemd", "/etc/systemd/system", "/var", "/var/lib"], check=True)
-subprocess.run(["sudo", "-n", "chown", "root:root", "/opt"], check=True)
-subprocess.run(["sudo", "-n", "chmod", "0755", "/opt"], check=True)
-subprocess.run(["sudo", "-n", "systemctl", "show", "--property=SystemState", "--value"], check=True)
+elevate = [] if os.geteuid() == 0 else ["sudo", "-n"]
+subprocess.run(elevate + ["stat", "-c", "%u:%g %a %n", "/", "/opt", "/etc", "/etc/systemd", "/etc/systemd/system", "/var", "/var/lib"], check=True)
+subprocess.run(elevate + ["chown", "root:root", "/opt"], check=True)
+subprocess.run(elevate + ["chmod", "0755", "/opt"], check=True)
+subprocess.run(elevate + ["systemctl", "show", "--property=SystemState", "--value"], check=True)
 
 pid, fd = pty.fork()
 if pid == 0:
-    os.execvp("sudo", ["sudo", "-n", "bash", "scripts/setup-linux.sh"])
+    command = elevate + ["bash", "scripts/setup-linux.sh"]
+    os.execvp(command[0], command)
 
 answers = [
     (b"Relay hostname (for example picard.example.com): ", b"picard.localhost"),
@@ -33,7 +35,7 @@ answers = [
 ]
 output = b""
 index = 0
-deadline = time.monotonic() + 180
+deadline = time.monotonic() + 420
 try:
     while time.monotonic() < deadline:
         readable, _, _ = select.select([fd], [], [], 1)

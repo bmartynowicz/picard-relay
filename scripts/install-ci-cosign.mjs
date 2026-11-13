@@ -27,8 +27,8 @@ export async function digestBoundedFile(file,maxBytes){
 }
 // Explicit dependency seam for offline verification-order tests. CLI has fixed
 // URLs, pins, identities and commands; no source or runner-selection input.
-export async function installVerifiedCosign(d){
- for(const asset of ASSETS){await d.download(asset);if(await d.digest(asset)!==asset.sha256)throw Error('cosign_digest_mismatch:'+asset.name);}
+export async function installVerifiedCosign(d,{assets=ASSETS}={}){
+ for(const asset of assets){await d.download(asset);if(await d.digest(asset)!==asset.sha256)throw Error('cosign_digest_mismatch:'+asset.name);}
  await d.executable('bootstrap');
  await d.run('bootstrap',['verify-blob','--certificate-identity=keyless@projectsigstore.iam.gserviceaccount.com','--certificate-oidc-issuer=https://accounts.google.com','--bundle',d.file('keyless.json'),d.file('cosign')]);
  await d.run('bootstrap',['verify-blob','--key',d.file('public.key'),'--bundle',d.file('kms.json'),d.file('cosign')]);

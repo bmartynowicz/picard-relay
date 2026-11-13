@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - 'scripts/setup-linux*'
-      - 'test/setup-linux.test.mjs'
+      - 'test/setup-linux*.test.mjs'
       - 'test/fixtures/setup-linux-*'
       - 'deploy/Caddyfile.workspace.example'
       - '.github/workflows/setup-linux-check.yml'
@@ -12,8 +12,25 @@ permissions:
 jobs:
   setup:
     if: github.event.repository.private == false
-    runs-on: ubuntu-24.04
-    timeout-minutes: 4
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: ubuntu-x64
+            oracle: false
+          - runner: ubuntu-24.04-arm
+            target: ubuntu-arm64
+            oracle: false
+          - runner: ubuntu-24.04
+            target: oracle9-x64
+            oracle: true
+          - runner: ubuntu-24.04-arm
+            target: oracle9-arm64
+            oracle: true
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -22,16 +39,39 @@ jobs:
         with:
           node-version: '24.22.1'
       - name: Syntax, real permissions, first approval and saved-result recovery
+        if: ${{ !matrix.oracle }}
         run: |
           bash -n scripts/setup-linux.sh
           npm run test:setup
           npm run docs:check
       - name: Check pinned official binaries without installing services
+        if: ${{ !matrix.oracle }}
         run: bash scripts/setup-linux.sh --check-assets
       - name: Install on this disposable VM using synthetic credentials only
+        if: ${{ !matrix.oracle }}
         run: python3 test/fixtures/setup-linux-terminal.py
       - name: Check real services and verified local HTTPS without calling AI
-        run: sudo -n --preserve-env=GITHUB_ACTIONS node test/fixtures/setup-linux-installed.mjs
+        if: ${{ !matrix.oracle }}
+        run: sudo -n --preserve-env=GITHUB_ACTIONS /usr/local/lib/board-event-relay/node --jitless test/fixtures/setup-linux-installed.mjs
+      - name: Build the pinned Oracle Linux qualification image
+        if: matrix.oracle
+        run: docker build -f test/fixtures/setup-linux-oracle.Dockerfile -t picard-oracle-qualification .
+      - name: Run the real installer and endpoints inside Oracle Linux systemd
+        if: matrix.oracle
+        shell: bash
+        run: |
+          docker run -d --name picard-oracle-setup --privileged --cgroupns=host --tmpfs /run --tmpfs /tmp:rw,exec,nosuid,nodev -v /sys/fs/cgroup:/sys/fs/cgroup:rw -v "$PWD:/workspace:ro" picard-oracle-qualification
+          for attempt in $(seq 1 60); do
+            if docker exec picard-oracle-setup systemctl show --property=SystemState --value | grep -Eq '^(starting|running|degraded)$'; then break; fi
+            sleep 1
+          done
+          docker exec -e GITHUB_ACTIONS=true -e RUNNER_OS=Linux picard-oracle-setup python3 test/fixtures/setup-linux-terminal.py
+          docker exec -e GITHUB_ACTIONS=true -e PICARD_QUALIFICATION_ENV=oraclelinux9-systemd-container picard-oracle-setup /usr/local/lib/board-event-relay/node --jitless test/fixtures/setup-linux-installed.mjs
       - name: Stop only the fixture services
-        if: always()
-        run: sudo -n systemctl disable --now picard-relay.service picard-relay-web.service 2>/dev/null || true
+        if: ${{ always() && !matrix.oracle }}
+        run: sudo -n systemctl disable --now board-event-relay.service picard-relay-web.service picard-groq-replacement.socket picard-owner-update.path picard-updater.timer picard-updater-activity.timer 2>/dev/null || true
+      - name: Preserve bounded Oracle failure diagnostics and remove only its fixture
+        if: ${{ always() && matrix.oracle }}
+        run: |
+          docker exec picard-oracle-setup journalctl --no-pager -n 60 -u board-event-relay.service -u 'picard-groq-replacement@*' -u picard-updater.service || true
+          docker rm -f picard-oracle-setup || true
