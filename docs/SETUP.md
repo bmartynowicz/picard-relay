@@ -156,12 +156,6 @@ native Oracle VM/SELinux operation or Ubuntu 22.04. Oracle containers are not
 Oracle cloud machines. See the PR's exact source and results before relying on a
 platform check; do not describe this as a universally qualified installer.
 
-The existing Oracle Linux 9.8 relay was also inspected read-only at
-2026-11-13 00:30 UTC: v1.0.61's physical release hash matched, SELinux was Enforcing,
-and its Update path, updater timer and key-replacement socket were active. No
-host files were changed. This confirms the reused maintenance contract on that
-already enrolled host, rather than a fresh installation there.
-
 The signed extension enrolls the fixed host updater, the **Update** button and
 the **Replace key** host socket. It starts with a verified immutable runtime and
 release identity. Existing relay upgrades and migrations remain outside this
