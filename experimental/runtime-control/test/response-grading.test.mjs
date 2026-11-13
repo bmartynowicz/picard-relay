@@ -14,7 +14,7 @@ function signedClient(f,result,options={}){
  const payload={v:1,action:'grade',ownerId:config.ownerId,taskId:result.request.taskId,eventId:result.ref,payloadHash:result.provenance.payloadSha256,...bodyFor(result)};
  return {config,payload,async send(value=payload,credential=config){const signed=await signRequest('https://fixture.invalid/bridge/v1',value,credential),response=await receive(signed.request);return {status:response.status,body:await verifyResponse(response,signed.nonce,config)};}};
 }
-test('owner quality grade is output-bound, append-only and durable without acceptance, rank credit or another call',async t=>{
+test('owner quality grade is output-bound, append-only and durable without acceptance, additional usage credit or another call',async t=>{
  const {f,result}=await completed(t),before=f.store.get(result.ref).result_json,url='/workspace/grades/'+result.ref,body=bodyFor(result);
  const first=await f.request(url,{body});assert.equal(first.status,200);assert.deepEqual(first.body.grade.latest.reviewer,{kind:'owner'});assert.equal(first.body.grade.latest.score,4);
  assert.equal((await f.request(url,{body})).body.grade.revision,1);
@@ -23,7 +23,7 @@ test('owner quality grade is output-bound, append-only and durable without accep
  f.restart();const saved=(await f.request('/workspace/requests/'+result.ref)).body;
  assert.deepEqual(saved.grade.history.map(g=>g.score),[4,5]);assert.equal(saved.review.revision,0);assert.equal(saved.result.body,result.result.body);
  assert.equal(f.store.get(result.ref).result_json,before);const config=(await f.request('/workspace/config')).body;
- assert.equal(config.progress.acceptedWork,0);assert.equal(config.training.hasReviewedResult,false);assert.equal(f.calls,1);
+ assert.equal(config.progress.completedWork,1);assert.equal(config.training.hasReviewedResult,false);assert.equal(f.calls,1);
 });
 test('owner grade denies bad session/origin, spoofed reviewer, invalid scores, stale output and pending work',async t=>{
  const {f,result}=await completed(t),url='/workspace/grades/'+result.ref,body=bodyFor(result);
@@ -43,7 +43,7 @@ test('signed client gets server attribution and a compact grade projection, sepa
  const read=await client.send({v:1,action:'grade_status',ownerId:client.config.ownerId,taskId:result.request.taskId,eventId:result.ref,payloadHash:result.provenance.payloadSha256});
  assert.equal(read.status,200);assert.equal(read.body.grade.revision,1);assert.equal(read.body.grade.history,undefined);
  const original=await client.send({v:1,action:'result',ownerId:client.config.ownerId,taskId:result.request.taskId,eventId:result.ref,payloadHash:result.provenance.payloadSha256});assert.equal(original.body.result.body,result.result.body);assert.equal(original.body.grade,undefined);
- assert.equal(f.store.get(result.ref).result_json,before);assert.equal((await f.request('/workspace/config')).body.progress.acceptedWork,0);assert.equal(f.calls,1);
+ assert.equal(f.store.get(result.ref).result_json,before);assert.equal((await f.request('/workspace/config')).body.progress.completedWork,1);assert.equal(f.calls,1);
 });
 test('signed grades reject cross-owner/task/source, unauthenticated clients, forged attribution and disabled workspace',async t=>{
  const {f,result}=await completed(t),client=signedClient(f,result);
@@ -60,12 +60,12 @@ test('saved grade corruption or altered result identity never becomes a current 
  const db=new DatabaseSync(f.dbPath),row=f.store.get(result.ref),saved=JSON.parse(row.result_json);db.prepare('UPDATE relay_jobs SET result_json=? WHERE event_id=?').run(JSON.stringify({...saved,body:'Changed ungraded output'}),result.ref);db.close();
  const response=await f.request('/workspace/requests/'+result.ref);assert.equal(response.status,409);assert.equal(response.body.error,'existing_record_invalid');assert.equal(f.calls,1);
 });
-test('unreadable quality evidence cannot hide an intact answer or change valid accepted-work credit',async t=>{
+test('unreadable quality evidence cannot hide an intact answer or change valid completed-work credit',async t=>{
  const {f,result}=await completed(t);await f.request('/workspace/reviews/'+result.ref,{body:{expectedRevision:0,decision:'accepted',note:'Reviewed original.',resultSha256:result.result.sha256}});
  await f.request('/workspace/grades/'+result.ref,{body:bodyFor(result)});const before=f.store.get(result.ref).result_json;
  const db=new DatabaseSync(f.dbPath);db.prepare("UPDATE relay_nonces SET expires=1 WHERE nonce GLOB '*:grade:*'").run();db.close();
  const saved=await f.request('/workspace/requests/'+result.ref);assert.equal(saved.status,200);assert.equal(saved.body.result.body,result.result.body);assert.equal(saved.body.grade,null);assert.equal(saved.body.review.latest.decision,'accepted');
- assert.equal((await f.request('/workspace/config')).body.progress.acceptedWork,1);assert.equal((await f.request('/workspace/grades/'+result.ref,{body:bodyFor(result)})).status,503);
+ assert.equal((await f.request('/workspace/config')).body.progress.completedWork,1);assert.equal((await f.request('/workspace/grades/'+result.ref,{body:bodyFor(result)})).status,503);
  assert.equal(f.store.get(result.ref).result_json,before);assert.equal(f.calls,1);
 });
 test('owner grade cannot attach to another owner and a signed grade cannot alter corrupt result metadata',async t=>{

@@ -88,11 +88,11 @@ test('commissioning requires every verified setup check and clears on sign-out w
  await h.click('logout');assert.equal(h.get('commissioning').dataset.earned,'false');assert.equal(h.get('commission-title').textContent,'Cadet');assert.equal(h.get('training-rank').textContent,'');assert.equal(h.get('training-progress').value,0);assert.equal(h.get('logo-wrap').dataset.rank,undefined);assert.equal(h.f.calls,0);
 });
 
-for(const [acceptedWork,rank] of [[0,'Lieutenant'],[4,'Lieutenant'],[5,'Commander'],[24,'Commander'],[25,'Captain'],[99,'Captain'],[100,'Admiral']])test('earned-work rank boundary '+acceptedWork,async t=>{
- const h=await harness(t,{configTransform:c=>({...c,training:{v:1,hasSavedResult:true,hasReviewedResult:true},progress:{v:1,acceptedWork,atLeast:acceptedWork===100}})});
+for(const [completedWork,rank] of [[0,'Lieutenant'],[4,'Lieutenant'],[5,'Commander'],[24,'Commander'],[25,'Captain'],[99,'Captain'],[100,'Admiral']])test('earned-work rank boundary '+completedWork,async t=>{
+ const h=await harness(t,{configTransform:c=>({...c,training:{v:1,hasSavedResult:true,hasReviewedResult:true},progress:{v:2,completedWork,atLeast:completedWork===100}})});
  assert.equal(h.get('training-rank').textContent,rank);assert.equal(h.get('logo-wrap').dataset.rank,rank.toLowerCase());assert.equal(h.get('request-template-code').hidden,false);assert.equal(h.f.calls,0);
 });
-for(const progress of [null,{v:1,acceptedWork:101,atLeast:true},{v:1,acceptedWork:-1,atLeast:false},{v:1,acceptedWork:100,atLeast:false}])test('invalid earned work never promotes: '+JSON.stringify(progress),async t=>{
+for(const progress of [null,{v:2,completedWork:101,atLeast:true},{v:2,completedWork:-1,atLeast:false},{v:2,completedWork:100,atLeast:false}])test('invalid earned work never promotes: '+JSON.stringify(progress),async t=>{
  const h=await harness(t,{configTransform:c=>({...c,training:{v:1,hasSavedResult:true,hasReviewedResult:true},progress})});assert.equal(h.get('training-rank').textContent,'Lieutenant');assert.equal(h.get('training-next').textContent,'Work milestones unavailable.');assert.equal(h.f.calls,0);
 });
 for(const field of ['ownerAuthentication','durableStorage','providerEnrollment'])test('missing commissioning prerequisite: '+field,async t=>{
@@ -207,4 +207,13 @@ test('uncertain submission response offers status recovery without automatic rep
 test('reviewed bootstrap waits for delayed configuration completion instead of event-loop ticks',async t=>{
  const h=await harness(t,{beforeBoot:reviewedFixture,initialHash:'#overview',configDelayMs:50});
  assert.equal(h.get('training-rank').textContent,'Lieutenant');assert.equal(h.calls.filter(c=>c.url==='/workspace/config').length,1);assert.equal(h.f.calls,1);
+});
+
+test('completed usage cannot skip first review training gate',async t=>{
+ const h=await harness(t,{configTransform:c=>({...c,training:{v:1,hasSavedResult:true,hasReviewedResult:false},progress:{v:2,completedWork:100,atLeast:true}})});
+ assert.equal(h.get('training-rank').textContent,'Ensign');assert.equal(h.f.calls,0);
+});
+test('legacy accepted-only progress is never reinterpreted as completed usage',async t=>{
+ const h=await harness(t,{configTransform:c=>({...c,training:{v:1,hasSavedResult:true,hasReviewedResult:true},progress:{v:1,acceptedWork:100,atLeast:true}})});
+ assert.equal(h.get('training-rank').textContent,'Lieutenant');assert.equal(h.get('training-next').textContent,'Work milestones unavailable.');
 });

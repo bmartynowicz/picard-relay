@@ -60,7 +60,7 @@ test('review is durable, append-only, output-bound, idempotent and conflict chec
  const result=(await f.request('/workspace/requests/'+ref)).body;assert.equal(result.review.history.length,2);assert.equal(result.review.latest.decision,'accepted');assert.equal(result.result.body,f.output);assert.equal(f.calls,1);
 });
 
-test('earned work counts distinct accepted results across owner tasks, review revisions and restart',async t=>{
+test('earned work counts distinct completed results across owner tasks, review revisions and restart',async t=>{
  const f=await fixture(t),refs=[];
  for(let i=0;i<6;i++){
   if(i)f.advance(61000);
@@ -69,13 +69,13 @@ test('earned work counts distinct accepted results across owner tasks, review re
   await f.request('/workspace/reviews/'+saved.ref,{body:{expectedRevision:0,decision:i===5?'changes_requested':'accepted',note:'Synthetic review',resultSha256:saved.result.sha256}});
  }
  const config=() => f.request('/workspace/config');
- assert.deepEqual((await config()).body.progress,{v:1,acceptedWork:5,atLeast:false});
+ assert.deepEqual((await config()).body.progress,{v:2,completedWork:6,atLeast:false});
  assert.equal(f.store.relay.recentJobs({ownerId:f.binding.ownerId,limit:1}).rows.length,1);
  const first=refs[0],url='/workspace/reviews/'+first.ref;
  await f.request(url,{body:{expectedRevision:1,decision:'accepted',note:'Second review, same work',resultSha256:first.result.sha256}});
- assert.equal((await config()).body.progress.acceptedWork,5);
+ assert.equal((await config()).body.progress.completedWork,6);
  await f.request(url,{body:{expectedRevision:2,decision:'changes_requested',note:'Credit withdrawn',resultSha256:first.result.sha256}});
- assert.equal((await config()).body.progress.acceptedWork,4);f.restart();assert.equal((await config()).body.progress.acceptedWork,4);
+ assert.equal((await config()).body.progress.completedWork,6);f.restart();assert.equal((await config()).body.progress.completedWork,6);
  assert.equal(f.calls,6);
  const db=new DatabaseSync(f.dbPath),r=JSON.parse(f.store.get(refs[1].ref).result_json);db.prepare('UPDATE relay_jobs SET result_json=? WHERE event_id=?').run(JSON.stringify({...r,body:'Unreviewed replacement'}),refs[1].ref);db.close();
  assert.equal((await config()).body.progress,null);assert.equal((await config()).status,200);
@@ -90,7 +90,7 @@ test('earned work reaches 100+ beyond every browser history page without new pro
   const r=await f.request('/workspace/reviews/'+saved.ref,{body:{expectedRevision:0,decision:'accepted',note:'Synthetic',resultSha256:saved.result.sha256}});assert.equal(r.status,200);
  }
  f.restart();const calls=f.calls;
- for(let i=0;i<2;i++)assert.deepEqual((await f.request('/workspace/config')).body.progress,{v:1,acceptedWork:100,atLeast:true});
+ for(let i=0;i<2;i++)assert.deepEqual((await f.request('/workspace/config')).body.progress,{v:2,completedWork:100,atLeast:true});
  assert.equal(f.calls,calls);assert.equal(f.store.relay.recentJobs({ownerId:f.binding.ownerId}).rows.length,25);
 });
 test('owner result recovery includes prior tasks and excludes foreign owners',async t=>{
@@ -104,4 +104,26 @@ test('a review of an original answer never becomes acceptance of changed stored 
  const f=await fixture(t),d=await f.prepare(),proof=await f.approve(d);await f.submit(d,proof);await f.dispatcher.runOnce();const ref=d.payload.eventId,saved=(await f.request('/workspace/requests/'+ref)).body;
  await f.request('/workspace/reviews/'+ref,{body:{expectedRevision:0,decision:'accepted',note:'Original answer reviewed.',resultSha256:saved.result.sha256}});
  const db=new DatabaseSync(f.dbPath),result=JSON.parse(f.store.get(ref).result_json);db.prepare('UPDATE relay_jobs SET result_json=? WHERE event_id=?').run(JSON.stringify({...result,body:'Different unreviewed text'}),ref);db.close();assert.equal((await f.request('/workspace/requests/'+ref)).status,409);assert.equal(f.calls,1);
+});
+
+test('usage progression credits unreviewed work once without changing training or reviews',async t=>{
+ const f=await fixture(t),d=await f.prepare(),proof=await f.approve(d);
+ const progress=async()=> (await f.request('/workspace/config')).body;
+ await f.submit(d,proof);assert.equal((await progress()).progress.completedWork,0);
+ await f.dispatcher.runOnce();
+ for(let i=0;i<2;i++){const c=await progress();assert.deepEqual(c.progress,{v:2,completedWork:1,atLeast:false});assert.equal(c.training.hasReviewedResult,false);}
+ assert.equal((await f.submit(d,proof)).status,200);f.restart();
+ assert.equal((await progress()).progress.completedWork,1);
+ const saved=(await f.request('/workspace/requests/'+d.payload.eventId)).body;
+ assert.equal(saved.review.revision,0);assert.equal(saved.review.latest,null);assert.equal(f.calls,1);
+ // Questions and foreign-owner completions cannot earn credit.
+ const db=new DatabaseSync(f.dbPath),r=JSON.parse(f.store.get(saved.ref).result_json);
+ db.prepare('UPDATE relay_jobs SET result_json=? WHERE event_id=?').run(JSON.stringify({...r,outcome:{...r.outcome,kind:'question'}}),saved.ref);
+ assert.equal((await progress()).progress.completedWork,0);
+ db.prepare('UPDATE relay_jobs SET owner=? WHERE event_id=?').run('foreign-owner',saved.ref);
+ assert.equal((await progress()).progress.completedWork,0);db.close();assert.equal(f.calls,1);
+});
+test('uncertain attempts never earn usage credit',async t=>{
+ const f=await fixture(t),d=await f.prepare();await f.submit(d,await f.approve(d));f.setMode('uncertain');await f.dispatcher.runOnce();
+ assert.deepEqual((await f.request('/workspace/config')).body.progress,{v:2,completedWork:0,atLeast:false});f.restart();assert.equal((await f.request('/workspace/config')).body.progress.completedWork,0);assert.equal(f.calls,1);
 });

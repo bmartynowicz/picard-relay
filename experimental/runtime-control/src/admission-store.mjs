@@ -328,6 +328,14 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
  function workspaceProgressVersion(){
   return String(db.prepare('SELECT total_changes() AS n').get().n)+':'+String(db.prepare('PRAGMA data_version').get().data_version);
  }
+ // Enumerate durable owner results, never a UI history page or review backlog.
+ // event_id is the primary key, so retries/read/review revisions cannot add credit.
+ function workspaceCompletedRefs(){
+  if(workspaceEnabled!==true)stop('production_admission_disabled');
+  const rows=db.prepare("SELECT event_id AS ref FROM relay_jobs WHERE owner=? AND state='completed' ORDER BY event_id LIMIT 10001").all(reusableBinding.ownerId);
+  if(rows.length>10000||rows.some(row=>!hex(row.ref)))stop('existing_record_invalid');
+  return rows.map(row=>row.ref);
+ }
  function workspaceReviewedRefs(){
   if(workspaceEnabled!==true)stop('production_admission_disabled');
   const prefix=PREFIX+'workspace:'+workspaceScope()+':review:';
@@ -493,7 +501,7 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
    if(changed.changes!==1)return null;const claimed=get(row.event_id);return {...claimed,request_id:claimed.event_id};
   });
  }
- return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,readHistoricalWork,commitWorkspace,createWorkspaceClient,listWorkspaceClients,workspaceClient,authenticateWorkspaceClient,revokeWorkspaceClient,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,workspaceReviewedRefs,workspaceProgressVersion,saveWorkspaceReview,workspaceGrade,saveWorkspaceGrade,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,pendingGrantAssociated,reconcileEligible,claimEligible,
+ return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,readHistoricalWork,commitWorkspace,createWorkspaceClient,listWorkspaceClients,workspaceClient,authenticateWorkspaceClient,revokeWorkspaceClient,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,workspaceReviewedRefs,workspaceCompletedRefs,workspaceProgressVersion,saveWorkspaceReview,workspaceGrade,saveWorkspaceGrade,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,pendingGrantAssociated,reconcileEligible,claimEligible,
   close(){db.close();if(!relayStore)relay.close();},
  });
 }
