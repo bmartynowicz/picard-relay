@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {canonical,payloadHash} from '../experimental/runtime-control/src/protocol.mjs';
 import {planReusableBoardApproval,validateReusableBoardAttestation} from '../experimental/runtime-control/src/admission-plan.mjs';
+test('measurement attestation uses strict v2 with unchanged exact model input',async()=>{const f=await fixture(),approval={v:2,previousEventId:'c'.repeat(64),previousResultSha256:'d'.repeat(64),purpose:'sanitized-source-proposal',enrollmentId:f.enrollmentId,inputSha256:f.grant.inputSha256,issuedAt:f.at,expiresAt:f.grant.expiresAt,measurementRunId:'00000000-0000-4000-8000-000000000001',measurementEnvelopeSha256:'e'.repeat(64)},args={payload:f.payload,approval,ownerId:f.ownerId,enrollmentId:f.enrollmentId,at:f.at};await validateReusableBoardAttestation(args);for(const change of [{v:1},{measurementRunId:'bad'},{measurementEnvelopeSha256:'bad'},{extra:true}])await assert.rejects(()=>validateReusableBoardAttestation({...args,approval:{...approval,...change}}));});
 const hash=x=>createHash('sha256').update(canonical(x)).digest('hex');
 async function fixture(taskId='task-a'){
  const ownerId='owner',enrollmentId='a'.repeat(64),requestId='11111111-1111-4111-8111-111111111111',grantId='22222222-2222-4222-8222-222222222222',at=1700000000000,eventId=hash([ownerId,taskId,requestId]);

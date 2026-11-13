@@ -1,6 +1,6 @@
 // Pure bounded planning: no file I/O or network. Caller authentication and
 // durable one-use approval are enforced separately by admission-handler/store.
-import {canonical,digest,payloadHash,validateWork} from './protocol.mjs';
+import {canonical,digest,payloadHash,validateWork,validReusableApprovalShape} from './protocol.mjs';
 import {createHash} from 'node:crypto';
 import {validCostEnrollmentMetadata} from './admission-enrollment.mjs';
 const hash=value=>createHash('sha256').update(value).digest('hex');
@@ -39,7 +39,7 @@ export function validateWorkspaceDraft(draft,binding){
 // trusted Board must have revalidated its durable owner-approved grant. This
 // function checks binding only; the object alone is not authorization.
 export async function validateReusableBoardAttestation({payload,approval,ownerId,enrollmentId,at}={}){
- if(!(exact(approval,['v','purpose','enrollmentId','inputSha256','issuedAt','expiresAt'])||exact(approval,['v','purpose','enrollmentId','inputSha256','issuedAt','expiresAt','maxCompletionTokens'])&&approval.maxCompletionTokens===4096)||approval.v!==1||!['public-source-review','sanitized-source-proposal'].includes(approval.purpose)||!hex(enrollmentId)||approval.enrollmentId!==enrollmentId||!hex(approval.inputSha256)||!integer(approval.issuedAt)||!integer(approval.expiresAt)||!integer(at)||approval.issuedAt>at||approval.expiresAt<=at||approval.expiresAt-approval.issuedAt<1000||approval.expiresAt-approval.issuedAt>3600000)stop('approval_invalid');
+ if(!validReusableApprovalShape(approval)||!['public-source-review','sanitized-source-proposal'].includes(approval.purpose)||!hex(enrollmentId)||approval.enrollmentId!==enrollmentId||!hex(approval.inputSha256)||!integer(approval.issuedAt)||!integer(approval.expiresAt)||!integer(at)||approval.issuedAt>at||approval.expiresAt<=at||approval.expiresAt-approval.issuedAt<1000||approval.expiresAt-approval.issuedAt>3600000)stop('approval_invalid');
  try{await validateWork(payload);}catch{stop('work_invalid');}
  const created=Date.parse(payload.request.createdAt),inputSha256=hash(canonical({requestText:payload.request.text,taskContext:payload.context}));
  if(payload.ownerId!==ownerId||payload.assistantId!=='groq:openai/gpt-oss-20b'||payload.request.answerTo!==null||created<approval.issuedAt||created>at||payload.grantExpiresAt!==approval.expiresAt||inputSha256!==approval.inputSha256)stop('scope_mismatch');

@@ -644,6 +644,29 @@
       "status": "needs_design",
       "currentLimit": "Hold-to-record and relay synchronization are requested. Prototype/build work exists; compilation does not prove microphone, storage durability or hardware sync.",
       "next": "Continue the assigned hardware/protocol work with explicit recovery assumptions and target tests. Recording, power-loss/card behavior and physical device qualification remain separate from source builds."
+    },
+    {
+      "id": "PR-FEAT-MEASUREMENT-RUNS",
+      "kind": "feature",
+      "title": "Explicit owner-approved independent measurement runs",
+      "status": "source_candidate",
+      "behavior": "Separate strict run authority can repeat completed exact input once without replacing legacy grants; disabled by default.",
+      "sourceFiles": [
+        "experimental/runtime-control/src/admission-dispatch.mjs",
+        "experimental/runtime-control/src/admission-store.mjs",
+        "experimental/runtime-control/src/admission-plan.mjs",
+        "experimental/runtime-control/src/protocol.mjs",
+        "experimental/runtime-control/src/receiver.mjs",
+        "experimental/runtime-control/src/admission-runtime.mjs",
+        "experimental/runtime-control/src/oracle-service.mjs"
+      ],
+      "tests": [
+        "test/reusable-board-adapter.test.mjs",
+        "test/reusable-board-plan.test.mjs",
+        "test/reusable-board-store.test.mjs",
+        "test/admission-runtime.test.mjs"
+      ],
+      "remaining": "Complete exact-commit Linux qualification and source review; separately approve Board additive migration, signed runtime publication/configuration binding and feature activation. Fresh exact owner approval required before one real call."
     }
   ]
 }
