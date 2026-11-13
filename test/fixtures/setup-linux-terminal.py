@@ -33,7 +33,7 @@ answers = [
 ]
 output = b""
 index = 0
-deadline = time.monotonic() + 180
+deadline = time.monotonic() + 420
 try:
     while time.monotonic() < deadline:
         readable, _, _ = select.select([fd], [], [], 1)

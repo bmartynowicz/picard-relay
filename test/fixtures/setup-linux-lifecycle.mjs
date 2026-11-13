@@ -10,7 +10,7 @@ assert.equal(process.platform,'linux');assert.equal(process.getuid(),0);
 const directory=fs.mkdtempSync('/run/picard-setup-qualification-');fs.chmodSync(directory,0o755);
 try{
  const paths=setupPaths(directory+'/target');
- for(const d of [directory+'/target',directory+'/target/opt',directory+'/target/etc',directory+'/target/var',directory+'/target/var/lib',paths.units])fs.mkdirSync(d,{recursive:true,mode:0o755});
+ for(const d of [directory+'/target',directory+'/target/opt',directory+'/target/usr/local/lib',directory+'/target/etc',directory+'/target/var',directory+'/target/var/lib',paths.units])fs.mkdirSync(d,{recursive:true,mode:0o755});
  assertFresh(paths);
  fs.mkdirSync(paths.config,{mode:0o750});fs.chownSync(paths.config,0,65534);
  assert.throws(()=>assertFresh(paths),/existing_installation_refused/);
@@ -31,12 +31,12 @@ try{
   const target=codeRoot+'/'+file;fs.mkdirSync(path.dirname(target),{recursive:true,mode:0o755});fs.writeFileSync(target,fs.readFileSync(source+'/'+file),{mode:0o444});
  }
  fs.mkdirSync(paths.code+'/bin',{recursive:true,mode:0o755});
- fs.copyFileSync(process.execPath,paths.code+'/bin/node');fs.chmodSync(paths.code+'/bin/node',0o555);
+ fs.copyFileSync(process.execPath,paths.code+'/node');fs.chmodSync(paths.code+'/node',0o555);
  // Only a syntax fixture: no web process is started and no certificate requested.
  fs.writeFileSync(paths.code+'/bin/caddy','#!/bin/sh\nexit 0\n',{mode:0o555});
  const units=serviceUnits(paths);
- fs.writeFileSync(paths.units+'/picard-relay.service',units.relay);fs.writeFileSync(paths.units+'/picard-relay-web.service',units.web);
- const verified=spawnSync('/usr/bin/systemd-analyze',['verify',paths.units+'/picard-relay.service',paths.units+'/picard-relay-web.service'],{encoding:'utf8',timeout:10000,maxBuffer:65536});
+ fs.writeFileSync(paths.units+'/board-event-relay.service',units.relay);fs.writeFileSync(paths.units+'/picard-relay-web.service',units.web);
+ const verified=spawnSync('/usr/bin/systemd-analyze',['verify',paths.units+'/board-event-relay.service',paths.units+'/picard-relay-web.service'],{encoding:'utf8',timeout:10000,maxBuffer:65536});
  assert.equal(verified.status,0,verified.stderr);
  const denied=spawnSync(process.execPath,['--input-type=module','-e','import fs from "node:fs";try{fs.readFileSync(process.argv[1]);process.exit(1);}catch(e){if(e.code!=="EACCES")throw e;}',plan.env.GROQ_API_KEY_FILE],{uid:65533,gid:65533,encoding:'utf8',timeout:5000});
  assert.equal(denied.status,0,denied.stderr);

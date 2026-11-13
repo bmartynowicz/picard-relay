@@ -15,7 +15,9 @@ const json=value=>canonical(value)+'\n';
 const runtime='groq:openai/gpt-oss-20b';
 export function setupPaths(root=''){
  requireThat(root===''||/^\/[A-Za-z0-9_./-]+$/.test(root)&&path.resolve(root)===root,'invalid_setup_root');
- return {code:root+'/opt/picard-relay',config:root+'/etc/picard-relay',state:root+'/var/lib/picard-relay',web:root+'/var/lib/picard-relay-web',units:root+'/etc/systemd/system'};
+ return {code:root+'/usr/local/lib/board-event-relay',config:root+'/etc/board-event-relay',state:root+'/var/lib/board-event-relay',web:root+'/var/lib/picard-relay-web',units:root+'/etc/systemd/system',
+  updater:root+'/usr/local/lib/picard-updater',updaterConfig:root+'/etc/picard-updater',updaterState:root+'/var/lib/picard-updater',inbox:root+'/var/lib/picard-updater-inbox',updateStatus:root+'/var/lib/picard-updater-status',updateQueue:root+'/var/lib/picard-update-requests',keySupport:root+'/usr/local/lib/picard-groq-replacement',keyStatus:root+'/var/lib/picard-groq-replacement',
+  legacy:[root+'/opt/picard-relay',root+'/etc/picard-relay',root+'/var/lib/picard-relay',root+'/etc/systemd/system/picard-relay.service']};
 }
 export function validateAnswers(a){
  requireThat(typeof a.hostname==='string'&&a.hostname.length<=253&&a.hostname===a.hostname.toLowerCase()
@@ -49,7 +51,8 @@ export function buildSetup(a,{paths=setupPaths(),now=Date.now(),random=randomByt
   BRIDGE_ADMISSION_SIGNED_BRIDGE_ENABLED:'true',BRIDGE_ADMISSION_REUSABLE_BOARD_ENABLED:'true',
   BRIDGE_ADMISSION_CATALOGUE_FILE:paths.config+'/policy/catalogue.json',BRIDGE_ADMISSION_LEGACY_BASELINE_FILE:config.admissionLegacyBaselineFile,
   BRIDGE_ADMISSION_LEGACY_BASELINE_SHA256:config.admissionLegacyBaselineSha256,GROQ_ENABLED:'true',GROQ_ONE_SHOT:'true',
-  GROQ_API_KEY_FILE:paths.config+'/credentials/groq',GROQ_FREE_GATE_FILE:paths.config+'/credentials/free-gate.json',GROQ_ONCE_MARKER_FILE:markers+'/once.json'};
+  GROQ_API_KEY_FILE:paths.config+'/credentials/groq',GROQ_FREE_GATE_FILE:paths.config+'/credentials/free-gate.json',GROQ_ONCE_MARKER_FILE:markers+'/once.json',
+  BRIDGE_OWNER_UPDATES_ENABLED:'true',BRIDGE_GROQ_KEY_REPLACEMENT_ENABLED:'true'};
  const privateFiles=[
   {file:env.BRIDGE_HMAC_SECRET_FILE,body:random(48).toString('base64url')+'\n',owner:'root',mode:0o640},
   {file:env.GROQ_API_KEY_FILE,body:a.apiKey+'\n',owner:'root',mode:0o640},
@@ -70,7 +73,8 @@ export function ensureTrustedParent(directory){
  }
 }
 export function assertFresh(paths){
- for(const target of [paths.code,paths.config,paths.state,paths.web,paths.units+'/picard-relay.service',paths.units+'/picard-relay-web.service']){
+ for(const target of [paths.code,paths.config,paths.state,paths.web,paths.updater,paths.updaterConfig,paths.updaterState,paths.inbox,paths.updateStatus,paths.updateQueue,paths.keySupport,paths.keyStatus,
+  paths.units+'/board-event-relay.service',paths.units+'/board-event-relay.service.d',paths.units+'/picard-relay-web.service',...paths.legacy]){
   ensureTrustedParent(path.dirname(target));
   try{fs.lstatSync(target);throw Error('existing_installation_refused');}catch(e){if(e.code!=='ENOENT')throw e;}
  }
@@ -85,7 +89,7 @@ export function writePrivateSetup(plan,{uid,gid}){
 export function serviceUnits(paths){
  const hardening='NoNewPrivileges=true\nPrivateTmp=true\nProtectSystem=strict\nProtectHome=true\nProtectKernelTunables=true\nProtectKernelModules=true\nProtectControlGroups=true\nRestrictSUIDSGID=true\nUMask=0077\n';
  return {
-  relay:`[Unit]\nDescription=Picard Relay\nAfter=network-online.target\nWants=network-online.target\n[Service]\nUser=picard-relay\nGroup=picard-relay\nEnvironmentFile=${paths.config}/relay.env\nExecStart=${paths.code}/bin/node --jitless ${paths.code}/src/oracle-service.mjs\nWorkingDirectory=${paths.state}\nReadWritePaths=${paths.state}\nRestart=on-failure\nRestartSec=5\nTimeoutStopSec=30\n${hardening}[Install]\nWantedBy=multi-user.target\n`,
-  web:`[Unit]\nDescription=Picard HTTPS\nAfter=network-online.target picard-relay.service\nWants=network-online.target\n[Service]\nUser=picard-relay-web\nGroup=picard-relay-web\nEnvironment=HOME=${paths.web}\nExecStart=${paths.code}/bin/caddy run --config ${paths.code}/Caddyfile --adapter caddyfile\nReadWritePaths=${paths.web}\nAmbientCapabilities=CAP_NET_BIND_SERVICE\nCapabilityBoundingSet=CAP_NET_BIND_SERVICE\nRestart=on-failure\nRestartSec=5\n${hardening}[Install]\nWantedBy=multi-user.target\n`
+  relay:`[Unit]\nDescription=Picard Relay\nAfter=network-online.target\nWants=network-online.target\n[Service]\nUser=board-event-relay\nGroup=board-event-relay\nEnvironmentFile=${paths.config}/relay.env\nEnvironment=BRIDGE_CONTROL_SOCKET=${paths.state}/control.sock\nEnvironment=OPENSSL_CONF=${paths.updaterConfig}/openssl.cnf\nExecStart=${paths.code}/node --jitless ${paths.updater}/launch-versioned.mjs\nWorkingDirectory=${paths.state}\nReadWritePaths=${paths.state}\nRestart=on-failure\nRestartSec=5\nTimeoutStopSec=30\n${hardening}[Install]\nWantedBy=multi-user.target\n`,
+  web:`[Unit]\nDescription=Picard HTTPS\nAfter=network-online.target board-event-relay.service\nWants=network-online.target\n[Service]\nUser=picard-relay-web\nGroup=picard-relay-web\nEnvironment=HOME=${paths.web}\nExecStart=${paths.code}/bin/caddy run --config ${paths.code}/Caddyfile --adapter caddyfile\nReadWritePaths=${paths.web}\nAmbientCapabilities=CAP_NET_BIND_SERVICE\nCapabilityBoundingSet=CAP_NET_BIND_SERVICE\nRestart=on-failure\nRestartSec=5\n${hardening}[Install]\nWantedBy=multi-user.target\n`
  };
 }

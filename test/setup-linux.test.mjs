@@ -11,11 +11,11 @@ test('fresh setup binds a finite empty catalogue, key and baseline to the actual
  const p=buildSetup(answers),e=p.env,policy=JSON.parse(p.privateFiles.find(v=>v.file===e.BRIDGE_ADMISSION_CATALOGUE_FILE).body);
  const baseline=p.privateFiles.find(v=>v.file===e.BRIDGE_ADMISSION_LEGACY_BASELINE_FILE);
  const config={ownerId:e.BRIDGE_OWNER_ID,allowedTaskId:e.BRIDGE_ALLOWED_TASK_ID,assistantId:e.BRIDGE_ASSISTANT_ID,keyId:e.BRIDGE_KEY_ID,consoleOrigins:JSON.parse(e.BRIDGE_CONSOLE_ORIGINS),admissionSignedBridgeEnabled:true,admissionReusableBoardEnabled:true,admissionLegacyBaselineFile:baseline.file,admissionLegacyBaselineSha256:hash(baseline.body)};
- const binding={...policy.catalogue,keySha256:hash(answers.apiKey),configurationSha256:admissionConfigurationDigest({config,enrollmentId:p.enrollmentId,keySha256:hash(answers.apiKey),markerDirectory:'/var/lib/picard-relay/markers'})};
+ const binding={...policy.catalogue,keySha256:hash(answers.apiKey),configurationSha256:admissionConfigurationDigest({config,enrollmentId:p.enrollmentId,keySha256:hash(answers.apiKey),markerDirectory:setupPaths().state+'/markers'})};
  assert.equal(readBoundAdmissionPolicy(()=>policy,binding).slotCount,0);
  assert.equal(hash(baseline.body),e.BRIDGE_ADMISSION_LEGACY_BASELINE_SHA256);
  assert.equal(e.BRIDGE_ADMISSION_REUSABLE_BOARD_ENABLED,'true');assert.equal(e.BRIDGE_WORKSPACE_ENABLED,'true');
- assert.equal(e.BRIDGE_OWNER_UPDATES_ENABLED,undefined);assert.equal(e.BRIDGE_GROQ_KEY_REPLACEMENT_ENABLED,undefined);
+ assert.equal(e.BRIDGE_OWNER_UPDATES_ENABLED,'true');assert.equal(e.BRIDGE_GROQ_KEY_REPLACEMENT_ENABLED,'true');
  assert.equal(p.privateFiles.some(v=>v.body.includes('paidFallback":true')),false);
  assert.equal(JSON.stringify(e).includes(answers.apiKey),false);
 });
