@@ -1,4 +1,4 @@
-// Public artifact builder: only the six reviewed browser assets leave the source tree.
+// Public artifact builder: only reviewed browser assets and the sharing image leave the source tree.
 import {mkdir,readFile,readdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {resolve} from 'node:path';
@@ -24,6 +24,7 @@ export async function buildLanding({outputDir,sourceSha=null}){
   'landing.js':(await read('landing.js')).replace("from './setup-flow.mjs'","from './setup-flow.js'"),
   'setup-flow.js':await read('setup-flow.mjs'),
   'mark.svg':await read('mark.svg'),
+  'social-preview.png':await readFile(new URL('./social-preview.png',import.meta.url)),
   '.nojekyll':''
  };
  const files=Object.fromEntries(Object.entries(assets).map(([name,value])=>[name,{bytes:Buffer.byteLength(value),sha256:createHash('sha256').update(value).digest('hex')}]));
