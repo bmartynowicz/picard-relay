@@ -44,7 +44,11 @@ export async function main(args=process.argv.slice(2)){
   installHostSupport({paths,checkout:root,signed,uid,gid});labelFreshSetupExecutables(paths);
   mkdir(BOOTSTRAP_CODE);mkdir(BOOTSTRAP_CONFIG);mkdir(BOOTSTRAP_ROOT,0,gid,0o750);mkdir(BOOTSTRAP_ROOT+'/inbox',uid,gid,0o700);
   for(const name of [...FIRST_RUN_FILES,...signed.files.map(f=>'experimental/runtime-control/'+f.path)]){
-   const target=BOOTSTRAP_CODE+'/'+name;fs.mkdirSync(path.dirname(target),{recursive:true,mode:0o755});exclusiveFile(target,fs.readFileSync(path.join(root,name)));
+   const target=BOOTSTRAP_CODE+'/'+name;fs.mkdirSync(path.dirname(target),{recursive:true,mode:0o755});
+   // cloud-init uses umask 077. These contain public reviewed code, not secrets;
+   // the unprivileged setup service must be able to traverse every code parent.
+   for(let dir=path.dirname(target);dir!==BOOTSTRAP_CODE;dir=path.dirname(dir))fs.chmodSync(dir,0o755);
+   exclusiveFile(target,fs.readFileSync(path.join(root,name)));
   }
   exclusiveFile(BOOTSTRAP_CONFIG+'/config.json',JSON.stringify(config)+'\n',0o644);exclusiveFile(BOOTSTRAP_CONFIG+'/identity.json',JSON.stringify(initial.identity)+'\n',0o644);
   exclusiveFile(BOOTSTRAP_ROOT+'/status.json','{"v":1,"state":"waiting"}\n',0o640);fs.chownSync(BOOTSTRAP_ROOT+'/status.json',0,gid);

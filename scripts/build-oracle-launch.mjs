@@ -7,6 +7,9 @@ import {gzipSync} from 'node:zlib';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const sha=b=>createHash('sha256').update(b).digest('hex');
+// Git's Windows checkout conversion must not change the signed source bytes or
+// turn cloud-init/bash into CRLF scripts. Every allowlisted source is UTF-8 text.
+const textBytes=bytes=>Buffer.from(new TextDecoder('utf-8',{fatal:true}).decode(bytes).replace(/\r\n/g,'\n'));
 export const HOST_FILES=Object.freeze([
  ...['setup-linux.sh','setup-linux.mjs','setup-linux-core.mjs','setup-linux-host.mjs','setup-linux-trust.mjs','setup-linux-selinux.mjs','install-ci-cosign.mjs','browser-setup-core.mjs','browser-setup-ui.mjs','serve-browser-setup.mjs','install-browser-setup.mjs','activate-browser-setup.mjs','serve-groq-key-replacement.mjs','stage-groq-key-replacement.mjs'].map(n=>'scripts/'+n),
  ...['Caddyfile.workspace.example','picard-groq-replacement.socket','picard-groq-replacement@.service'].map(n=>'deploy/'+n),
@@ -38,11 +41,12 @@ export async function oracleLaunchAssets({checkout=root}={}){
  const policy=JSON.parse(await fs.readFile(path.join(checkout,'experimental/updater/policy.example.json'),'utf8'));
  if(policy.allowedFiles.length!==20||policy.allowedFiles.some(p=>!/^src\/[a-z0-9-]+\.mjs$/.test(p)))throw Error('fixed_runtime_required');
  const names=[...HOST_FILES,...policy.allowedFiles.map(p=>'experimental/runtime-control/'+p)].sort();
- const host=gzipSync(tar(await Promise.all(names.map(async p=>{const file=path.join(checkout,p),stat=await fs.lstat(file);if(!stat.isFile()||stat.isSymbolicLink()||stat.size>2000000)throw Error('package_source_invalid');return [p,await fs.readFile(file)];}))),{level:9});
+ const host=gzipSync(tar(await Promise.all(names.map(async p=>{const file=path.join(checkout,p),stat=await fs.lstat(file);if(!stat.isFile()||stat.isSymbolicLink()||stat.size>2000000)throw Error('package_source_invalid');return [p,textBytes(await fs.readFile(file))];}))),{level:9});
+ host[9]=255; // gzip OS=unknown: identical reviewed archive on Windows and Linux.
  if(host.length>5000000)throw Error('host_package_too_large');
  const hash=sha(host),hostName='oracle-host-'+hash+'.tgz',base='https://bmartynowicz.github.io/picard-relay/';
  const constants=Buffer.from(JSON.stringify({locals:{picard_artifact_url:base+hostName,picard_artifact_sha256:hash}})+'\n');
- const stack=zip([...await Promise.all(STACK_FILES.map(async p=>[p,await fs.readFile(path.join(checkout,'deploy/oracle',p))])),['artifact.tf.json',constants]]);
+ const stack=zip([...await Promise.all(STACK_FILES.map(async p=>[p,textBytes(await fs.readFile(path.join(checkout,'deploy/oracle',p)))])),['artifact.tf.json',constants]]);
  return {[hostName]:host,'oracle-stack.zip':stack};
 }
 export async function buildOracleLaunch(output){await fs.mkdir(output,{recursive:true});if((await fs.readdir(output)).length)throw Error('oracle_output_not_empty');const assets=await oracleLaunchAssets();for(const [name,body] of Object.entries(assets))await fs.writeFile(path.join(output,name),body,{flag:'wx'});return Object.fromEntries(Object.entries(assets).map(([n,b])=>[n,{bytes:b.length,sha256:sha(b)}]));}

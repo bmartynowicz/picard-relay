@@ -21,9 +21,17 @@ with tempfile.TemporaryDirectory(prefix='picard-terraform-') as temporary:
         else: assert p.returncode!=0,'Expected allowance refusal'
         return p
     run(repo/'deploy/oracle',['fmt','-check','-recursive'])
-    run(repo/'deploy/oracle',['init','-backend=false','-input=false','-lockfile=readonly','-no-color'])
-    run(repo/'deploy/oracle',['validate','-no-color'])
-    guard=root/'guard';shutil.copytree(repo/'deploy/oracle/free-guard',guard)
+    # Qualify what Oracle actually receives, not just the unpackaged checkout.
+    assets=root/'assets'
+    subprocess.run(['node','scripts/build-oracle-launch.mjs',str(assets)],check=True,timeout=30,capture_output=True)
+    stack=root/'stack'
+    with zipfile.ZipFile(assets/'oracle-stack.zip') as package:
+        assert package.testzip() is None
+        assert all(not n.startswith('/') and '..' not in n.split('/') for n in package.namelist())
+        package.extractall(stack)
+    run(stack,['init','-backend=false','-input=false','-lockfile=readonly','-no-color'])
+    run(stack,['validate','-no-color'])
+    guard=root/'guard';shutil.copytree(stack/'free-guard',guard)
     run(guard,['init','-backend=false','-input=false','-no-color'])
     good={'region':'us-ashburn-1','home_region':'us-ashburn-1','micro_instances':1,'storage_gb':150,'available_micro_slots':1,'all_compartments_read':True,'owner_confirmed_free':True}
     cases=[{}, {'region':'wrong-region'},{'micro_instances':2},{'storage_gb':151},{'available_micro_slots':0},{'all_compartments_read':False},{'owner_confirmed_free':False},{'storage_gb':-1}]

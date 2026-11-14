@@ -98,7 +98,13 @@ disable_root: true
     browser=os.environ.get('PICARD_NATIVE_BROWSER')=='true'
     terminal='browser-setup-terminal.py' if browser else 'setup-linux-terminal.py'
     installed='browser-setup-installed.mjs' if browser else 'setup-linux-installed.mjs'
-    guest("cd /workspace && sudo env GITHUB_ACTIONS=true RUNNER_OS=Linux python3 test/fixtures/"+terminal, timeout=450)
+    browser_archive=''
+    if browser:
+        run(['node','scripts/build-oracle-launch.mjs',str(state/'assets')],timeout=30,stdout=subprocess.DEVNULL)
+        host_archive=next((state/'assets').glob('oracle-host-*.tgz'))
+        run(['scp','-i',str(state/'key'),'-P','22666','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','UserKnownHostsFile='+str(state/'known_hosts'),str(host_archive),'picard-ci@127.0.0.1:/tmp/'+host_archive.name],timeout=30)
+        browser_archive='PICARD_BROWSER_ARCHIVE=/tmp/'+host_archive.name+' '
+    guest("cd /workspace && sudo env GITHUB_ACTIONS=true RUNNER_OS=Linux "+browser_archive+"python3 test/fixtures/"+terminal, timeout=450)
     guest("sudo ps -eo label,pid,comm | grep -E 'node|caddy' || true")
     # Restore the vendor's ordinary audit configuration before exercising the
     # authenticated maintenance flow. Enforcement was never disabled.
