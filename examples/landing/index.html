@@ -35,14 +35,14 @@
 <button type="button" data-panel="groq" aria-controls="landing-panel" aria-expanded="false"><span class="nav-index" aria-hidden="true">04</span>Groq</button>
 <button type="button" data-panel="system" aria-controls="landing-panel" aria-expanded="false"><span class="nav-index" aria-hidden="true">05</span>System</button>
 </nav>
-<div class="console-utilities"><a class="landing-guide" href="https://github.com/bmartynowicz/picard-relay/blob/main/docs/README.md" target="_blank" rel="noopener noreferrer">Guides ↗</a><button type="button" class="landing-connect" data-panel="connect" aria-controls="landing-panel" aria-expanded="false">Open my relay ↗</button></div>
+<div class="console-utilities"><button type="button" class="landing-guide" data-panel="guide" aria-controls="landing-panel" aria-expanded="false">Guides</button><button type="button" class="landing-connect" data-panel="connect" aria-controls="landing-panel" aria-expanded="false">Open my relay ↗</button></div>
 </header>
 <div class="workspace" id="cockpit-glass">
 <section class="landing-welcome" id="welcome" aria-labelledby="welcome-title">
 <p class="landing-eyebrow">A place for your next good idea.</p>
 <h1 id="welcome-title">Make this cockpit<br><em>yours.</em></h1>
 <p>Your own AI workspace. Give it a task.<br>Keep the answer.</p>
-<div class="landing-actions"><button type="button" class="request-primary" data-panel="setup" aria-controls="landing-panel" aria-expanded="false">Set up my relay →</button><button type="button" class="landing-text" data-panel="overview" aria-controls="landing-panel" aria-expanded="false">Look around</button></div>
+<div class="landing-actions"><button type="button" class="request-primary" data-panel="setup" aria-controls="landing-panel" aria-expanded="false">Set up my relay →</button><button type="button" class="landing-text" data-panel="guide" aria-controls="landing-panel" aria-expanded="false">Try the workflow</button></div>
 </section>
 <section class="landing-panel" id="landing-panel" aria-labelledby="panel-title" hidden>
 <header class="landing-panel-head"><p class="landing-eyebrow" id="panel-kicker"></p><button type="button" class="landing-close" aria-label="Close panel">×</button></header>
@@ -73,5 +73,16 @@
 cd picard-relay
 sudo bash scripts/setup-linux.sh</code></pre><p>The guided installer asks for your hostname and Free-project details. Review its plan before installing.</p><p class="landing-muted">The key stays in your terminal. Setup makes no AI call.</p><a class="landing-link" href="https://github.com/bmartynowicz/picard-relay/blob/main/docs/SETUP.md#2-run-guided-setup" target="_blank" rel="noopener noreferrer">Full installation guide ↗</a><button type="button" class="request-primary" data-panel="connect">I have my relay address →</button></template>
 <template id="content-connect"><p>Open the HTTPS address printed by your installer.</p><form id="relay-connect" autocomplete="off"><label for="relay-address">Your relay address</label><input id="relay-address" name="relay-address" type="url" placeholder="https://your-relay.example" required spellcheck="false" autocapitalize="none" aria-describedby="relay-help relay-error"><p id="relay-help" class="landing-muted">You'll create your sign-in or enter your password on your own relay.</p><p id="relay-error" role="alert" hidden></p><button type="submit" class="request-primary">Enter my relay ↗</button></form><p class="landing-muted">Only the address is used to navigate. No key, password, or setup progress is sent from this page.</p><a class="landing-link" href="https://github.com/bmartynowicz/picard-relay/blob/main/docs/SETUP.md#3-create-your-sign-in" target="_blank" rel="noopener noreferrer">First sign-in help ↗</a></template>
+<template id="content-guide">
+<div id="request-guide">
+<div class="guide-caption"><p class="landing-muted">Practice · no AI call</p><a class="guide-text-version" href="https://github.com/bmartynowicz/picard-relay/blob/main/docs/QUICKSTART.md" target="_blank" rel="noopener noreferrer">Text guide ↗</a></div>
+<ol class="guide-steps" aria-label="Request workflow"><li data-guide-step="1">01 Request</li><li data-guide-step="2">02 Review</li><li data-guide-step="3">03 Saved answer</li></ol>
+<p id="guide-announcement" class="guide-announcement" role="status" aria-live="polite"></p>
+<section class="guide-stage" data-guide-stage="request"><h3 tabindex="-1">Start with a useful task.</h3><blockquote data-example-request></blockquote><p>In your relay, write your task in Requests.</p><button type="button" class="request-primary" data-guide-action="next">Review this example →</button></section>
+<section class="guide-stage" data-guide-stage="review" hidden><h3 tabindex="-1">Read what will be sent.</h3><blockquote data-example-request></blockquote><p>A real request shows the model and limits before you approve it. This practice example uses no model.</p><div class="guide-actions"><button type="button" class="request-primary" data-guide-action="next">Show sample answer →</button><button type="button" data-guide-action="back">Back</button></div></section>
+<section class="guide-stage" data-guide-stage="answer" hidden><h3 tabindex="-1">Keep the answer.</h3><p class="landing-muted">Sample answer · not generated by AI</p><pre class="guide-answer" data-example-answer></pre><p>Your relay keeps a real answer so you can return to it.</p><button type="button" data-guide-action="back">Close answer</button></section>
+<section class="guide-stage" data-guide-stage="saved" hidden><h3 tabindex="-1">Your answer is still here.</h3><p>Open a completed job to read it again. Reopening a saved answer makes no new model call.</p><div class="guide-actions"><button type="button" class="request-primary" data-guide-action="reopen">Reopen saved answer →</button><button type="button" data-guide-action="reset">Start again</button></div></section>
+</div><p class="landing-muted">Ready for your own task?</p><button type="button" class="landing-text" data-panel="setup">Set up my relay →</button>
+</template>
 </body>
 </html>

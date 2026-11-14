@@ -25,7 +25,7 @@
     "preview:v1": "node examples/workspace-preview.mjs",
     "preview:landing": "node examples/landing-preview.mjs",
     "build:landing": "node examples/landing/build-static.mjs",
-    "test:landing": "node --test test/landing-static.test.mjs",
+    "test:landing": "node --test test/landing-static.test.mjs test/learning-guide.test.mjs",
     "test:setup": "node --test test/setup-linux.test.mjs test/setup-linux-trust.test.mjs && node --jitless --test test/setup-linux.test.mjs test/setup-linux-trust.test.mjs"
   },
   "license": "MIT"
