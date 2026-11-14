@@ -3,7 +3,8 @@ import {canonical,digest,validateWork} from './protocol.mjs';
 import {planFiniteAdmission,planWorkspaceDraft,validateWorkspaceDraft} from './admission-plan.mjs';
 import {randomUUID} from 'node:crypto';
 import {readBoundAdmissionPolicy} from './admission-policy.mjs';
-import {AdmissionError,admissionHash,stop} from './admission-store.mjs';
+import {AdmissionError,admissionHash,stop,PUBLIC_TEST_REQUEST,PUBLIC_TEST_CONTEXT,PUBLIC_TEST_INPUT_SHA} from './admission-store.mjs';
+import {isIP} from 'node:net';
 import {recentJobReason} from './relay-store.mjs';
 import {sanitizeProviderUsage} from './adapters.mjs';
 
@@ -11,6 +12,96 @@ const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).
 const headers={'Cache-Control':'no-store, private','Pragma':'no-cache','Content-Type':'application/json; charset=utf-8','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cross-Origin-Resource-Policy':'same-origin','Content-Security-Policy':"default-src 'none'; frame-ancestors 'none'"};
 const routes=new Map([['/request-catalogue','GET'],['/request-approvals','POST'],['/requests','POST']]);
 const failureStatuses={auth_failed:401,request_invalid:400,request_too_large:413,admission_rate_limited:429,approval_invalid:409,approval_expired:409,approval_record_invalid:409,existing_record_invalid:409,scope_revoked:409,admission_blocked:503};
+
+// Dedicated public route: no bearer token, owner cookie, arbitrary prompt or
+// private job reference is accepted. Disabled until the host explicitly wires
+// a loopback proxy that overwrites X-Picard-Public-Client-IP with {remote_host}.
+export function createPublicTestHandler({enabled=false,proxyConfigured=false,auth,store,binding,origins=[],publicOrigin='',now=Date.now,currentAvailability=()=>null,loadPolicy}={}){
+ if(enabled!==true)return async()=>false;
+ if(proxyConfigured!==true||!auth||!store||!origins.length||binding.publicTestOrigin!==publicOrigin||!/^https:\/\/[a-z0-9.-]+(?::[0-9]+)?$/.test(publicOrigin))stop('public_test_configuration_invalid');
+ const hosts=new Set(origins.map(o=>new URL(o).host)),ownerScope=admissionHash(canonical([binding.ownerId,'public-trial-owner'])),globalScope=admissionHash(canonical([binding.ownerId,'public-trial-global']));
+ const ready=()=>{const a=currentAvailability();return a?.acceptingRequests===true&&(a.pendingUncertainty===false||a.isolatedFailures===true)&&a.costContradiction===false;};
+ const policy=()=>readBoundAdmissionPolicy(loadPolicy,binding);
+ const spec=()=>store.publicTestBatchSpec(binding),specSha=()=>admissionHash(canonical(spec()));
+ const privateHeaders={...headers};
+ const publicHeaders={...headers,'Cache-Control':'no-store','Cross-Origin-Resource-Policy':'cross-origin','Access-Control-Allow-Origin':publicOrigin,'Vary':'Origin'};
+ async function body(req,max=1024){
+  if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(req.headers['content-type']??''))stop('request_invalid');
+  const chunks=[];let size=0;for await(const chunk of req){size+=Buffer.byteLength(chunk);if(size>max)stop('request_too_large');chunks.push(Buffer.from(chunk));}
+  try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));}catch{stop('request_invalid');}
+ }
+ function publicState(){
+  const s=store.publicTestState();return {v:1,enabled:s.enabled,remaining:s.totalGranted-s.totalUsed-s.totalRetired,busy:store.publicTestActive().length>0,ready:store.publicTestReady(binding)&&ready(),requestText:PUBLIC_TEST_REQUEST,inputSha256:PUBLIC_TEST_INPUT_SHA,provider:'Groq',model:'openai/gpt-oss-20b',maxOutputTokens:512,tools:false,retries:0,paidFallback:false};
+ }
+ function result(requestId){
+  const receipt=store.publicTestReceipt(requestId);if(!receipt)stop('not_registered');
+  const {row,payload:p}=receipt.saved;const value={v:1,requestId,state:row.state,resultAvailable:false};
+  if(row.state==='completed'){
+   let r;try{r=JSON.parse(row.result_json);}catch{stop('existing_record_invalid');}
+   if(r?.eventId!==p.eventId||r.ownerId!==p.ownerId||r.taskId!==p.taskId||r.requestId!==p.requestId||r.grantId!==p.grantId||r.assistantId!==p.assistantId||r.payloadHash!==p.payloadHash||r.responseId!=='resp:'+p.eventId||typeof r.body!=='string'||!r.body.trim()||r.body.length>16000||r.outcome?.kind!=='information')stop('existing_record_invalid');
+   value.resultAvailable=true;value.answer=r.body;value.sha256=admissionHash(r.body);
+  }
+  return value;
+ }
+ return async(req,res)=>{
+  const url=req.url??'',owner=url==='/public-test/manage'||url==='/public-test/owner'||url.startsWith('/public-test/owner/'),receipt=/^\/public-test\/results\/([a-f0-9-]{36})$/.exec(url);
+  if(!owner&&url!=='/public-test/status'&&url!=='/public-test/requests'&&!receipt)return false;
+  const reply=(status,value,h=owner?privateHeaders:publicHeaders)=>{res.writeHead(status,h);res.end(JSON.stringify(value));return true;};
+  if(!hosts.has(req.headers.host))return reply(403,{error:'auth_failed'});
+  try{
+   if(owner){
+    const origin='https://'+req.headers.host;
+    if(req.headers.origin!==undefined&&req.headers.origin!==origin||!['same-origin','none',undefined].includes(req.headers['sec-fetch-site'])||req.method==='POST'&&req.headers.origin!==origin)stop('auth_failed');
+    const cookies=typeof req.headers.cookie==='string'&&req.headers.cookie.length<=4096?req.headers.cookie.split(';').map(v=>v.trim()).filter(v=>v.startsWith('__Host-PicardSession=')):[];
+    const token=cookies.length===1?cookies[0].slice('__Host-PicardSession='.length):'';
+    if(req.headers.authorization!==undefined||!/^[A-Za-z0-9_-]{43}$/.test(token)||!await auth.authenticate(token))stop('auth_failed');
+    if(req.method==='GET'&&url==='/public-test/manage'){
+     const css=PUBLIC_TEST_MANAGE_HTML.match(/<style>([\s\S]*?)<\/style>/)[1],js=PUBLIC_TEST_MANAGE_HTML.match(/<script>([\s\S]*?)<\/script>/)[1];
+     const sha=s=>"'sha256-"+Buffer.from(admissionHash(s),'hex').toString('base64')+"'";
+     res.writeHead(200,{...privateHeaders,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':`default-src 'none'; style-src ${sha(css)}; script-src ${sha(js)}; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`});res.end(PUBLIC_TEST_MANAGE_HTML);return true;
+    }
+    if(req.method==='GET'&&url==='/public-test/owner')return reply(200,{v:1,spec:spec(),specSha256:specSha(),state:store.publicTestState(),canRefill:store.publicTestCanRefill()});
+    if(req.method!=='POST')return reply(405,{error:'method_not_allowed'});
+    if(!await auth.authenticate(token,{fresh:true}))return reply(401,{error:'recent_owner_sign_in_required'});
+    store.recordAttempt(ownerScope);const b=await body(req);
+    if(!await auth.authenticate(token,{fresh:true}))stop('auth_failed');
+    if(url==='/public-test/owner/disable'&&exact(b,[]))return reply(200,{state:store.disablePublicTest()});
+    if(url==='/public-test/owner/resume'&&exact(b,[])){policy();return reply(200,{state:store.resumePublicTest(binding)});}
+    if(url==='/public-test/owner/approval'&&exact(b,[])){
+     policy();const challenge=store.issue({scope:ownerScope,sessionSha256:admissionHash(token),catalogueSha256:binding.configurationSha256,entryId:'public-trial',slotId:'eight',inputSha256:specSha(),catalogueExpiresAt:now()+60000});return reply(200,{...challenge,specSha256:specSha(),revision:store.publicTestState().revision});
+    }
+    if(url==='/public-test/owner/enable'&&exact(b,['nonce','specSha256','expectedRevision','approve'])&&b.approve===true&&b.specSha256===specSha()){
+     policy();const proof={scope:ownerScope,nonce:b.nonce,sessionSha256:admissionHash(token),catalogueSha256:binding.configurationSha256,entryId:'public-trial',slotId:'eight',inputSha256:b.specSha256};
+     return reply(200,{state:store.activatePublicTest({proof,binding,expectedRevision:b.expectedRevision,authorize:()=>true,revalidate:()=>{policy();return ready();}})});
+    }
+    stop('request_invalid');
+   }
+   if(req.headers.origin!==publicOrigin||req.headers.cookie!==undefined||req.headers.authorization!==undefined)stop('auth_failed');
+   if(req.method==='OPTIONS'){
+    if(req.headers['access-control-request-method']!=='POST'||url!=='/public-test/requests'||String(req.headers['access-control-request-headers']??'').toLowerCase()!=='content-type')stop('auth_failed');
+    res.writeHead(204,{...publicHeaders,'Access-Control-Allow-Methods':'POST','Access-Control-Allow-Headers':'Content-Type','Access-Control-Max-Age':'300'});res.end();return true;
+   }
+   if(req.method==='GET'&&url==='/public-test/status')return reply(200,publicState());
+   if(req.method==='GET'&&receipt)return reply(200,result(receipt[1]));
+   if(req.method!=='POST'||url!=='/public-test/requests')return reply(405,{error:'method_not_allowed'});
+   store.recordAttempt(globalScope);
+   const remote=req.socket?.remoteAddress,ip=req.headers['x-picard-public-client-ip'];
+   if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(remote)||typeof ip!=='string'||!isIP(ip))stop('auth_failed');
+   const clientSha256=admissionHash(canonical([binding.ownerId,'public-trial',ip]));
+   const b=await body(req);
+   if(!exact(b,['requestId','inputSha256','approve'])||!/^([a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})$/.test(b.requestId??'')||b.inputSha256!==PUBLIC_TEST_INPUT_SHA||b.approve!==true)stop('request_invalid');
+   const prior=store.publicTestReceipt(b.requestId);
+   if(prior){if(prior.clientSha256!==clientSha256)stop('request_invalid');return reply(200,result(b.requestId));}
+   policy();
+   const d=await planWorkspaceDraft({body:{requestId:b.requestId,taskId:'public-demo',title:PUBLIC_TEST_CONTEXT.title,requestText:PUBLIC_TEST_REQUEST,context:PUBLIC_TEST_CONTEXT.latestFinding,purpose:'sanitized-source-proposal'},binding,at:now(),grantId:randomUUID()});
+   delete d.approval.maxCompletionTokens;
+   store.commitPublicTest({draft:d,binding,clientSha256,currentAvailability,revalidate:()=>{policy();return ready();}});
+   return reply(201,result(b.requestId));
+  }catch(e){const code=e?.code;const statuses={auth_failed:401,request_invalid:400,request_too_large:413,admission_rate_limited:429,not_registered:404,approval_invalid:409,approval_expired:409,public_test_refill_blocked:409,public_test_unavailable:503};return reply(statuses[code]??503,{error:Object.hasOwn(statuses,code)?code:'public_test_unavailable',mayInvoke:false});}
+ };
+}
+
+const PUBLIC_TEST_MANAGE_HTML=String.raw`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Public relay trial</title><style>body{margin:0;background:#0b1119;color:#eeefe9;font:16px/1.6 system-ui}main{max-width:680px;margin:40px auto;padding:24px}a{color:#dec387}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:20px;border:1px solid #dec38755}button{padding:12px 18px;margin:8px 8px 8px 0;background:#dec387;color:#12191d;border:0;font:inherit;cursor:pointer}label{display:block;margin:20px 0}button:disabled{opacity:.45;cursor:default}#status{min-height:2em}</style><main><a href="/#system">← System</a><h1>Public relay trial</h1><p id="counts">Loading…</p><h2>The exact public request</h2><pre id="brief"></pre><p>Eight calls total per manual refill. Groq Free · 512 output tokens each · one at a time · no tools, retries or paid fallback. This allowance expires after 48 hours. An uncertain attempt stays spent and stops this public trial. Results from these calls are public.</p><label><input id="agree" type="checkbox"> I approve this exact request for eight public calls using the current Free enrollment.</label><button id="enable" disabled>Enable 8 tests</button><button id="resume" disabled>Resume existing allowance</button><button id="disable" disabled>Turn off</button><p id="status" role="status"></p></main><script>const $=id=>document.getElementById(id);let current=null;async function call(path,body){const r=await fetch('/public-test/owner'+path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const v=await r.json();if(!r.ok)throw Error(v.error==='recent_owner_sign_in_required'?'Sign in again, then return here.':v.error||'Unavailable');return v;}async function load(){current=await call('');$('brief').textContent=current.spec.requestText+'\n\nContext: '+current.spec.taskContext.latestFinding;$('counts').textContent=(current.state.enabled?'On':'Off')+' · '+(current.state.totalGranted-current.state.totalUsed-current.state.totalRetired)+' tests remaining · '+current.state.totalUsed+' spent';$('enable').textContent=current.state.totalGranted?'Refill 8 tests':'Enable 8 tests';$('enable').disabled=!$('agree').checked||!current.canRefill;$('resume').disabled=current.state.enabled||current.state.totalUsed+current.state.totalRetired>=current.state.totalGranted;$('disable').disabled=!current.state.enabled;}async function act(fn){try{$('status').textContent='Saving…';await fn();$('agree').checked=false;await load();$('status').textContent='Saved.';}catch(e){$('status').textContent=e.message;}}$('agree').onchange=()=>{$('enable').disabled=!$('agree').checked||!current||!current.canRefill;};$('enable').onclick=()=>act(async()=>{if(!$('agree').checked||!current)throw Error('Review the request first.');const p=await call('/approval',{});if(p.specSha256!==current.specSha256||p.revision!==current.state.revision)throw Error('The setup changed. Reload and review it again.');await call('/enable',{nonce:p.nonce,specSha256:current.specSha256,expectedRevision:current.state.revision,approve:true});});$('disable').onclick=()=>act(()=>call('/disable',{}));$('resume').onclick=()=>act(()=>call('/resume',{}));load().catch(e=>$('status').textContent=e.message);</script></html>`;
 
 // Opt-in owner workspace. The signed Board endpoint keeps its own authority;
 // a browser draft is never a signed Board attestation.

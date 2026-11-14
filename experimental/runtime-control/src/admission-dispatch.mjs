@@ -10,7 +10,7 @@ import {admissionHash} from './admission-store.mjs';
 import {validateReusableBoardAttestation} from './admission-plan.mjs';
 
 const blocked=code=>new AdapterBlockedError(code,code);
-export function createAdmissionAssistantAdapter({activationEnabled=false,signedBridgeEnabled=false,reusableBoardEnabled=false,measurementRunsEnabled=false,workspaceEnabled=false,bridgeKeyId='',loadPolicy,binding,apiKey='',markerDirectory='',now=Date.now,fetchImpl=groqHttpsFetch,priorEnrollmentIds=[],testOnly=null}={}){
+export function createAdmissionAssistantAdapter({activationEnabled=false,signedBridgeEnabled=false,reusableBoardEnabled=false,measurementRunsEnabled=false,workspaceEnabled=false,publicTestEnabled=false,bridgeKeyId='',loadPolicy,binding,apiKey='',markerDirectory='',now=Date.now,fetchImpl=groqHttpsFetch,priorEnrollmentIds=[],testOnly=null}={}){
  let storage=null,canAccept=()=>false,busy=false;const attempted=new Set(),live=new Map();
  const synthetic=testOnly?.synthetic===true;
  const priorEnrollments=new Set(priorEnrollmentIds);
@@ -70,6 +70,13 @@ export function createAdmissionAssistantAdapter({activationEnabled=false,signedB
  }
  function approved(eventId){
   if(!configured||!storage)throw blocked('groq_free_scope_unavailable');
+  if(publicTestEnabled===true){const saved=storage.getPublicTestWork(eventId);if(saved){
+   const state=storage.publicTestState(),recovering=!!(saved.row.response_id&&saved.row.result_json);
+   if(saved.publicTest.configurationSha256!==binding.configurationSha256||saved.publicTest.publicOrigin!==binding.publicTestOrigin||!recovering&&(!state.enabled||state.batchId!==saved.publicTest.batchId||now()>=saved.publicTest.authorizedUntil))throw blocked('public_test_unavailable');
+   const p=policy(),a=saved.approval,payload=saved.payload,slot={eventId,grantId:payload.grantId,requestId:payload.requestId};
+   const gate={v:3,purpose:a.purpose,provider:'groq',model:p.costEnrollment.model,accountPlan:'Free',noPaidFallback:true,harmlessTestOnly:true,maxCalls:1,owner:payload.ownerId,task:payload.taskId,grantId:payload.grantId,eventId,approvedRequestText:payload.request.text,taskContext:payload.context,approvedInputSha256:a.inputSha256,enrollmentId:a.enrollmentId,costEnrollment:p.costEnrollment,requestIssuedAt:a.issuedAt,requestExpiresAt:a.expiresAt};
+   if(storage.grantSeenElsewhere(slot.grantId,eventId))throw blocked('groq_scope_mismatch');return {p,slot,row:saved.row,payload,gate,reusable:true};
+  }}
   if(reusableBoardEnabled===true){const saved=(workspaceEnabled===true?storage.getWorkspaceWork(eventId):null)??storage.getReusableBoard(eventId);if(saved){if(saved.approval.v===2&&measurementRunsEnabled!==true&&saved.row.state!=='completed')throw blocked('measurement_runs_disabled');const p=policy(),{row,payload,approval:a}=saved,c=p.catalogue,slot={eventId:payload.eventId,grantId:payload.grantId,requestId:payload.requestId},gate={v:3,purpose:a.purpose,provider:'groq',model:p.costEnrollment.model,accountPlan:'Free',noPaidFallback:true,harmlessTestOnly:true,maxCalls:1,owner:payload.ownerId,task:payload.taskId,grantId:payload.grantId,eventId:payload.eventId,approvedRequestText:payload.request.text,taskContext:payload.context,approvedInputSha256:a.inputSha256,enrollmentId:c.enrollmentId,costEnrollment:p.costEnrollment,requestIssuedAt:a.issuedAt,requestExpiresAt:a.expiresAt,...(a.maxCompletionTokens===4096?{maxCompletionTokens:4096}:{})};if(storage.grantSeenElsewhere(slot.grantId,eventId))throw blocked('groq_scope_mismatch');return {p,slot,row,payload,gate,reusable:true};}}
   const p=policy(),found=locateAdmissionSlot(p,eventId),row=storage.get(eventId);if(!found||!row||!storage.isApproved({catalogue:p.catalogue,...found,catalogueSha256:p.catalogueSha256})||storage.grantSeenElsewhere(found.slot.grantId,eventId))throw blocked('groq_scope_mismatch');
   const payload=JSON.parse(row.payload_json),gate=gateFromCommittedWork(p,found.entry,found.slot,payload,{allowShorterLifetime:signedBridgeEnabled===true});if(row.owner!==payload.ownerId||row.task!==payload.taskId||row.message_id!==payload.requestId||row.grant_id!==payload.grantId||row.payload_hash!==payload.payloadHash||row.grant_expires!==payload.grantExpiresAt)throw blocked('groq_scope_mismatch');return {p,...found,row,payload,gate};
