@@ -1,0 +1,57 @@
+title: Picard Relay
+description: Your own relay, ready for password creation and browser-based Groq setup. One Free-eligible micro VM and 50 GB boot disk. No paid fallback.
+schemaVersion: 1.1.0
+version: "1.0"
+locale: en
+variableGroups:
+  - title: Your Oracle account
+    variables: ["${compartment_ocid}", "${region}", "${availability_domain}", "${confirm_free}"]
+  - title: Optional recovery access
+    variables: ["${ssh_public_key}"]
+  - title: Internal
+    visible: false
+    variables: ["${tenancy_ocid}"]
+variables:
+  tenancy_ocid:
+    type: string
+    required: true
+    visible: false
+  compartment_ocid:
+    title: Compartment
+    type: oci:identity:compartment:id
+    required: true
+  region:
+    title: Home region
+    type: oci:identity:region:name
+    required: true
+  availability_domain:
+    title: Availability domain
+    type: oci:identity:availabilitydomain:name
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+    required: true
+  confirm_free:
+    title: I checked my remaining Always Free allocation and do not approve paid resources.
+    type: boolean
+    default: false
+    required: true
+  ssh_public_key:
+    title: Optional SSH recovery public key
+    description: Never enter a private key. SSH is closed by this stack; an operator can explicitly enable restricted recovery access later.
+    type: string
+    default: ""
+    required: false
+outputs:
+  relay_address:
+    title: Your relay
+    type: link
+  create_your_password:
+    title: Create your password
+    type: link
+    sensitive: true
+  next_step:
+    title: Next step
+    type: string
+outputGroups:
+  - title: Your Picard Relay
+    outputs: ["${create_your_password}", "${relay_address}", "${next_step}"]

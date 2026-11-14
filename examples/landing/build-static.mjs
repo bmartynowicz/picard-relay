@@ -2,6 +2,7 @@
 import {mkdir,readFile,readdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {resolve} from 'node:path';
+import {oracleLaunchAssets} from '../../scripts/build-oracle-launch.mjs';
 import {pathToFileURL} from 'node:url';
 
 export async function buildLanding({outputDir,sourceSha=null}){
@@ -27,7 +28,8 @@ export async function buildLanding({outputDir,sourceSha=null}){
   'public-test.js':(await read('public-test.mjs')).replace("from './learning-guide.mjs'","from './learning-guide.js'"),
   'mark.svg':await read('mark.svg'),
   'social-preview.png':await readFile(new URL('./social-preview.png',import.meta.url)),
-  '.nojekyll':''
+  '.nojekyll':'',
+  ...await oracleLaunchAssets()
  };
  const files=Object.fromEntries(Object.entries(assets).map(([name,value])=>[name,{bytes:Buffer.byteLength(value),sha256:createHash('sha256').update(value).digest('hex')}]));
  assets['build.json']=JSON.stringify({schemaVersion:1,sourceSha,files},null,2)+'\n';

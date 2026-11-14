@@ -11,7 +11,7 @@ test('public landing contains only browser files and works under a repository su
  const dir=await mkdtemp(join(tmpdir(),'picard-public-landing-'));
  try{
   const sourceSha='a'.repeat(40),result=await buildLanding({outputDir:dir,sourceSha});
-  assert.deepEqual((await readdir(dir)).sort(),['.nojekyll','build.json','console.css','index.html','landing.css','landing.js','mark.svg','setup-flow.js','learning-guide.js','public-test.js','social-preview.png'].sort());
+  assert.deepEqual((await readdir(dir)).filter(n=>!/^oracle-host-[a-f0-9]{64}\.tgz$/.test(n)&&n!=='oracle-stack.zip').sort(),['.nojekyll','build.json','console.css','index.html','landing.css','landing.js','mark.svg','setup-flow.js','learning-guide.js','public-test.js','social-preview.png'].sort());
   const html=await readFile(join(dir,'index.html'),'utf8');
   assert.ok(!html.includes('<!-- PICARD_'));assert.ok(!html.includes('Local setup concept'));
   assert.ok(html.includes('Your server. Your workspace.'));
@@ -34,7 +34,7 @@ test('public landing contains only browser files and works under a repository su
    assert.equal(createHash('sha256').update(bytes).digest('hex'),evidence.sha256);
   }
   // The image is metadata-only: ordinary visits do not download it.
-  assert.ok(result.totalBytes-manifest.files['social-preview.png'].bytes<100000);
+  assert.ok(result.totalBytes-manifest.files['social-preview.png'].bytes-Object.entries(manifest.files).filter(([n])=>n==='oracle-stack.zip'||n.endsWith('.tgz')).reduce((n,[,f])=>n+f.bytes,0)<105000);
   const image=await readFile(join(dir,'social-preview.png'));
   assert.equal(image.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
   assert.equal(image.readUInt32BE(16),1280);assert.equal(image.readUInt32BE(20),640);

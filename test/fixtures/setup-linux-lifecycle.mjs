@@ -7,7 +7,8 @@ import {fileURLToPath} from 'node:url';
 import {buildSetup,setupPaths,assertFresh,writePrivateSetup,serviceUnits} from '../../scripts/setup-linux-core.mjs';
 
 assert.equal(process.platform,'linux');assert.equal(process.getuid(),0);
-const directory=fs.mkdtempSync('/run/picard-setup-qualification-');fs.chmodSync(directory,0o755);
+// Keep executable fixtures alongside the normal executable installation roots.
+const directory=fs.mkdtempSync('/usr/local/lib/picard-setup-qualification-');fs.chmodSync(directory,0o755);
 try{
  const paths=setupPaths(directory+'/target');
  for(const d of [directory+'/target',directory+'/target/opt',directory+'/target/usr/local/lib',directory+'/target/etc',directory+'/target/var',directory+'/target/var/lib',paths.units])fs.mkdirSync(d,{recursive:true,mode:0o755});
@@ -46,5 +47,5 @@ try{
  console.log(JSON.stringify({state:'setup_lifecycle_passed',realLinuxPermissions:true,serviceUid:65534,providerCalls:0,syntheticProviderResponses:1,hostServicesChanged:0}));
 }finally{
  // Only the unique root-created fixture tree, never a configured install path.
- assert.match(directory,/^\/run\/picard-setup-qualification-[a-zA-Z0-9]+$/);fs.rmSync(directory,{recursive:true,force:true});
+ assert.match(directory,/^\/usr\/local\/lib\/picard-setup-qualification-[a-zA-Z0-9]+$/);fs.rmSync(directory,{recursive:true,force:true});
 }

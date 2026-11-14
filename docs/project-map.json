@@ -273,7 +273,8 @@
     "experimental/compute-broker/VERIFICATION.md",
     "experimental/compute-broker/EXECUTION.md",
     "experimental/compute-broker/UNATTENDED.md",
-    "experimental/compute-broker/CODING-WORKFLOW.md"
+    "experimental/compute-broker/CODING-WORKFLOW.md",
+    "docs/ORACLE-LAUNCH.md"
   ],
   "workRegister": "docs/work-register.json",
   "illustrations": [
@@ -343,5 +344,22 @@
     "runtimeDeploymentRequired": false,
     "guide": "docs/WORKSPACE-AGENT.md",
     "freshLoginCommand": "node tools/workspace-request.mjs login --origin HTTPS_ORIGIN --fresh"
+  },
+  "oracleBrowserLaunch": {
+    "guide": "docs/ORACLE-LAUNCH.md",
+    "status": "review-candidate",
+    "source": "deploy/oracle/main.tf",
+    "builder": "scripts/build-oracle-launch.mjs",
+    "browserHandler": "scripts/serve-browser-setup.mjs",
+    "requiresFreshHost": true,
+    "changesExistingRelay": false,
+    "runtimeArtifactChanged": false,
+    "fixedShape": "VM.Standard.E2.1.Micro",
+    "bootDiskGb": 50,
+    "ownerClaimLifetimeMs": 3600000,
+    "ownerClaimInPrivateTerraformState": true,
+    "passwordOrGroqKeyInTerraform": false,
+    "modelCallsDuringSetup": 0,
+    "cloudAcceptanceRequired": true
   }
 }

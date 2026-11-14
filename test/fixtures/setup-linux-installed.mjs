@@ -25,9 +25,13 @@ try{
  for(let i=0;i<50;i++){try{if((await call('/auth/state')).status===200){ready=true;break;}}catch{}await new Promise(resolve=>setTimeout(resolve,100));}
  assert.equal(ready,true,'Installed services did not serve verified local HTTPS');
  assert.equal((await call('/workspace/config')).status,401);
- const setupCode=fs.readFileSync(configuration+'/first-sign-in.txt','utf8').match(/Setup code: (.+)/)[1];
- const setup=await call('/auth/setup',{setupCode,password:'Synthetic GitHub VM owner password only 8!'});assert.equal(setup.status,200);
- cookie=setup.headers['set-cookie'][0].split(';')[0];assert.match(setup.headers['set-cookie'][0],/Secure/);
+ if(process.env.PICARD_BROWSER_ALREADY_ENROLLED==='true'){
+  cookie=process.env.PICARD_BROWSER_COOKIE;assert.match(cookie,/^__Host-PicardSession=[A-Za-z0-9_-]{43}$/);
+ }else{
+  const setupCode=fs.readFileSync(configuration+'/first-sign-in.txt','utf8').match(/Setup code: (.+)/)[1];
+  const setup=await call('/auth/setup',{setupCode,password:'Synthetic GitHub VM owner password only 8!'});assert.equal(setup.status,200);
+  cookie=setup.headers['set-cookie'][0].split(';')[0];assert.match(setup.headers['set-cookie'][0],/Secure/);
+ }
  const workspace=await call('/workspace/config');assert.equal(workspace.status,200);assert.equal(workspace.body.ready,true);
  assert.deepEqual(workspace.body.usage.jobs,[]);assert.deepEqual(fs.readdirSync(data+'/markers'),[]);
  const systemctl=(...args)=>{const r=spawnSync('/usr/bin/systemctl',args,{encoding:'utf8',timeout:40000,maxBuffer:8192});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};

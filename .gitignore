@@ -167,3 +167,7 @@ vite.config.ts.timestamp-*
 
 # Picard Relay private runtime artifacts
 .picard-compute/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan

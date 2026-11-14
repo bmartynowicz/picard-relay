@@ -1,5 +1,9 @@
 # Set up your Picard Relay
 
+Want the website-to-Oracle path? See [Create your relay on Oracle](ORACLE-LAUNCH.md)
+for the launch candidate, private browser setup and qualification limits.
+The terminal path below is for a machine you already have.
+
 Run Picard on a Linux machine you already have. The guided setup installs the
 signed runtime and HTTPS services, creates private storage, and connects your
 Groq Free project. Update and Replace key are connected during installation.
