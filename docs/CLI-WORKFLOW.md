@@ -128,6 +128,8 @@ ID into the task's explicit coverage:
 {"workflow":{"v":1,"preparationIds":{"baseline":["SHA256_RUN_ID"],"assisted":["SHA256_RUN_ID"]},"picardRefs":["SAVED_REQUEST_SHA256"]}}
 ```
 
+Workflow coverage accepts at most 64 distinct preparation IDs per side and 20 Picard references. The paired runner reserves one preparation slot for its measured review. Saved coverage remains immutable. The authenticated usage endpoint retains its 4,096-byte JSON limit, so the combined IDs and metadata must also fit that bound.
+
 Shared discovery/preparation is allocated once to each independent alternative,
 not twice within either side. The runner delivers coverage automatically and
 keeps all follow-up fixes attached to their root. List every used Picard request,

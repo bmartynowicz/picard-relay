@@ -328,6 +328,11 @@ test('native writes require the dedicated token and only the console owner can r
  assert.equal((await push('Bearer '+token,{origin})).status,403);
  assert.equal((await push('Bearer '+token)).status,201);
  assert.equal((await push('Bearer '+token)).status,200);
+ const coverage={v:1,kind:'workflow',comparisonId:'http-large',variant:'assisted',preparationIds:Array.from({length:39},(_,i)=>createHash('sha256').update('http-prep'+i).digest('hex')),picardRefs:Array.from({length:2},(_,i)=>createHash('sha256').update('http-call'+i).digest('hex'))};
+ assert(Buffer.byteLength(JSON.stringify(coverage))<4096);
+ assert.equal((await push('Bearer '+token,{},coverage)).status,201);
+ assert.equal((await push('Bearer '+token,{},coverage)).status,200);
+ assert.equal((await push('Bearer '+token,{}, {...coverage,comparisonId:'too-large',padding:'x'.repeat(4096)})).status,413);
  const read=headers=>send('/status',{headers});
  assert.equal((await read({authorization:'Bearer '+token})).status,401);
  assert.equal((await read({})).status,401);
@@ -344,4 +349,31 @@ test('native writes require the dedicated token and only the console owner can r
  assert.equal((await push('Bearer '+token,{},link)).status,200);
  const updated=await read({cookie:'__Host-PicardSession='+session});
  assert.equal(updated.data.codexUsage.runs.find(row=>row.id===assisted.id).comparison.assisted.totalTokens,8040);
+});
+
+
+test('64 real preparation leaves persist and project once; bounds and immutable legacy scopes remain',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'picard-preparation-cap-')),dbPath=join(directory,'relay.sqlite');
+ let store=createRelayStore({dbPath}),usage=store.openCodexUsage('owner');
+ t.after(async()=>{store.close();await rm(directory,{recursive:true,force:true});});
+ const leaves=Array.from({length:65},(_,i)=>({...run,id:createHash('sha256').update('prep-'+i).digest('hex'),comparisonId:null,variant:null,
+  recordedAt:100+i,inputTokens:10,cachedInputTokens:0,outputTokens:2}));
+ for(const row of [run,assisted,...leaves])assert.equal(usage.record(row),'saved');
+ const scope=(variant,ids)=>({v:1,kind:'workflow',comparisonId:'sample',variant,preparationIds:ids,picardRefs:[]});
+ const baseline=scope('baseline',[leaves[0].id]),large=scope('assisted',leaves.slice(0,64).map(r=>r.id));
+ assert.equal(usage.record(baseline),'saved');
+ assert.equal(usage.record(scope('assisted',leaves.map(r=>r.id))),'invalid');
+ assert.equal(usage.record({...large,picardRefs:leaves.slice(0,21).map(r=>r.id)}),'invalid');
+ assert.equal(usage.record({...large,preparationIds:[...large.preparationIds.slice(0,63),leaves[0].id]}),'invalid');
+ assert.equal(usage.record(large),'saved');assert.equal(usage.record({...large,preparationIds:[...large.preparationIds].reverse()}),'duplicate');
+ assert.equal(usage.record(scope('baseline',large.preparationIds)),'conflict');
+ assert.equal(usage.record({...leaves[64],recordedAt:500,followUpTo:assisted.id}),'conflict');
+ assert.equal(usage.attach({id:leaves[64].id,followUpTo:assisted.id}),'conflict');
+ const projected=()=>usage.list().find(r=>r.id===assisted.id).comparison;
+ const before=projected();assert.equal(before.assisted.workflow.preparationCount,64);
+ assert.equal(before.assisted.workflow.preparationTokens,64*12);assert.equal(before.assisted.workflow.codexTokens,8000+64*12);
+ assert.equal(before.assisted.workflow.complete,true);assert.equal(before.baseline.workflow.preparationCount,1);
+ assert.equal(store.openCodexUsage('other').record(large),'saved');
+ store.close();store=createRelayStore({dbPath});usage=store.openCodexUsage('owner');
+ assert.deepEqual(projected(),before);assert.equal(usage.record(large),'duplicate');
 });
