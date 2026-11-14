@@ -13,7 +13,7 @@ function command(exe,args){const r=spawnSync(exe,args,{encoding:'utf8',timeout:3
 export async function main(){
  check(process.platform==='linux'&&process.getuid()===0,'root_linux_required');
  const paths=setupPaths(),uid=Number(command('/usr/bin/id',['-u','board-event-relay'])),gid=Number(command('/usr/bin/id',['-g','board-event-relay']));
- const status=value=>{const temp=BOOTSTRAP_ROOT+'/.status-'+process.pid;fs.writeFileSync(temp,JSON.stringify({v:1,...value})+'\n',{mode:0o640,flag:'wx'});fs.chownSync(temp,0,gid);fs.renameSync(temp,BOOTSTRAP_ROOT+'/status.json');};
+ const status=value=>{const temp=BOOTSTRAP_ROOT+'/.status-'+process.pid;fs.writeFileSync(temp,JSON.stringify({v:1,...value})+'\n',{mode:0o640,flag:'wx'});fs.chownSync(temp,0,gid);fs.chmodSync(temp,0o640);fs.renameSync(temp,BOOTSTRAP_ROOT+'/status.json');};
  const inputPath=BOOTSTRAP_ROOT+'/inbox/request.json',claim=BOOTSTRAP_ROOT+'/claimed-request.json';
  let raw,inputFd;
  try{
@@ -37,7 +37,7 @@ export async function main(){
   try{fs.writeFileSync(journal,JSON.stringify({v:1,requestId:input.requestId,inputSha256:digest(raw),startedAt:Date.now(),state:'consumed-no-replay'})+'\n');fs.fsyncSync(journal);}finally{fs.closeSync(journal);}
   status({state:'connecting'});writePrivateSetup(plan,{uid,gid});input.apiKey='';input.sessionToken='';
   const proxy='{\n admin off\n}\n'+fs.readFileSync(BOOTSTRAP_CODE+'/deploy/Caddyfile.workspace.example','utf8').replace('relay.example.com {',config.hostname+' {');
-  const candidate=paths.code+'/Caddyfile.enrollment';fs.writeFileSync(candidate,proxy,{flag:'wx',mode:0o444});
+  const candidate=paths.code+'/Caddyfile.enrollment';fs.writeFileSync(candidate,proxy,{flag:'wx',mode:0o444});fs.chmodSync(candidate,0o444);
   command(paths.code+'/bin/caddy',['adapt','--config',candidate,'--adapter','caddyfile']);fs.renameSync(candidate,paths.code+'/Caddyfile');
   command('/usr/bin/systemctl',['enable',...SETUP_UNITS]);command('/usr/bin/systemctl',['start','board-event-relay.service','picard-groq-replacement.socket','picard-owner-update.path','picard-updater.timer','picard-updater-activity.timer']);
   let ready=false;
@@ -52,7 +52,7 @@ export async function main(){
   command('/usr/bin/systemctl',['restart','picard-relay-web.service']);
   command('/usr/bin/systemctl',['disable','--now','picard-first-run-activate.path']);command('/usr/bin/systemctl',['disable','picard-first-run.service']);
   const installation=JSON.parse(fs.readFileSync(paths.code+'/installation.json','utf8'));
-  const finished=paths.code+'/installation.complete';fs.writeFileSync(finished,JSON.stringify({...installation,updaterEnrolled:true,keyReplacementEnrolled:true,firstRunCompletedAt:new Date().toISOString()})+'\n',{flag:'wx',mode:0o444});fs.renameSync(finished,paths.code+'/installation.json');
+  const finished=paths.code+'/installation.complete';fs.writeFileSync(finished,JSON.stringify({...installation,updaterEnrolled:true,keyReplacementEnrolled:true,firstRunCompletedAt:new Date().toISOString()})+'\n',{flag:'wx',mode:0o444});fs.chmodSync(finished,0o444);fs.renameSync(finished,paths.code+'/installation.json');
   status({state:'ready'});fs.unlinkSync(claim);
   console.log(JSON.stringify({state:'browser_setup_complete',providerCalls:0,ownerPreserved:true}));
  }catch(e){try{status({state:'failed'});}catch{}spawnSync('/usr/bin/systemctl',['disable','--now','picard-first-run-activate.path','board-event-relay.service'],{timeout:30000,stdio:'ignore'});console.error(JSON.stringify({state:'browser_setup_stopped',code:/^[a-z0-9_]+$/.test(e.message)?e.message:'activation_failed'}));process.exitCode=1;}

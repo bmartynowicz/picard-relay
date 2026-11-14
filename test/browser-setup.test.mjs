@@ -26,7 +26,7 @@ test('launch config rejects arbitrary origins and secrets; units have fixed one-
  assert.throws(()=>validateBrowserSetupConfig({...config,apiKey:'secret'}));
  const units=bootstrapUnits();assert.match(units['picard-first-run-activate.path'],/PathExists=.*inbox\/request.json/);assert.match(units['picard-first-run-activate.service'],/Conflicts=picard-first-run.service/);assert.doesNotMatch(units['picard-first-run-activate.service'],/Restart=|\/bin\/sh|sudo/);
  assert.doesNotMatch(BROWSER_SETUP_HTML,/localStorage|sessionStorage\.setItem\([^,]*(?:key|password)/i);
- assert.match(BROWSER_SETUP_HTML,/history.replaceState\(null,'','\/'\)/);assert.match(BROWSER_SETUP_HTML,/prefers-reduced-motion/);
+ assert.match(BROWSER_SETUP_HTML,/history.replaceState\(null,'','\/'\)/);assert.match(BROWSER_SETUP_HTML,/prefers-reduced-motion/);assert.match(BROWSER_SETUP_HTML,/location.reload\(\)/);assert.doesNotMatch(BROWSER_SETUP_HTML,/location.replace\('\/#overview'\)/);
 });
 async function fixture(auth){
  let queued=null,status={state:'waiting'};
