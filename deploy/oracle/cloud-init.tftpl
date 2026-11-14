@@ -1,0 +1,31 @@
+#!/bin/bash
+# NEW host only. This reviewed first-boot program runs once, never on an upgrade.
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+umask 077
+for target in /usr/local/lib/board-event-relay /etc/board-event-relay /var/lib/board-event-relay /usr/local/lib/picard-first-run /etc/picard-first-run /var/lib/picard-first-run /opt/picard-relay; do
+  test ! -e "$target" && test ! -L "$target" || { echo 'Existing installation preserved. First boot refused.' >&2; exit 1; }
+done
+test ! -e /etc/picard-oracle-launch.json
+dnf -q -y install --allowerasing curl tar xz python3 firewalld policycoreutils-python-utils
+archive=$(mktemp /var/tmp/picard-launch.XXXXXXXX.tgz)
+curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 180 --max-filesize 10000000 --output "$archive" '${source_url}'
+printf '%s  %s\n' '${source_sha256}' "$archive" | sha256sum --check --status
+source_dir=/usr/local/src/picard-oracle-${source_sha256}
+mkdir -m 755 "$source_dir"
+tar --extract --gzip --file "$archive" --directory "$source_dir" --no-same-owner --no-same-permissions
+rm -- "$archive"
+# One bounded HTTPS address observation; no credentials or account API access.
+address=$(curl --fail --silent --show-error --proto '=https' --connect-timeout 10 --max-time 15 --max-filesize 16 https://api.ipify.org)
+python3 - "$address" '${claim_sha256}' <<'PY'
+import ipaddress,json,os,sys
+ip=ipaddress.ip_address(sys.argv[1]);assert ip.version==4 and ip.is_global
+config={'v':1,'hostname':'picard-'+str(ip).replace('.','-')+'.sslip.io','claimSha256':sys.argv[2]}
+with open('/etc/picard-oracle-launch.json','x') as f:
+    os.chmod(f.name,0o600);json.dump(config,f);f.write('\n')
+PY
+# This VM and its network are new. Enable HTTPS without disabling enforcement.
+systemctl enable --now firewalld
+firewall-cmd --permanent --add-service=https
+firewall-cmd --reload
+bash "$source_dir/scripts/setup-linux.sh" --browser

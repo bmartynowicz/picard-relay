@@ -16,6 +16,7 @@ the [local demo](QUICKSTART.md#try-it-locally) uses synthetic answers only.
 
 | Your next step | Read |
 | --- | --- |
+| Create a separate Oracle relay from the website | [Oracle browser launch candidate](ORACLE-LAUNCH.md) |
 | Set up a new relay on your existing Linux machine | [Guided setup](SETUP.md) |
 | Run your first useful request | [First-request steps](QUICKSTART.md#run-your-first-useful-request) · [V1 workflow](V1.md) |
 | Find your way around the interface | [Cockpit tour](COCKPIT-TOUR.md) · [Console guide](CONSOLE-WORKSPACE.md) |

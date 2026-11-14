@@ -4,6 +4,8 @@ on:
     paths:
       - '.github/workflows/setup-oracle-native.yml'
       - 'test/fixtures/oracle-native-vm.py'
+      - 'scripts/*browser-setup*'
+      - 'test/fixtures/browser-setup-*'
 permissions:
   contents: read
 jobs:
@@ -11,6 +13,8 @@ jobs:
     if: github.event.repository.private == false
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      PICARD_NATIVE_BROWSER: 'true'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:

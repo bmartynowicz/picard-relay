@@ -28,9 +28,10 @@ export function validateAnswers(a){
  requireThat(typeof a.apiKey==='string'&&/^gsk_[A-Za-z0-9_-]{20,508}$/.test(a.apiKey),'invalid_groq_key');
  return a;
 }
-export function buildSetup(a,{paths=setupPaths(),now=Date.now(),random=randomBytes}={}){
+export function buildSetup(a,{paths=setupPaths(),now=Date.now(),random=randomBytes,identity=null}={}){
  validateAnswers(a);requireThat(Number.isSafeInteger(now)&&now>=0,'invalid_setup_time');
- const ownerId='owner-'+random(16).toString('hex'),taskId='owner-workspace',keyId='setup-'+random(16).toString('hex');
+ if(identity!==null)requireThat(identity&&Object.keys(identity).sort().join(',')==='keyId,ownerId'&&/^owner-[a-f0-9]{32}$/.test(identity.ownerId)&&/^setup-[a-f0-9]{32}$/.test(identity.keyId),'invalid_setup_identity');
+ const ownerId=identity?.ownerId??'owner-'+random(16).toString('hex'),taskId='owner-workspace',keyId=identity?.keyId??'setup-'+random(16).toString('hex');
  const keySha256=hash(a.apiKey),code=random(32).toString('base64url');
  const costEnrollment={v:1,provider:'groq',model:'openai/gpt-oss-20b',owner:ownerId,accountLabel:a.accountLabel,
   organizationId:a.organizationId,projectId:a.projectId,keySha256,accountPlan:'Free',noPaidFallback:true,

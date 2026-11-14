@@ -1,0 +1,41 @@
+name: Check Oracle browser launch
+on:
+  pull_request:
+    paths:
+      - 'deploy/oracle/**'
+      - 'scripts/*browser-setup*'
+      - 'scripts/build-oracle-launch.mjs'
+      - 'scripts/setup-linux*'
+      - 'test/browser-setup.test.mjs'
+      - 'test/oracle-launch.test.mjs'
+      - 'test/fixtures/browser-setup-*'
+      - 'test/fixtures/oracle-terraform.py'
+      - '.github/workflows/oracle-browser-check.yml'
+permissions:
+  contents: read
+jobs:
+  first-run:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.22.1'
+      - name: Check browser boundaries, package, and real Terraform refusal plans
+        run: |
+          npm run test:setup
+          npm run test:landing
+          python3 test/fixtures/oracle-terraform.py
+      - name: Install on this disposable VM using a synthetic claim only
+        run: python3 test/fixtures/browser-setup-terminal.py
+      - name: Create password, connect synthetic Free enrollment, and hand off to the normal relay
+        run: sudo -n --preserve-env=GITHUB_ACTIONS /usr/local/lib/board-event-relay/node --jitless test/fixtures/browser-setup-installed.mjs
+      - name: Bounded failure diagnostics and stop only fixture services
+        if: always()
+        run: |
+          sudo -n journalctl --no-pager -n 45 -u picard-first-run.service -u picard-first-run-activate.service -u board-event-relay.service -u picard-relay-web.service || true
+          sudo -n systemctl disable --now picard-first-run.service picard-first-run-activate.path board-event-relay.service picard-relay-web.service picard-groq-replacement.socket picard-owner-update.path picard-updater.timer picard-updater-activity.timer 2>/dev/null || true

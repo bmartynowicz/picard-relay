@@ -95,12 +95,15 @@ disable_root: true
          "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=" + str(state / "known_hosts"),
          str(archive), "picard-ci@127.0.0.1:/tmp/picard-source.tar"], timeout=60)
     guest("sudo mkdir /workspace && sudo tar --no-same-owner -xf /tmp/picard-source.tar -C /workspace")
-    guest("cd /workspace && sudo env GITHUB_ACTIONS=true RUNNER_OS=Linux python3 test/fixtures/setup-linux-terminal.py", timeout=450)
+    browser=os.environ.get('PICARD_NATIVE_BROWSER')=='true'
+    terminal='browser-setup-terminal.py' if browser else 'setup-linux-terminal.py'
+    installed='browser-setup-installed.mjs' if browser else 'setup-linux-installed.mjs'
+    guest("cd /workspace && sudo env GITHUB_ACTIONS=true RUNNER_OS=Linux python3 test/fixtures/"+terminal, timeout=450)
     guest("sudo ps -eo label,pid,comm | grep -E 'node|caddy' || true")
     # Restore the vendor's ordinary audit configuration before exercising the
     # authenticated maintenance flow. Enforcement was never disabled.
     guest("sudo semodule -B && test \"$(getenforce)\" = Enforcing", timeout=90)
-    guest("cd /workspace && sudo env GITHUB_ACTIONS=true PICARD_QUALIFICATION_ENV=oraclelinux9-native-kvm /usr/local/lib/board-event-relay/node --jitless test/fixtures/setup-linux-installed.mjs", timeout=200)
+    guest("cd /workspace && sudo env GITHUB_ACTIONS=true PICARD_QUALIFICATION_ENV=oraclelinux9-native-kvm /usr/local/lib/board-event-relay/node --jitless test/fixtures/"+installed, timeout=240)
     guest("test \"$(getenforce)\" = Enforcing && uname -r")
     print(json.dumps({"state": "native_oracle_setup_passed", "imageSha256": IMAGE_SHA256,
                       "guestRamMb": 1024, "selinux": "Enforcing", "container": False,
@@ -108,7 +111,7 @@ disable_root: true
 finally:
     if vm is not None and vm.poll() is None:
         try:
-            guest("sudo journalctl --no-pager -n 45 -u board-event-relay.service -u picard-relay-web.service -u picard-updater.service -u 'picard-groq-replacement@*'", timeout=15)
+            guest("sudo journalctl --no-pager -n 45 -u picard-first-run.service -u picard-first-run-activate.service -u board-event-relay.service -u picard-relay-web.service -u picard-updater.service -u 'picard-groq-replacement@*'", timeout=15)
             guest("sudo ls -ldZ /usr/local/lib/board-event-relay /usr/local/lib/board-event-relay/node /etc/board-event-relay /var/lib/board-event-relay; id board-event-relay; sudo systemctl show board-event-relay --property=User,Group,ReadWritePaths,SELinuxContext; sudo ausearch -m AVC,USER_AVC -ts boot | tail -n 70", timeout=15)
         except (subprocess.SubprocessError, OSError):
             pass
