@@ -12,20 +12,20 @@ import {priorGroqEnrollmentIds} from '../../experimental/runtime-control/src/adm
 import {createDispatcher} from '../../experimental/runtime-control/src/dispatcher.mjs';
 
 export const fixtureToken='A'.repeat(43),fixtureOrigin='https://fixture.invalid';
-export async function workspaceFixture({realMarkers=process.platform==='linux',auth=null,directory=null,preserveLegacyBaseline=false,origin=fixtureOrigin}={}){
+export async function workspaceFixture({realMarkers=process.platform==='linux',auth=null,directory=null,preserveLegacyBaseline=false,origin=fixtureOrigin,publicTestEnabled=false,answerText=null}={}){
  const dir=directory??fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'picard-workspace-'));
  fs.chmodSync(dir,0o700);fs.writeFileSync(path.join(dir,'fixture-only.marker'),'PICARD_SYNTHETIC_ADMISSION_ONLY\n');
  let offset=0,calls=0,failResponse=false,mode='complete',available=true,session=fixtureToken,store,router,handler,dispatcher;
  const now=()=>Date.now()+offset,at=now();let apiKey='SYNTHETIC_WORKSPACE_KEY_ONLY';
  const enrollment={v:1,owner:'fixture-owner',provider:'groq',model:'openai/gpt-oss-20b',accountLabel:'Synthetic',organizationId:'synthetic',projectId:'synthetic',keySha256:await digest(apiKey),accountPlan:'Free',noPaidFallback:true,verifiedAt:at-86400000,enrolledAt:at-10000,evidenceRef:'SYNTHETIC_ONLY',keyAssociationEvidenceRef:'SYNTHETIC_ONLY'};
- const binding={ownerId:enrollment.owner,taskId:'legacy-fixture',assistantId:'groq:'+enrollment.model,enrollmentId:await digest(canonical(enrollment)),keySha256:enrollment.keySha256,configurationSha256:'b'.repeat(64)};
+ const binding={ownerId:enrollment.owner,taskId:'legacy-fixture',assistantId:'groq:'+enrollment.model,enrollmentId:await digest(canonical(enrollment)),keySha256:enrollment.keySha256,configurationSha256:'b'.repeat(64),...(publicTestEnabled?{publicTestOrigin:'https://public.example'}:{})};
  const originalBaseline=Object.freeze({v:1,kind:'PICARD_LEGACY_BASELINE_V1',enrollmentId:binding.enrollmentId,ownerId:binding.ownerId,taskId:binding.taskId,assistantId:binding.assistantId,observedAt:at,rows:Object.freeze([])});
  let priorEnrollmentIds=[];
  const policy={v:1,configurationSha256:binding.configurationSha256,costEnrollment:enrollment,catalogue:{v:1,kind:'FINITE_ADMISSION_PROTOTYPE_ONLY',ownerId:binding.ownerId,taskId:binding.taskId,assistantId:binding.assistantId,enrollmentId:binding.enrollmentId,notBefore:at-1000,expiresAt:at+3600000,maxRequestLifetimeMs:600000,entries:[]}};
  const dbPath=path.join(dir,'admission-fixture.sqlite'),spent=new Set();
- const output='## Synthetic proposal\n\nA saved code proposal for your review.\n\n```javascript\nexport function statusLabel(state) {\n  return state === "completed" ? "Ready for review" : "In progress";\n}\n```\n\n| Check | Expected |\n| --- | --- |\n| completed | Ready for review |\n| queued | In progress |\n\n<unsafe-tag> remains plain text.';
+ const output=answerText??'## Synthetic proposal\n\nA saved code proposal for your review.\n\n```javascript\nexport function statusLabel(state) {\n  return state === "completed" ? "Ready for review" : "In progress";\n}\n```\n\n| Check | Expected |\n| --- | --- |\n| completed | Ready for review |\n| queued | In progress |\n\n<unsafe-tag> remains plain text.';
  const fetchImpl=async(_url,options)=>{
-  calls++;const body=JSON.parse(options.body);if(body.max_completion_tokens!==4096)throw Error('wrong_token_ceiling');
+  calls++;const body=JSON.parse(options.body);if(body.max_completion_tokens!==(publicTestEnabled?512:4096))throw Error('wrong_token_ceiling');
   if(mode==='uncertain')throw Error('synthetic_transport_failure');
   if(mode==='unauthorized')return new Response(null,{status:401});
   return new Response(JSON.stringify({id:'synthetic-response',model:enrollment.model,choices:[{finish_reason:'stop',message:{role:'assistant',content:output}}],usage:{prompt_tokens:50,completion_tokens:100,total_tokens:150}}));
@@ -35,7 +35,7 @@ export async function workspaceFixture({realMarkers=process.platform==='linux',a
   const legacy=preserveLegacyBaseline?{legacyBinding,loadLegacyBaseline:()=>originalBaseline,readLegacyMarkers:()=>[]}:{};
   store=createLocalAdmissionStore({mode:'synthetic-integration-only',dbPath,now,reusableBoardEnabled:true,workspaceEnabled:true,reusableBinding:{ownerId:binding.ownerId,enrollmentId:binding.enrollmentId},...legacy});
   const testOnly=realMarkers?null:{synthetic:true,markerParentReady:()=>true,markerSpent:id=>spent.has(id),adapterFactory:o=>({kind:'groq-durable-one-shot',assistantId:binding.assistantId,ready:!spent.has(o.gate.grantId),canServeResults:true,async answer(input){spent.add(o.gate.grantId);calls++;if(mode==='uncertain')throw Object.assign(Error('synthetic'),{code:'groq_outcome_uncertain'});return {owner:input.owner,task:input.task,requestId:input.requestId,attempt:input.attempt,eventId:'resp:'+input.requestId,kind:'answer',outcomeKind:'information',body:output,statusChange:null};}})};
-  router=createAdmissionAssistantAdapter({activationEnabled:true,signedBridgeEnabled:true,reusableBoardEnabled:true,workspaceEnabled:true,bridgeKeyId:'fixture',loadPolicy:()=>policy,binding,apiKey,markerDirectory:dir,now,fetchImpl,testOnly,priorEnrollmentIds});
+  router=createAdmissionAssistantAdapter({activationEnabled:true,signedBridgeEnabled:true,reusableBoardEnabled:true,workspaceEnabled:true,publicTestEnabled,bridgeKeyId:'fixture',loadPolicy:()=>policy,binding,apiKey,markerDirectory:dir,now,fetchImpl,testOnly,priorEnrollmentIds});
   router.attachStore(store,{accepting:()=>available});
   handler=createWorkspaceHandler({enabled:true,auth:auth??{authenticate:async token=>token===session},store,binding,origins:[origin],now,loadPolicy:()=>policy,currentAvailability:router.availability,afterCommit:()=>{if(failResponse)throw Error('synthetic_lost_response');}});
   const relay={...store.relay,claimNext:input=>router.claimNext(input)};

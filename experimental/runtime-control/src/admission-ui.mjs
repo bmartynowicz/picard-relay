@@ -1,7 +1,8 @@
 // Compose the owner workspace only when server-side admission is enabled.
 // No external library, resource, credential, HTML interpolation of private data.
-export function admissionConsoleHtml(base,{activationEnabled=false,workspaceEnabled=false}={}){
+export function admissionConsoleHtml(base,{activationEnabled=false,workspaceEnabled=false,publicTestEnabled=false}={}){
  if(activationEnabled!==true)return base;
+ if(publicTestEnabled===true){if(base.split('<h2>Updater</h2>').length!==2)throw Error('admission_document_invalid');base=base.replace('<h2>Updater</h2>','<h2>Public trial</h2><p><a href="/public-test/manage">Manage test allowance →</a></p><h2>Updater</h2>');}
  if(workspaceEnabled===true)return workspaceConsoleHtml(base);
  const replace=(old,value)=>{if(base.split(old).length!==2)throw Error('admission_document_invalid');base=base.replace(old,value);};
  replace('<button id="nav-groq"','<button id="nav-requests" type="button" aria-controls="view-requests"><span class="nav-index" aria-hidden="true">03</span>Requests</button><button id="nav-groq"');

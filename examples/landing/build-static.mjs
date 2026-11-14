@@ -16,14 +16,15 @@ export async function buildLanding({outputDir,sourceSha=null}){
  for(const asset of ['mark.svg','console.css','landing.css','landing.js'])html=html.replaceAll('"/'+asset+'"','"./'+asset+'"');
  html=html.replace('Local setup concept · no connected relay','Your server. Your workspace.');
  // Pages cannot supply custom response headers. The supported static policies live in HTML.
- html=html.replace('<head>','<head>\n<meta name="referrer" content="no-referrer">\n<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\'; style-src \'self\'; img-src \'self\'; connect-src \'none\'; base-uri \'none\'; form-action \'none\'">');
+ html=html.replace('<head>','<head>\n<meta name="referrer" content="no-referrer">\n<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\'; style-src \'self\'; img-src \'self\'; connect-src https://picard-relay.141-148-50-78.sslip.io; base-uri \'none\'; form-action \'none\'">');
  const assets={
   'index.html':html,
   'console.css':await read('console.css'),
   'landing.css':(await read('landing.css')).replaceAll("url('/mark.svg')","url('./mark.svg')"),
-  'landing.js':(await read('landing.js')).replace("from './setup-flow.mjs'","from './setup-flow.js'").replace("from './learning-guide.mjs'","from './learning-guide.js'"),
+  'landing.js':(await read('landing.js')).replace("from './setup-flow.mjs'","from './setup-flow.js'").replace("from './learning-guide.mjs'","from './learning-guide.js'").replace("from './public-test.mjs'","from './public-test.js'"),
   'setup-flow.js':await read('setup-flow.mjs'),
   'learning-guide.js':await read('learning-guide.mjs'),
+  'public-test.js':(await read('public-test.mjs')).replace("from './learning-guide.mjs'","from './learning-guide.js'"),
   'mark.svg':await read('mark.svg'),
   'social-preview.png':await readFile(new URL('./social-preview.png',import.meta.url)),
   '.nojekyll':''

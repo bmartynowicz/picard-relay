@@ -7,7 +7,7 @@ import {createAdmissionStore,admissionHash,legacyMarkerName,stop} from './admiss
 import {readBoundAdmissionPolicy} from './admission-policy.mjs';
 import {priorGroqEnrollmentIds,recordedGroqKeyExpiry,validCostEnrollmentMetadata} from './admission-enrollment.mjs';
 import {createAdmissionAssistantAdapter} from './admission-dispatch.mjs';
-import {createAdmissionHandler,createWorkspaceHandler} from './admission-handler.mjs';
+import {createAdmissionHandler,createWorkspaceHandler,createPublicTestHandler} from './admission-handler.mjs';
 import {admissionConsoleHtml} from './admission-ui.mjs';
 import {groqHttpsFetch} from './https-fetch.mjs';
 import {TextDecoder} from 'node:util';
@@ -114,6 +114,8 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
  if(config.admissionReusableBoardEnabled===true&&config.admissionSignedBridgeEnabled!==true)stop('admission_configuration_invalid');
  if(config.admissionMeasurementRunsEnabled===true&&config.admissionReusableBoardEnabled!==true)stop('admission_configuration_invalid');
  if(config.workspaceEnabled===true&&config.admissionReusableBoardEnabled!==true)stop('admission_configuration_invalid');
+ const publicTestEnabled=env.BRIDGE_PUBLIC_TEST_ENABLED==='true';
+ if(publicTestEnabled&&(config.workspaceEnabled!==true||env.BRIDGE_PUBLIC_TEST_PROXY!=='caddy-overwrite-v1'||!env.BRIDGE_PUBLIC_TEST_ORIGIN))stop('public_test_configuration_invalid');
  // Anchor to the EXISTING retained enrollment and key. A catalogue cannot invent
  // another enrollment to evade an old shared uncertainty/cost latch.
  const gateFile=readExistingAdmissionFile(env.GROQ_FREE_GATE_FILE),keyFile=readExistingAdmissionFile(env.GROQ_API_KEY_FILE),legacy=JSON.parse(gateFile.text),apiKey=keyFile.text.trim(),e=legacy.costEnrollment;
@@ -124,6 +126,7 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
   catch{/* Optional display metadata can never block startup or authorize work. */}
  }
  const markerDirectory=path.dirname(env.GROQ_ONCE_MARKER_FILE??''),binding={ownerId:config.ownerId,taskId:config.allowedTaskId,assistantId:config.assistantId,enrollmentId:legacy.enrollmentId,keySha256:e.keySha256,configurationSha256:''};
+ if(publicTestEnabled)binding.publicTestOrigin=env.BRIDGE_PUBLIC_TEST_ORIGIN;
  binding.configurationSha256=admissionConfigurationDigest({config,enrollmentId:binding.enrollmentId,keySha256:binding.keySha256,markerDirectory});
  const catalogueLoader=createCatalogueLoader({activationEnabled:true,file:config.admissionCatalogueFile,expectedUid:0,expectedGid:process.getgid()});
  const loadLegacyBaseline=createLegacyBaselineLoader({activationEnabled:true,file:config.admissionLegacyBaselineFile,expectedSha256:config.admissionLegacyBaselineSha256,expectedUid:0,expectedGid:process.getgid()});
@@ -141,7 +144,7 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
  const loadBoundFiles=()=>{for(const old of boundFiles){if(fs.realpathSync(old.file)!==old.file||fingerprint(fs.lstatSync(old.file,{bigint:true}))!==old.identity)stop('admission_configuration_changed');}return catalogueLoader();};
  const loadPolicy=()=>{if(hasReplacement&&!history)stop('groq_replacement_invalid');return loadBoundFiles();};
  readBoundAdmissionPolicy(loadBoundFiles,binding);
- const adapter=createAdmissionAssistantAdapter({activationEnabled:true,signedBridgeEnabled:config.admissionSignedBridgeEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBoardEnabled:config.admissionReusableBoardEnabled===true,measurementRunsEnabled:config.admissionMeasurementRunsEnabled===true,bridgeKeyId:config.keyId,loadPolicy,binding,apiKey,markerDirectory,now,fetchImpl,priorEnrollmentIds:history?.priorEnrollmentIds});
+ const adapter=createAdmissionAssistantAdapter({activationEnabled:true,signedBridgeEnabled:config.admissionSignedBridgeEnabled===true,workspaceEnabled:config.workspaceEnabled===true,publicTestEnabled,reusableBoardEnabled:config.admissionReusableBoardEnabled===true,measurementRunsEnabled:config.admissionMeasurementRunsEnabled===true,bridgeKeyId:config.keyId,loadPolicy,binding,apiKey,markerDirectory,now,fetchImpl,priorEnrollmentIds:history?.priorEnrollmentIds});
  const groqReplacement=createGroqReplacementBridge({enabled:env.BRIDGE_GROQ_KEY_REPLACEMENT_ENABLED==='true'&&config.workspaceEnabled===true,project:e.accountLabel,enrollmentId:binding.enrollmentId,now});
  return {adapter,attach({store,control,auth,baseHtml}){
   if(!auth)stop('admission_configuration_invalid');
@@ -150,7 +153,8 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
   adapter.attachStore(admissionStore,{accepting:()=>control.accepting});
   const handler=createAdmissionHandler({activationEnabled:true,store:admissionStore,auth,loadPolicy,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability});
   const workspace=createWorkspaceHandler({enabled:config.workspaceEnabled===true,store:admissionStore,auth,loadPolicy,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability});
-  return {handler:async(req,res)=>await workspace(req,res)||await handler(req,res),groqKeyExpiresAt,groqReplacement,gradeResult:config.workspaceEnabled===true?input=>{admissionStore.recordAttempt(admissionHash(canonical([binding.ownerId,'quality-grades'])));return admissionStore.saveWorkspaceGrade(input);}:null,readGrade:config.workspaceEnabled===true?ref=>admissionStore.workspaceGrade(ref):null,html:admissionConsoleHtml(baseHtml,{activationEnabled:true,workspaceEnabled:config.workspaceEnabled===true}),dispatchStore:{...store,claimNext:input=>adapter.claimNext(input)},close:()=>admissionStore.close()};
+  const publicTest=createPublicTestHandler({enabled:publicTestEnabled,proxyConfigured:env.BRIDGE_PUBLIC_TEST_PROXY==='caddy-overwrite-v1',publicOrigin:env.BRIDGE_PUBLIC_TEST_ORIGIN,auth,store:admissionStore,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability,loadPolicy});
+  return {handler:async(req,res)=>await publicTest(req,res)||await workspace(req,res)||await handler(req,res),groqKeyExpiresAt,groqReplacement,gradeResult:config.workspaceEnabled===true?input=>{admissionStore.recordAttempt(admissionHash(canonical([binding.ownerId,'quality-grades'])));return admissionStore.saveWorkspaceGrade(input);}:null,readGrade:config.workspaceEnabled===true?ref=>admissionStore.workspaceGrade(ref):null,html:admissionConsoleHtml(baseHtml,{activationEnabled:true,workspaceEnabled:config.workspaceEnabled===true,publicTestEnabled}),dispatchStore:{...store,claimNext:input=>adapter.claimNext(input)},close:()=>admissionStore.close()};
   }catch{admissionStore.close();stop('admission_configuration_invalid');}
  }};
 }
