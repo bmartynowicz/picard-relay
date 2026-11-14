@@ -21,8 +21,8 @@ not a prebuilt Picard machine image.
    throughout the tenancy. Missing read access, unknown limits, a full
    allocation, or a different region stop it. Do not create other resources
    concurrently. Out-of-capacity is a stop, not an instruction to upgrade.
-4. When Apply finishes, open the job's **Application information** tab. Unlock
-   **Create your password** and open that private link. The VM may need several
+4. When Apply finishes, open the stack's **Application Information** tab. Open
+   the private **Create your password** link. The VM may need several
    minutes to finish first boot and obtain HTTPS. Keep using that same link;
    do not create another stack because the page is not ready yet.
 5. Create a unique owner password on **your new relay**. The one-use claim
