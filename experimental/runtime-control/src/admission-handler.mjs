@@ -7,6 +7,7 @@ import {AdmissionError,admissionHash,stop,PUBLIC_TEST_REQUEST,PUBLIC_TEST_CONTEX
 import {isIP} from 'node:net';
 import {recentJobReason} from './relay-store.mjs';
 import {sanitizeProviderUsage} from './adapters.mjs';
+import {validCostEnrollmentMetadata} from './admission-enrollment.mjs';
 
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).sort().join(',')===[...keys].sort().join(',');
 const headers={'Cache-Control':'no-store, private','Pragma':'no-cache','Content-Type':'application/json; charset=utf-8','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cross-Origin-Resource-Policy':'same-origin','Content-Security-Policy':"default-src 'none'; frame-ancestors 'none'"};
@@ -103,9 +104,33 @@ export function createPublicTestHandler({enabled=false,proxyConfigured=false,aut
 
 const PUBLIC_TEST_MANAGE_HTML=String.raw`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Public relay trial</title><style>body{margin:0;background:#0b1119;color:#eeefe9;font:16px/1.6 system-ui}main{max-width:680px;margin:40px auto;padding:24px}a{color:#dec387}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:20px;border:1px solid #dec38755}button{padding:12px 18px;margin:8px 8px 8px 0;background:#dec387;color:#12191d;border:0;font:inherit;cursor:pointer}label{display:block;margin:20px 0}button:disabled{opacity:.45;cursor:default}#status{min-height:2em}</style><main><a href="/#system">← System</a><h1>Public relay trial</h1><p id="counts">Loading…</p><h2>The exact public request</h2><pre id="brief"></pre><p>Eight calls total per manual refill. Groq Free · 512 output tokens each · one at a time · no tools, retries or paid fallback. This allowance expires after 48 hours. An uncertain attempt stays spent and stops this public trial. Results from these calls are public.</p><label><input id="agree" type="checkbox"> I approve this exact request for eight public calls using the current Free enrollment.</label><button id="enable" disabled>Enable 8 tests</button><button id="resume" disabled>Resume existing allowance</button><button id="disable" disabled>Turn off</button><p id="status" role="status"></p></main><script>const $=id=>document.getElementById(id);let current=null;async function call(path,body){const r=await fetch('/public-test/owner'+path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const v=await r.json();if(!r.ok)throw Error(v.error==='recent_owner_sign_in_required'?'Sign in again, then return here.':v.error||'Unavailable');return v;}async function load(){current=await call('');$('brief').textContent=current.spec.requestText+'\n\nContext: '+current.spec.taskContext.latestFinding;$('counts').textContent=(current.state.enabled?'On':'Off')+' · '+(current.state.totalGranted-current.state.totalUsed-current.state.totalRetired)+' tests remaining · '+current.state.totalUsed+' spent';$('enable').textContent=current.state.totalGranted?'Refill 8 tests':'Enable 8 tests';$('enable').disabled=!$('agree').checked||!current.canRefill;$('resume').disabled=current.state.enabled||current.state.totalUsed+current.state.totalRetired>=current.state.totalGranted;$('disable').disabled=!current.state.enabled;}async function act(fn){try{$('status').textContent='Saving…';await fn();$('agree').checked=false;await load();$('status').textContent='Saved.';}catch(e){$('status').textContent=e.message;}}$('agree').onchange=()=>{$('enable').disabled=!$('agree').checked||!current||!current.canRefill;};$('enable').onclick=()=>act(async()=>{if(!$('agree').checked||!current)throw Error('Review the request first.');const p=await call('/approval',{});if(p.specSha256!==current.specSha256||p.revision!==current.state.revision)throw Error('The setup changed. Reload and review it again.');await call('/enable',{nonce:p.nonce,specSha256:current.specSha256,expectedRevision:current.state.revision,approve:true});});$('disable').onclick=()=>act(()=>call('/disable',{}));$('resume').onclick=()=>act(()=>call('/resume',{}));load().catch(e=>$('status').textContent=e.message);</script></html>`;
 
+// Read-only compatibility requires a protected operator-pinned original proof.
+// It never admits work, refreshes approval or alters the legacy admission guard.
+export function validateHistoricalModelProof(proof,p,row,binding,at){
+ const hex=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
+ const integer=x=>Number.isSafeInteger(x)&&x>=0;
+ const g=proof?.gate,e=g?.costEnrollment;
+ if(!exact(proof,['v','gate','payloadSha256','resultSha256'])||proof.v!==1||!hex(proof.payloadSha256)||!hex(proof.resultSha256)
+  ||proof.payloadSha256!==admissionHash(row.payload_json)||proof.resultSha256!==admissionHash(row.result_json)
+  ||row.state!=='completed'||row.attempt!==1||g?.v!==3||g.provider!=='groq'
+  ||!['openai/gpt-oss-120b','qwen/qwen3.8-27b'].includes(g.model)
+  ||!validCostEnrollmentMetadata(e,{alternateModelsEnabled:true})||e.v!==2||e.owner!==binding.ownerId||e.model!==g.model
+  ||g.enrollmentId!==admissionHash(canonical(e))||g.owner!==binding.ownerId||g.owner!==p.ownerId
+  ||g.task!==p.taskId||g.requestId!==p.requestId||g.eventId!==p.eventId||g.grantId!==p.grantId
+  ||p.assistantId!=='groq:'+g.model||g.approvedRequestText!==p.request.text||canonical(g.taskContext)!==canonical(p.context)
+  ||g.approvedInputSha256!==admissionHash(canonical({requestText:p.request.text,taskContext:p.context}))
+  ||g.maxCalls!==1||g.maxCompletionTokens!==4096||g.harmlessTestOnly!==true||g.accountPlan!=='Free'||g.noPaidFallback!==true
+  ||!['public-source-review','sanitized-source-proposal'].includes(g.purpose)
+  ||![g.requestIssuedAt,g.requestExpiresAt,row.updated_at,at].every(integer)||g.requestIssuedAt>at||row.updated_at>at
+  ||e.enrolledAt>g.requestIssuedAt||g.requestExpiresAt-g.requestIssuedAt<1000||g.requestExpiresAt-g.requestIssuedAt>3600000
+  ||Date.parse(p.request.createdAt)!==g.requestIssuedAt||p.grantExpiresAt!==g.requestExpiresAt
+  ||row.updated_at<g.requestIssuedAt||row.updated_at>=g.requestExpiresAt)stop('existing_record_invalid');
+ return g;
+}
+
 // Opt-in owner workspace. The signed Board endpoint keeps its own authority;
 // a browser draft is never a signed Board attestation.
-export function createWorkspaceHandler({enabled=false,auth,store,binding,origins=[],now=Date.now,loadPolicy,currentAvailability=()=>null,afterCommit=()=>{}}={}){
+export function createWorkspaceHandler({enabled=false,auth,store,binding,origins=[],now=Date.now,loadPolicy,currentAvailability=()=>null,afterCommit=()=>{},readHistoricalModelProof=null}={}){
  if(enabled!==true)return async()=>false;
  if(!auth||!store||typeof loadPolicy!=='function')stop('admission_configuration_invalid');
  const allowed=new Set(origins),scope=admissionHash(canonical([binding.ownerId,'owner-workspace']));
@@ -116,7 +141,7 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
  let earnedCache=null;
  async function earnedProgress(){
   const version=store.workspaceProgressVersion();
-  if(earnedCache?.version===version)return earnedCache.value;
+  if(!readHistoricalModelProof&&earnedCache?.version===version)return earnedCache.value;
   let completedWork=0;
   for(const ref of store.workspaceCompletedRefs()){
    const saved=await ownedResult(ref);
@@ -131,9 +156,14 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
  async function ownedResult(ref){
   const row=store.get(ref);if(!row||row.owner!==binding.ownerId)stop('not_registered');
   let p;try{p=JSON.parse(row.payload_json);await validateWork(p);}catch{stop('existing_record_invalid');}
-  if(p.ownerId!==binding.ownerId||p.assistantId!==binding.assistantId||p.eventId!==ref||row.task!==p.taskId||row.message_id!==p.requestId||row.grant_id!==p.grantId||row.payload_hash!==p.payloadHash||row.grant_expires!==p.grantExpiresAt||!knownStates.includes(row.state))stop('existing_record_invalid');
+  if(p.ownerId!==binding.ownerId||p.eventId!==ref||row.task!==p.taskId||row.message_id!==p.requestId||row.grant_id!==p.grantId||row.payload_hash!==p.payloadHash||row.grant_expires!==p.grantExpiresAt||!knownStates.includes(row.state))stop('existing_record_invalid');
+  let historicalGate=null;
+  if(p.assistantId!==binding.assistantId){
+   if(typeof readHistoricalModelProof!=='function')stop('existing_record_invalid');
+   historicalGate=validateHistoricalModelProof(readHistoricalModelProof(ref),p,row,binding,now());
+  }
   const approved=store.readHistoricalWork(ref);
-  const response={v:1,ref,state:row.state,observedAt:new Date(now()).toISOString(),createdAt:row.created_at,updatedAt:row.updated_at,request:{title:p.context.title,text:p.request.text,context:p.context.latestFinding,taskId:p.taskId},resultAvailable:false,reasonCode:recentJobReason(row.state,row.last_error,row.state==='completed'&&!!row.result_json),review:store.workspaceReview(ref),provenance:{model:p.assistantId,requestId:p.requestId,inputSha256:admissionHash(canonical({requestText:p.request.text,taskContext:p.context})),payloadSha256:p.payloadHash,approvedAt:approved?.approval.issuedAt??Date.parse(p.request.createdAt),expiresAt:p.grantExpiresAt,maxOutputTokens:approved?.approval.maxCompletionTokens===4096?4096:512,source:approved?.source==='authenticated-owner-console'?'Owner console':approved?.source==='authenticated-reusable-board'?'Signed task board':'Enrolled request',measuredTokens:null,billedUsd:null}};
+  const response={v:1,ref,state:row.state,observedAt:new Date(now()).toISOString(),createdAt:row.created_at,updatedAt:row.updated_at,request:{title:p.context.title,text:p.request.text,context:p.context.latestFinding,taskId:p.taskId},resultAvailable:false,reasonCode:recentJobReason(row.state,row.last_error,row.state==='completed'&&!!row.result_json),review:store.workspaceReview(ref),provenance:{model:p.assistantId,requestId:p.requestId,inputSha256:admissionHash(canonical({requestText:p.request.text,taskContext:p.context})),payloadSha256:p.payloadHash,approvedAt:historicalGate?.requestIssuedAt??approved?.approval.issuedAt??Date.parse(p.request.createdAt),expiresAt:p.grantExpiresAt,maxOutputTokens:historicalGate?.maxCompletionTokens??(approved?.approval.maxCompletionTokens===4096?4096:512),source:historicalGate?'Operator-verified historical model result':approved?.source==='authenticated-owner-console'?'Owner console':approved?.source==='authenticated-reusable-board'?'Signed task board':'Enrolled request',measuredTokens:null,billedUsd:null}};
   try{response.grade=store.workspaceGrade(ref);}catch{response.grade=null;} // Quality metadata cannot block intact answer recovery or rank reads.
   if(row.state==='completed'){
    let r;try{r=JSON.parse(row.result_json);}catch{stop('existing_record_invalid');}
@@ -141,6 +171,7 @@ export function createWorkspaceHandler({enabled=false,auth,store,binding,origins
    const resultSha256=admissionHash(r.body);if([...response.review.history,...(response.grade?.history??[])].some(review=>review.resultSha256!==resultSha256))stop('existing_record_invalid');
    response.resultAvailable=true;response.result={body:r.body,kind:r.outcome.kind,sha256:resultSha256};
    const usage=sanitizeProviderUsage(r.providerUsage);
+   if(historicalGate&&(!usage||usage.model!==historicalGate.model))stop('existing_record_invalid');
    if(usage){response.provenance.measuredTokens=usage.totalTokens;response.provenance.providerUsage=usage;}
   }
   return response;

@@ -12,7 +12,7 @@ import {priorGroqEnrollmentIds} from '../../experimental/runtime-control/src/adm
 import {createDispatcher} from '../../experimental/runtime-control/src/dispatcher.mjs';
 
 export const fixtureToken='A'.repeat(43),fixtureOrigin='https://fixture.invalid';
-export async function workspaceFixture({realMarkers=process.platform==='linux',auth=null,directory=null,preserveLegacyBaseline=false,origin=fixtureOrigin,publicTestEnabled=false,answerText=null}={}){
+export async function workspaceFixture({realMarkers=process.platform==='linux',auth=null,directory=null,preserveLegacyBaseline=false,origin=fixtureOrigin,publicTestEnabled=false,answerText=null,readHistoricalModelProof=null}={}){
  const dir=directory??fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'picard-workspace-'));
  fs.chmodSync(dir,0o700);fs.writeFileSync(path.join(dir,'fixture-only.marker'),'PICARD_SYNTHETIC_ADMISSION_ONLY\n');
  let offset=0,calls=0,failResponse=false,mode='complete',available=true,session=fixtureToken,store,router,handler,dispatcher;
@@ -37,7 +37,7 @@ export async function workspaceFixture({realMarkers=process.platform==='linux',a
   const testOnly=realMarkers?null:{synthetic:true,markerParentReady:()=>true,markerSpent:id=>spent.has(id),adapterFactory:o=>({kind:'groq-durable-one-shot',assistantId:binding.assistantId,ready:!spent.has(o.gate.grantId),canServeResults:true,async answer(input){spent.add(o.gate.grantId);calls++;if(mode==='uncertain')throw Object.assign(Error('synthetic'),{code:'groq_outcome_uncertain'});return {owner:input.owner,task:input.task,requestId:input.requestId,attempt:input.attempt,eventId:'resp:'+input.requestId,kind:'answer',outcomeKind:'information',body:output,statusChange:null};}})};
   router=createAdmissionAssistantAdapter({activationEnabled:true,signedBridgeEnabled:true,reusableBoardEnabled:true,workspaceEnabled:true,publicTestEnabled,bridgeKeyId:'fixture',loadPolicy:()=>policy,binding,apiKey,markerDirectory:dir,now,fetchImpl,testOnly,priorEnrollmentIds});
   router.attachStore(store,{accepting:()=>available});
-  handler=createWorkspaceHandler({enabled:true,auth:auth??{authenticate:async token=>token===session},store,binding,origins:[origin],now,loadPolicy:()=>policy,currentAvailability:router.availability,afterCommit:()=>{if(failResponse)throw Error('synthetic_lost_response');}});
+  handler=createWorkspaceHandler({enabled:true,auth:auth??{authenticate:async token=>token===session},store,binding,origins:[origin],now,loadPolicy:()=>policy,currentAvailability:router.availability,readHistoricalModelProof,afterCommit:()=>{if(failResponse)throw Error('synthetic_lost_response');}});
   const relay={...store.relay,claimNext:input=>router.claimNext(input)};
   dispatcher=createDispatcher({store:relay,boardAdapter:{scopeEnforced:true,getTaskContext:relay.getTaskContext,appendReply:relay.appendReply,getReplyByRequestId:relay.getReplyByRequestId},assistantAdapter:router,enabled:true,now,workerId:'workspace-fixture',claimTtlMs:60000});
  }
