@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "sourceSha": "45ab6247570e70ec930697dcbfc234be4506cb30",
+  "sourceSha": "c6c6ac43598a35453c0ad85c33cee06d3a1496e2",
   "files": {
     "index.html": {
-      "bytes": 16235,
-      "sha256": "d52b490e7a6ccefbdc93b024793fcdfe285f20fb50bf1f1410a4bd8c98f4d037"
+      "bytes": 17567,
+      "sha256": "ecee45fa5a95bbe27ff39ee54290e8f09a42b59d983aae53b50c10d6524080e5"
     },
     "console.css": {
       "bytes": 49399,
@@ -25,6 +25,10 @@
     "mark.svg": {
       "bytes": 1903,
       "sha256": "6ddd3bd3951455358531703c4866479f2cead18cdcb16dcf031df87f35f626f1"
+    },
+    "social-preview.png": {
+      "bytes": 75254,
+      "sha256": "70fc197b6ae68c03696dc1e61c2fe4a202e753c85bc2360494aca623660deeb2"
     },
     ".nojekyll": {
       "bytes": 0,
