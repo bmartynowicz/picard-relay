@@ -1,22 +1,22 @@
 {
   "schemaVersion": 1,
-  "sourceSha": "5a14fedddce5d58c0221ad5e4fe905a5dff8379d",
+  "sourceSha": "2aab4032499557a8bb3a8688f44ff991be3c507e",
   "files": {
     "index.html": {
-      "bytes": 20952,
-      "sha256": "7172fa8c8f562c29cfcab4f60489f19f91d6f1d897b44a51801361a46ca9d049"
+      "bytes": 22619,
+      "sha256": "101987f9d09501670e2d13969a21ab534aebbf4ea374c9e9e201662298b37cc7"
     },
     "console.css": {
       "bytes": 49399,
       "sha256": "e49e9ad109457f85b1f0298166f1bc2dcd1b8eba55c777f51250b453a158fd28"
     },
     "landing.css": {
-      "bytes": 11023,
-      "sha256": "f0552bb737132765fa8e2d7a60a7a79bb0a1b1ae66443ce15eb751e2d9235f05"
+      "bytes": 11644,
+      "sha256": "d1aac9d0df80df5970542ce3ce9a92477b3aaf13840dcb1d68104e0d0f579358"
     },
     "landing.js": {
-      "bytes": 6743,
-      "sha256": "bda5d65a1879e6509f7535f9b546e7e8d9ae794c2c55c9b6f23220f74c3c3707"
+      "bytes": 6827,
+      "sha256": "cd3fcbad33bc5db88c38bbe24184f546f2cb378a035fe2ef6f3d901ed683492b"
     },
     "setup-flow.js": {
       "bytes": 318,
@@ -41,6 +41,14 @@
     ".nojekyll": {
       "bytes": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "oracle-host-af1d4c0a484f459136931c8e8aeaaa3e28f54f2712853a047ae57605c3689bfb.tgz": {
+      "bytes": 186828,
+      "sha256": "af1d4c0a484f459136931c8e8aeaaa3e28f54f2712853a047ae57605c3689bfb"
+    },
+    "oracle-stack.zip": {
+      "bytes": 17692,
+      "sha256": "9e6117b1ba5b98617d4783089ca7036428e290ea238744c19feaef6cecffa274"
     }
   }
 }
