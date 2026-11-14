@@ -1,22 +1,22 @@
 {
   "schemaVersion": 1,
-  "sourceSha": "09cef41cbf675263c560690bc4d278d4be0c0cb6",
+  "sourceSha": "5a14fedddce5d58c0221ad5e4fe905a5dff8379d",
   "files": {
     "index.html": {
-      "bytes": 19861,
-      "sha256": "5c4c8f2b173191d7989ec13da07104398a451b55351156a06d580c80a997ae7d"
+      "bytes": 20952,
+      "sha256": "7172fa8c8f562c29cfcab4f60489f19f91d6f1d897b44a51801361a46ca9d049"
     },
     "console.css": {
       "bytes": 49399,
       "sha256": "e49e9ad109457f85b1f0298166f1bc2dcd1b8eba55c777f51250b453a158fd28"
     },
     "landing.css": {
-      "bytes": 10977,
-      "sha256": "d97852df2260f25a5088d874f31c78f7b741b184f8d12b4686d56050a5409743"
+      "bytes": 11023,
+      "sha256": "f0552bb737132765fa8e2d7a60a7a79bb0a1b1ae66443ce15eb751e2d9235f05"
     },
     "landing.js": {
-      "bytes": 6439,
-      "sha256": "ec62dd2811588da92853626749ab6e18f24f8618f6f214003f6bd5fa7399e0c8"
+      "bytes": 6743,
+      "sha256": "bda5d65a1879e6509f7535f9b546e7e8d9ae794c2c55c9b6f23220f74c3c3707"
     },
     "setup-flow.js": {
       "bytes": 318,
@@ -25,6 +25,10 @@
     "learning-guide.js": {
       "bytes": 2234,
       "sha256": "ef71cce025131493f6d32570c70c7f41efa0af69129e340a677bc4ec0c81990a"
+    },
+    "public-test.js": {
+      "bytes": 5777,
+      "sha256": "aa74fa5541cfa9f1111df891593a4e4e85cf6046f7038b6a486fbc00ae570244"
     },
     "mark.svg": {
       "bytes": 1903,
