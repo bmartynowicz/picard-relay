@@ -8,6 +8,7 @@ const files=new Map([
  ['/landing.css',[new URL('./landing/landing.css',import.meta.url),'text/css; charset=utf-8']],
  ['/landing.js',[new URL('./landing/landing.js',import.meta.url),'text/javascript; charset=utf-8']],
  ['/setup-flow.mjs',[new URL('./landing/setup-flow.mjs',import.meta.url),'text/javascript; charset=utf-8']],
+ ['/learning-guide.mjs',[new URL('./landing/learning-guide.mjs',import.meta.url),'text/javascript; charset=utf-8']],
  ['/console.css',[new URL('./landing/console.css',import.meta.url),'text/css; charset=utf-8']],
  ['/mark.svg',[new URL('./landing/mark.svg',import.meta.url),'image/svg+xml']],
 ]);

@@ -21,8 +21,9 @@ export async function buildLanding({outputDir,sourceSha=null}){
   'index.html':html,
   'console.css':await read('console.css'),
   'landing.css':(await read('landing.css')).replaceAll("url('/mark.svg')","url('./mark.svg')"),
-  'landing.js':(await read('landing.js')).replace("from './setup-flow.mjs'","from './setup-flow.js'"),
+  'landing.js':(await read('landing.js')).replace("from './setup-flow.mjs'","from './setup-flow.js'").replace("from './learning-guide.mjs'","from './learning-guide.js'"),
   'setup-flow.js':await read('setup-flow.mjs'),
+  'learning-guide.js':await read('learning-guide.mjs'),
   'mark.svg':await read('mark.svg'),
   'social-preview.png':await readFile(new URL('./social-preview.png',import.meta.url)),
   '.nojekyll':''

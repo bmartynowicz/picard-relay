@@ -30,6 +30,18 @@ with the source control, Close, Escape, or a click in space. Stars and motion
 have separate controls. The short insignia arrival never blocks input. Reduced
 motion uses the static state; without JavaScript the setup guide remains available.
 
+## Interactive guide candidate
+
+**Guides** and **Try the workflow** open a local Request → Review → Saved answer
+lesson. The fixed sample and answer are labeled as practice; no provider call,
+key, browser storage or relay connection is used. The answer stays available
+when a panel closes or another view opens, until the visitor explicitly starts
+again or reloads. **Text guide** opens the existing quickstart alongside it.
+
+This lesson does not enable a public AI endpoint. A real public trial needs a
+separate owner-approved, server-enforced allowance and public-only result scope;
+the private owner workspace and exact-request approval remain protected.
+
 ## Reuse and scope
 
 - `build-assets.mjs` derives CSS, insignia and SVG star planes from the current
@@ -37,7 +49,7 @@ motion uses the static state; without JavaScript the setup guide remains availab
 - The curvature calculation follows the same quadratic curve as the product.
 - Only landing behavior and setup content are new. Generated `console.css` and
   `console-parts.json` are rebuilt after upstream console changes.
-- The loopback preview server serves six exact public asset paths and GET/HEAD
+- The loopback preview server serves seven exact public asset paths and GET/HEAD
   only, with no directory browsing, relay endpoints or external connections.
 - Actual server setup still uses the existing reviewed installer and the user's
   own Oracle/hosting account. This page does not provision cloud resources.
