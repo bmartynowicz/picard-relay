@@ -75,3 +75,18 @@ test('CLI preparation freezes runnable defaults and UTF8 proof, and refuses over
  await assert.rejects(promisify(execFile)(process.execPath,[script,'--task',input,'--out',out]));
  assert.equal(hash(await readFile(join(out,'assisted-prompt.txt'))),proof.promptSha256);
 });
+
+
+test('CLI preparation accepts 64 recorded preparations and rejects 65 before creating inputs',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'picard-workflow-cap-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const input=join(dir,'task.json'),out=join(dir,'valid');
+ const preps=Array.from({length:64},(_,i)=>hash('prep-'+i));
+ const workflow={v:1,preparationIds:{baseline:preps,assisted:preps},picardRefs:[saved.ref]};
+ const script=fileURLToPath(new URL('../tools/codex-workflow.mjs',import.meta.url));
+ await writeFile(input,JSON.stringify({...task,comparison:'cap-example',workflow}));
+ await promisify(execFile)(process.execPath,[script,'--task',input,'--out',out]);
+ assert.deepEqual(JSON.parse(await readFile(join(out,'prepared.json'),'utf8')).workflow,workflow);
+ workflow.preparationIds.assisted=[...preps,hash('extra')];
+ await writeFile(input,JSON.stringify({...task,comparison:'cap-example',workflow}));
+ await assert.rejects(promisify(execFile)(process.execPath,[script,'--task',input,'--out',join(dir,'invalid')]),/every recorded preparation/);
+});

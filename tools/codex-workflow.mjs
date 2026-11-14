@@ -62,7 +62,7 @@ async function main(){
   const prepared=prepareWorkflow(task),out=resolve(values.out);
   if(task.workflow){
     const w=task.workflow,id=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
-    if(w.v!==1||!['baseline','assisted'].every(side=>Array.isArray(w.preparationIds?.[side])&&w.preparationIds[side].length<=20&&w.preparationIds[side].every(id))
+    if(w.v!==1||!['baseline','assisted'].every(side=>Array.isArray(w.preparationIds?.[side])&&w.preparationIds[side].length<=64&&w.preparationIds[side].every(id))
       ||!Array.isArray(w.picardRefs)||w.picardRefs.length>20||!w.picardRefs.every(id)
       ||task.savedResult&&!w.picardRefs.includes(task.savedResult.ref))throw Error('List every recorded preparation turn and Picard request in workflow coverage.');
     prepared.workflow=w;

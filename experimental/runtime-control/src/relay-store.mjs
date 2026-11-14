@@ -78,7 +78,7 @@ function openCodexUsage(db,owner){
  function workflowRecord(value){
   if(!value||Object.keys(value).sort().join(',')!=='comparisonId,kind,picardRefs,preparationIds,v,variant'
    ||value.v!==1||value.kind!=='workflow'||!usageSlug(value.comparisonId)||!['baseline','assisted'].includes(value.variant)
-   ||![value.preparationIds,value.picardRefs].every(ids=>Array.isArray(ids)&&ids.length<=20&&ids.every(isId)&&new Set(ids).size===ids.length)
+   ||![[value.preparationIds,64],[value.picardRefs,20]].every(([ids,limit])=>Array.isArray(ids)&&ids.length<=limit&&ids.every(isId)&&new Set(ids).size===ids.length)
    ||value.variant==='baseline'&&value.picardRefs.length)return 'invalid';
   const record=canonical({...value,preparationIds:[...value.preparationIds].sort(),picardRefs:[...value.picardRefs].sort()});
   return transaction(()=>{

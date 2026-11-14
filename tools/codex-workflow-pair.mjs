@@ -40,7 +40,7 @@ export function comparisonScopes(plan,roots,reviews){
   if(reviews[variant].model!==roots[variant].model||reviews[variant].effort!==roots[variant].effort)throw Error('unmatched_review_defaults');
   const prep=[...(plan.workflow?.preparationIds?.[variant]??[]),reviews[variant].runId];
   const refs=variant==='assisted'?plan.workflow?.picardRefs:[];
-  if(!prep.length||prep.length>20||!prep.every(id)||new Set(prep).size!==prep.length||prep.some(x=>x===roots.baseline.runId||x===roots.assisted.runId)
+  if(!prep.length||prep.length>64||!prep.every(id)||new Set(prep).size!==prep.length||prep.some(x=>x===roots.baseline.runId||x===roots.assisted.runId)
    ||!Array.isArray(refs)||refs.length>20||!refs.every(id)||new Set(refs).size!==refs.length)throw Error('invalid_workflow_coverage');
   return [variant,{v:1,kind:'workflow',comparisonId:plan.comparison,variant,preparationIds:prep,picardRefs:refs}];
  }));
@@ -49,7 +49,7 @@ export function comparisonScopes(plan,roots,reviews){
 export async function preparePair(task,out){
  if(!slug(task.comparison)||task.workflow?.v!==1||!['baseline','assisted'].every(v=>Array.isArray(task.workflow.preparationIds?.[v]))
   ||!task.savedResult||!task.workflow.picardRefs?.includes(task.savedResult.ref))throw Error('explicit_workflow_and_saved_result_required');
- for(const [values,limit] of [[task.workflow.preparationIds.baseline,19],[task.workflow.preparationIds.assisted,19],[task.workflow.picardRefs,20]]){
+ for(const [values,limit] of [[task.workflow.preparationIds.baseline,63],[task.workflow.preparationIds.assisted,63],[task.workflow.picardRefs,20]]){
   if(values.length>limit||!values.every(id)||new Set(values).size!==values.length)throw Error('invalid_workflow_coverage');
  }
  if(task.checks)checkCodexAnswer({answer:'',checks:task.checks});
