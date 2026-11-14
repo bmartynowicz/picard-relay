@@ -54,3 +54,17 @@ test('coverage rejects duplicate charging, missing review IDs and unmatched cont
  assert.throws(()=>comparisonScopes({...task,workflow:{...task.workflow,preparationIds:{...task.workflow.preparationIds,baseline:[id('review-b')]}}},roots,reviews),/invalid_workflow_coverage/);
  assert.throws(()=>comparisonScopes(task,{...roots,assisted:{...roots.assisted,fixedHash:id('different')}},reviews),/unmatched_native_context/);
 });
+
+
+test('paired coverage reserves the 64th slot for its review and retains provider cap20',async t=>{
+ const parent=await mkdtemp(join(tmpdir(),'picard-pair-cap-'));t.after(()=>rm(parent,{recursive:true,force:true}));
+ const preps=Array.from({length:63},(_,i)=>id('prep-'+i));
+ const large={...task,workflow:{...task.workflow,preparationIds:{baseline:preps,assisted:preps}}};
+ await preparePair(large,join(parent,'valid'));
+ const roots={baseline:measurement('baseline'),assisted:measurement('assisted')},reviews={baseline:measurement('review-b'),assisted:measurement('review-a')};
+ assert.equal(comparisonScopes(large,roots,reviews).assisted.preparationIds.length,64);
+ const tooMany={...large,workflow:{...large.workflow,preparationIds:{...large.workflow.preparationIds,assisted:[...preps,id('prep-extra')]}}};
+ await assert.rejects(preparePair(tooMany,join(parent,'invalid')),/invalid_workflow_coverage/);
+ assert.throws(()=>comparisonScopes(tooMany,roots,reviews),/invalid_workflow_coverage/);
+ await assert.rejects(preparePair({...large,workflow:{...large.workflow,picardRefs:Array.from({length:21},(_,i)=>i?id('provider-'+i):id('provider'))}},join(parent,'providers')),/invalid_workflow_coverage/);
+});
