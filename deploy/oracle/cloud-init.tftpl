@@ -7,7 +7,18 @@ for target in /usr/local/lib/board-event-relay /etc/board-event-relay /var/lib/b
   test ! -e "$target" && test ! -L "$target" || { echo 'Existing installation preserved. First boot refused.' >&2; exit 1; }
 done
 test ! -e /etc/picard-oracle-launch.json
-dnf -q -y install --allowerasing curl tar xz python3 firewalld policycoreutils-python-utils
+printf '%s\n' 'Checking installed prerequisites.'
+missing_packages=()
+for package in curl tar xz python3 firewalld policycoreutils-python-utils; do
+  if ! rpm -q "$package" >/dev/null 2>&1; then missing_packages+=("$package"); fi
+done
+if [[ -v missing_packages[0] ]]; then
+  printf '%s\n' 'Installing missing prerequisites (five-minute limit).'
+  timeout --foreground --kill-after=30s 300s dnf -q -y install --allowerasing --setopt=install_weak_deps=False "$${missing_packages[@]}"
+else
+  printf '%s\n' 'Prerequisites already installed; package refresh skipped.'
+fi
+printf '%s\n' 'Fetching the reviewed Picard package.'
 archive=$(mktemp /var/tmp/picard-launch.XXXXXXXX.tgz)
 curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 180 --max-filesize 10000000 --output "$archive" '${source_url}'
 printf '%s  %s\n' '${source_sha256}' "$archive" | sha256sum --check --status

@@ -90,6 +90,11 @@ and [state access controls](https://docs.oracle.com/en-us/iaas/Content/Security/
 
 ## Host behavior and recovery
 
+First boot checks installed OS prerequisites before calling the package manager.
+Already installed dependencies are retained without refreshing package metadata.
+Only missing packages are installed, with a five-minute command limit. The
+cloud-init log identifies each stage so an interrupted launch can be diagnosed.
+
 The first boot downloads a content-addressed host package and verifies its
 SHA-256, then uses the existing pinned Node/Caddy installer and signed-runtime
 verification. Runtime source must match the currently signed publication or

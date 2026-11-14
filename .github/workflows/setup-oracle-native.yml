@@ -4,6 +4,7 @@ on:
     paths:
       - '.github/workflows/setup-oracle-native.yml'
       - 'test/fixtures/oracle-native-vm.py'
+      - 'deploy/oracle/cloud-init.tftpl'
       - 'scripts/*browser-setup*'
       - 'test/fixtures/browser-setup-*'
 permissions:
