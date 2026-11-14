@@ -14,14 +14,14 @@ document.querySelector('#motion').addEventListener('click',()=>{paused=!paused;m
 document.querySelector('#stars-toggle').addEventListener('click',event=>{const enabled=root.dataset.starfield!=='true';root.dataset.starfield=String(enabled);event.currentTarget.setAttribute('aria-pressed',String(enabled));});
 document.addEventListener('visibilitychange',motion);reduce.addEventListener('change',motion);
 
-function markControls(){document.querySelectorAll('[data-panel]').forEach(button=>{const selected=button.dataset.panel===current;button.setAttribute('aria-expanded',String(selected));if(button.closest('nav'))button.setAttribute('aria-current',selected?'page':'false');});}
+function markControls(){document.querySelectorAll('[data-panel]').forEach(button=>{const selected=button.dataset.panel===current||button.dataset.panel==='guide'&&current==='trial';button.setAttribute('aria-expanded',String(selected));if(button.closest('nav'))button.setAttribute('aria-current',selected?'page':'false');});}
 async function animate(frames){if(reduce.matches||paused||document.hidden)return;const animation=panel.animate(frames,{duration:160,easing:'cubic-bezier(.2,.8,.25,1)'});try{await animation.finished;}catch{}finally{animation.cancel();}}
 function pivot(button){const source=button.getBoundingClientRect(),box=panel.getBoundingClientRect();panel.style.setProperty('--origin-x',(source.left+source.width/2-box.left)+'px');panel.style.setProperty('--origin-y',(source.top+source.height/2-box.top)+'px');}
 async function change(view,button){
  closeTrial?.();closeTrial=null;
  if(current){panel.inert=true;await animate([{transform:'none',opacity:1},{transform:'scale(.3,.12)',opacity:0}]);}
  if(current===view||view===null){panel.hidden=true;panel.inert=false;current=null;root.dataset.panelOpen='false';root.dataset.lessonOpen='false';welcome.inert=false;markControls();if(opener?.isConnected)opener.focus({preventScroll:true});else document.querySelector('#hud-next').focus({preventScroll:true});return;}
- const anchor=button.closest('#landing-panel')?document.querySelector('.hud-instruments [data-panel="'+view+'"],.console-utilities [data-panel="'+view+'"]')??button:button;
+ const anchor=button.closest('#landing-panel')?document.querySelector('.hud-instruments [data-panel="'+view+'"],.console-utilities [data-panel="'+(view==='trial'?'guide':view)+'"]')??button:button;
  current=view;opener=anchor;content.replaceChildren(document.querySelector('#content-'+view).content.cloneNode(true));
  document.querySelector('#panel-kicker').textContent=titles[view][0];heading.textContent=titles[view][1];
  panel.hidden=false;panel.inert=false;panel.scrollTop=0;panel.dataset.view=view;root.dataset.panelOpen='true';root.dataset.lessonOpen=String(view==='guide'||view==='trial');welcome.inert=true;markControls();pivot(anchor);
