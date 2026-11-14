@@ -26,6 +26,7 @@ the [local demo](QUICKSTART.md#try-it-locally) uses synthetic answers only.
 | Understand progress and usage | [Ranks and owner features](OWNER-FEATURES.md) · [Flight instruments](FLIGHT-INSTRUMENTS.md) · [Workflow accounting](CLI-WORKFLOW.md) |
 | Build or integrate | [Development](DEVELOPMENT.md) · [Architecture](ARCHITECTURE.md) · [API](API.md) |
 | Connect a task board | [Owner-approved handoff contract](../integrations/README.md) |
+| Qualify an alternate model without changing normal requests | [Groq model-evaluation pilot](GROQ-MODEL-EVALUATION.md) |
 | Offer a bounded public test from your relay | [Public trial controls and limits](PUBLIC-TRIAL.md) |
 | Check limitations, bugs or feature requests | [Limitations](LIMITATIONS.md) · [Known work](WORK-REGISTER.md) · [Dated verification](STATUS.md) |
 
