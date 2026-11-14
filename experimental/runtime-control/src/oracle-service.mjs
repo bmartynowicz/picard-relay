@@ -771,9 +771,21 @@ function renderCodexSavings(usage){
   }else article.append(element('p','Legacy comparison: finishing and fixes only. Preparation and Picard usage unavailable.','muted'));
   for(const [label,side] of [['Codex alone',pair.baseline],['With Picard',pair.assisted]]){
    const cell=element('div');
+   cell.append(element('p',label));
+   const q=side.quality;
+   if(q){
+    const verdict=value=>value===true?'Passed':value===false?'Changes needed':'Unknown';
+    const detail=element('details');
+    const status=q.finalQualified===true?(q.firstPassPassed===true?'Passed first review':'Passed after corrections'):verdict(q.finalQualified);
+    detail.append(element('summary','Quality: '+status));
+    if(q.providerModel)detail.append(element('p',q.providerModel));
+    detail.append(element('p','First review: '+verdict(q.firstPassPassed)+' · Final review: '+verdict(q.finalQualified)));
+    for(const [name,investment]of [['Repairs',q.repairs],['Repair checks',q.rechecks]])detail.append(element('p',name+': '+investment.turns+(investment.turns===1?' turn':' turns')+' · '+(investment.complete?number(investment.tokens)+' Codex tokens':'receipts unavailable')+(typeof investment.estimatedCredits==='number'?' · '+credits(investment.estimatedCredits)+' estimated credits':'')));
+    detail.append(element('p',q.source+' Human repair time is not measured.','muted'));cell.append(detail);
+   }
    if(side.workflow){
     const w=side.workflow,breakdown=element('details');
-    cell.append(element('p',label),element('strong',w.complete?number(w.totalTokens)+' tokens across providers':number(w.knownTokens)+' known tokens · incomplete'));
+    cell.append(element('strong',w.complete?number(w.totalTokens)+' tokens across providers':number(w.knownTokens)+' known tokens · incomplete'));
     cell.append(element('p',number(w.codexTokens)+' Codex tokens · '+(typeof w.codexCredits==='number'?credits(w.codexCredits)+' estimated Standard credits':'credit estimate unavailable')));
     breakdown.append(element('summary','Usage breakdown'),
      element('p','Preparation: '+number(w.preparationTokens)+' Codex tokens across '+w.preparationCount+' recorded '+(w.preparationCount===1?'step':'steps')),
@@ -784,7 +796,7 @@ function renderCodexSavings(usage){
     if(w.missing.length)breakdown.append(element('p','Missing usage: '+w.missing.join(', '),'muted'));
     cell.append(breakdown);sides.append(cell);continue;
    }
-   cell.append(element('p',label),element('strong',number(side.totalTokens)+' tokens'),
+   cell.append(element('strong',number(side.totalTokens)+' tokens'),
     element('p',number(side.freshTokens)+' fresh input + output','muted'));
    if(typeof side.standardCredits==='number')cell.append(element('p',credits(side.standardCredits)+' estimated Standard credits'));
    if(Number.isSafeInteger(side.cachedInputTokens))cell.append(element('p',number(side.inputTokens-side.cachedInputTokens)+' uncached input · '+number(side.cachedInputTokens)+' cached · '+number(side.outputTokens)+' output','muted'));
