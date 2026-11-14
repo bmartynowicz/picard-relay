@@ -34,8 +34,8 @@ ssh = ["ssh", "-i", str(state / "key"), "-p", "22666", "-o", "BatchMode=yes",
        "-o", "UserKnownHostsFile=" + str(state / "known_hosts"), "picard-ci@127.0.0.1"]
 
 
-def guest(command, timeout=60):
-    return run(ssh + [command], timeout=timeout)
+def guest(command, timeout=60, **kwargs):
+    return run(ssh + [command], timeout=timeout, **kwargs)
 
 
 try:
@@ -96,6 +96,15 @@ disable_root: true
          str(archive), "picard-ci@127.0.0.1:/tmp/picard-source.tar"], timeout=60)
     guest("sudo mkdir /workspace && sudo tar --no-same-owner -xf /tmp/picard-source.tar -C /workspace")
     browser=os.environ.get('PICARD_NATIVE_BROWSER')=='true'
+    if browser:
+        # Exercise the actual cloud-init prerequisite stage on the 1 GB guest,
+        # before the browser installer. This previously escaped qualification.
+        # Terraform turns $${ into a literal ${ in its rendered shell script.
+        cloud = (source / 'deploy/oracle/cloud-init.tftpl').read_text()
+        prefix, marker, _ = cloud.partition('archive=$(mktemp')
+        assert marker and '${source_' not in prefix and '${claim_' not in prefix
+        guest('sudo bash -s', timeout=360, input=prefix.replace('$${', '${').encode())
+        print('Actual Oracle cloud-init prerequisite stage passed on the 1 GB guest.')
     terminal='browser-setup-terminal.py' if browser else 'setup-linux-terminal.py'
     installed='browser-setup-installed.mjs' if browser else 'setup-linux-installed.mjs'
     browser_archive=''

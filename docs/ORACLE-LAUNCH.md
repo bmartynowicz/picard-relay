@@ -21,8 +21,8 @@ not a prebuilt Picard machine image.
    throughout the tenancy. Missing read access, unknown limits, a full
    allocation, or a different region stop it. Do not create other resources
    concurrently. Out-of-capacity is a stop, not an instruction to upgrade.
-4. When Apply finishes, open the job's **Application information** tab. Unlock
-   **Create your password** and open that private link. The VM may need several
+4. When Apply finishes, open the stack's **Application Information** tab. Open
+   the private **Create your password** link. The VM may need several
    minutes to finish first boot and obtain HTTPS. Keep using that same link;
    do not create another stack because the page is not ready yet.
 5. Create a unique owner password on **your new relay**. The one-use claim
@@ -89,6 +89,11 @@ creates follow Oracle's pricing. See Oracle's [Always Free allocation](https://d
 and [state access controls](https://docs.oracle.com/en-us/iaas/Content/Security/Reference/resourcemanager_security.htm).
 
 ## Host behavior and recovery
+
+First boot checks installed OS prerequisites before calling the package manager.
+Already installed dependencies are retained without refreshing package metadata.
+Only missing packages are installed, with a five-minute command limit. The
+cloud-init log identifies each stage so an interrupted launch can be diagnosed.
 
 The first boot downloads a content-addressed host package and verifies its
 SHA-256, then uses the existing pinned Node/Caddy installer and signed-runtime
