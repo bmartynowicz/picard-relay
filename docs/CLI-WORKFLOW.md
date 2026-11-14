@@ -1,5 +1,30 @@
 # Focused CLI workflow
 
+## Recorded quality in Savings
+
+Savings can display authenticated native review observations beside each cost
+comparison: first review, final qualification, actual repair turns and repair
+checks with their tokens and estimated Codex credits. Quality observations are
+append-only, bound to the original comparison/root, actual completed provider
+model/ref, and recorded review/linked correction IDs. The collector retains a
+task/source fingerprint and a hash of its saved review evidence. A missing
+outcome stays unknown; no quality score or owner acceptance is invented.
+
+The native usage endpoint accepts a bounded `kind: "quality"` observation through
+the existing dedicated usage token. This records an authenticated collector's
+source-backed review finding; the server cannot independently inspect its local
+review text from a hash. It checks owner/root/model/receipt relationships, keeps
+prior observations, and computes repair/check costs from the existing native
+usage records. Model output, secrets and private source text are not uploaded.
+Observations are bounded to 64 per root and 1,000 per owner; a full history
+refuses another observation rather than rewriting earlier evidence.
+
+Preparation and coordination remain in full workflow totals. The generic
+follow-up count can include operator work and is not the quality repair count.
+These observations do not authorize execution, retries, grants, grading on behalf
+of the owner, or model selection. Human repair time and provider billed cost
+remain unmeasured.
+
 For Picard-assisted text deliverables, prepare the task once with explicit
 acceptance criteria and a compact output structure. Use GPT-6.1 Sol at low
 reasoning effort as the starting default for this workflow. Review quality;

@@ -51,7 +51,9 @@ function openCodexUsage(db,owner){
  );
  CREATE INDEX IF NOT EXISTS relay_codex_followups_original ON relay_codex_followups(owner,original_id);
  CREATE TABLE IF NOT EXISTS relay_codex_workflows(owner TEXT NOT NULL,comparison_id TEXT NOT NULL,variant TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(owner,comparison_id,variant));
- CREATE TABLE IF NOT EXISTS relay_codex_workflow_calls(owner TEXT NOT NULL,comparison_id TEXT NOT NULL,ref TEXT NOT NULL,recorded_at INTEGER NOT NULL,PRIMARY KEY(owner,comparison_id,ref));`);
+ CREATE TABLE IF NOT EXISTS relay_codex_workflow_calls(owner TEXT NOT NULL,comparison_id TEXT NOT NULL,ref TEXT NOT NULL,recorded_at INTEGER NOT NULL,PRIMARY KEY(owner,comparison_id,ref));
+ CREATE TABLE IF NOT EXISTS relay_codex_quality(owner TEXT NOT NULL,id TEXT NOT NULL,root_id TEXT NOT NULL,record TEXT NOT NULL,PRIMARY KEY(owner,id));
+ CREATE INDEX IF NOT EXISTS relay_codex_quality_root ON relay_codex_quality(owner,root_id);`);
  const byId=db.prepare('SELECT record FROM relay_codex_usage WHERE owner=? AND id=?');
  const insert=db.prepare('INSERT OR IGNORE INTO relay_codex_usage(owner,id,recorded_at,comparison_id,variant,record) VALUES(?,?,?,?,?,?)');
  const recent=db.prepare(`SELECT record,original_id FROM relay_codex_usage AS runs
@@ -74,6 +76,45 @@ function openCodexUsage(db,owner){
   if(existing.some(row=>row.ref===value.ref))return 'duplicate';
   if(existing.length>=20)return 'conflict';
   db.prepare('INSERT INTO relay_codex_workflow_calls VALUES(?,?,?,?)').run(owner,value.comparisonId,value.ref,Date.now());return 'saved';
+ }
+ function qualityRecord(value){
+  const keys='comparisonId,evidenceSha256,finalQualified,firstPassPassed,id,initialReviewId,kind,providerModel,providerRef,recheckIds,repairIds,rootId,taskFingerprint,v';
+  if(Object.keys(value).sort().join(',')!==keys||value.v!==1||value.kind!=='quality'||!usageSlug(value.comparisonId)
+   ||![value.id,value.rootId,value.initialReviewId,value.taskFingerprint,value.evidenceSha256].every(isId)
+   ||![value.firstPassPassed,value.finalQualified].every(x=>x===null||typeof x==='boolean')
+   ||![value.repairIds,value.recheckIds].every(ids=>Array.isArray(ids)&&ids.length<=20&&ids.every(isId)&&new Set(ids).size===ids.length)
+   ||value.repairIds.some(id=>value.recheckIds.includes(id)))return 'invalid';
+  const root=get(value.rootId),initial=get(value.initialReviewId);
+  if(!root||!initial||root.comparisonId!==value.comparisonId||!['baseline','assisted'].includes(root.variant)
+   ||initial.model!==root.model||initial.effort!==root.effort)return 'conflict';
+  const scope=JSON.parse(workflowById.get(owner,root.comparisonId,root.variant)?.record??'null');
+  if(!scope||value.initialReviewId!==root.id&&!scope.preparationIds.includes(value.initialReviewId))return 'conflict';
+  if([...value.repairIds,...value.recheckIds].some(id=>!get(id)||id===root.id||id===value.initialReviewId||followUp.get(owner,id)?.original_id!==root.id))return 'conflict';
+  if(root.variant==='baseline'){
+   if(value.providerRef!==null||value.providerModel!==null)return 'invalid';
+  }else{
+   if(!isId(value.providerRef)||![...scope.picardRefs,...linkedCalls.all(owner,root.comparisonId).map(r=>r.ref)].includes(value.providerRef))return 'conflict';
+   const call=providerById.get(owner,value.providerRef);let result;try{result=JSON.parse(call?.result_json??'null')}catch{}
+   const usage=sanitizeProviderUsage(result?.providerUsage);
+   if(call?.state!=='completed'||!usage||usage.model!==value.providerModel)return 'conflict';
+  }
+  const record=canonical(value),old=db.prepare('SELECT record FROM relay_codex_quality WHERE owner=? AND id=?').get(owner,value.id);
+  if(old)return old.record===record?'duplicate':'conflict';
+  if(db.prepare('SELECT count(*) AS n FROM relay_codex_quality WHERE owner=?').get(owner).n>=1000)return 'conflict';
+  if(db.prepare('SELECT count(*) AS n FROM relay_codex_quality WHERE owner=? AND root_id=?').get(owner,root.id).n>=64)return 'conflict';
+  db.prepare('INSERT INTO relay_codex_quality VALUES(?,?,?,?)').run(owner,value.id,root.id,record);return 'saved';
+ }
+ function qualityFor(run){
+  const raw=db.prepare('SELECT record FROM relay_codex_quality WHERE owner=? AND root_id=? ORDER BY rowid DESC LIMIT 1').get(owner,run.id)?.record;
+  if(!raw)return null;
+  const observation=JSON.parse(raw);
+  const investment=ids=>{
+   const rows=ids.map(get),complete=rows.every(Boolean);
+   return {turns:ids.length,complete,tokens:complete?rows.reduce((n,r)=>n+r.totalTokens,0):null,
+    estimatedCredits:complete&&rows.every(r=>r.model==='gpt-6.1-sol')?rows.reduce((n,r)=>n+((r.inputTokens-r.cachedInputTokens)*50+r.cachedInputTokens*2.5+r.outputTokens*250)/1000000,0):null};
+  };
+  return {...observation,repairs:investment(observation.repairIds),rechecks:investment(observation.recheckIds),
+   source:'Recorded native source-backed reviews; separate from owner acceptance. Preparation and coordination remain in full workflow cost.'};
  }
  function workflowRecord(value){
   if(!value||Object.keys(value).sort().join(',')!=='comparisonId,kind,picardRefs,preparationIds,v,variant'
@@ -126,6 +167,7 @@ function openCodexUsage(db,owner){
     const native={totalTokens:run.totalTokens+followUpTokens,inputTokens,cachedInputTokens,outputTokens,standardCredits,
      freshTokens:run.totalTokens-run.cachedInputTokens+fixes.reduce((sum,fix)=>sum+fix.totalTokens-fix.cachedInputTokens,0),
      followUpTokens,followUpCount:fixes.length,lastRecordedAt:fixes[0]?.recordedAt??run.recordedAt};
+    const quality=qualityFor(run);if(quality)native.quality=quality;
     const raw=workflowById.get(owner,run.comparisonId,run.variant)?.record;
     if(!raw)return native;
     const scope=JSON.parse(raw),preps=scope.preparationIds.map(get),missing=[];
@@ -203,6 +245,7 @@ function openCodexUsage(db,owner){
    if(!value||typeof value!=='object'||Array.isArray(value))return 'invalid';
    if(value.kind==='workflow')return workflowRecord(value);
    if(value.kind==='picard-call')return transaction(()=>callRecord(value));
+   if(value.kind==='quality')return transaction(()=>qualityRecord(value));
    const {followUpTo,...fields}=value;
    const run=codexUsageRecord(fields);
    if(!run)return 'invalid';
