@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"e2e5434f45def10a931122bfc3967da5d408be51f7e87722d4159cc4047ccf9a");
+assert.equal(createHash('sha256').update(script).digest('hex'),"e89e3dd8cd113e89ef5a77d79fb0d969bed5e8cc3050efee3fe9386158b5bb6f");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:(?:stealth|cockpit)Preference|'picard:windshield-readout')\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\)|setItem\('picard:windshield-readout',hidden\?'hidden':'shown'\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
@@ -80,6 +80,19 @@ const wholeCard=wholeFlow.get('codex-savings-comparisons').textContent;
 assert.match(wholeCard,/15,000 tokens across providers/);assert.match(wholeCard,/Preparation: 2,000 Codex tokens/);
 assert.match(wholeCard,/Picard: 1 call · 2,000 provider tokens/);assert.match(wholeCard,/Fixes: 1,000 Codex tokens/);
 assert.match(wholeCard,/Provider billed cost unavailable/);
+
+const qualityExample={providerModel:'qwen/qwen3.8-27b',firstPassPassed:false,finalQualified:true,repairs:{turns:1,complete:true,tokens:120,estimatedCredits:.007625},rechecks:{turns:1,complete:true,tokens:100,estimatedCredits:.004},source:'Recorded native source-backed reviews; separate from owner acceptance. Preparation and coordination remain in full workflow cost.'};
+const qualityFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',runs:[
+ {id:'quality',variant:'assisted',tools:['prepare_context'],model:'gpt-6.1-sol',recordedAt:3,inputTokens:10000,cachedInputTokens:0,outputTokens:1000,totalTokens:11000,
+ comparison:{id:'quality-example',baseline:{...side(12000,12000),workflow:{...w,picardCalls:0,picardTokens:0}},assisted:{...side(11000,11000),workflow:w,quality:qualityExample}}}
+]}}));await flush();
+const qualityCard=qualityFlow.get('codex-savings-comparisons').textContent;
+assert.match(qualityCard,/With PicardQuality: Passed after corrections/);assert.match(qualityCard,/qwen\/qwen3.8-27b/);
+assert.match(qualityCard,/First review: Changes needed · Final review: Passed/);
+assert.match(qualityCard,/Repairs: 1 turn · 120 Codex tokens · 0.0076 estimated credits/);
+assert.match(qualityCard,/Repair checks: 1 turn · 100 Codex tokens · 0.0040 estimated credits/);
+assert.match(qualityCard,/separate from owner acceptance/);assert.match(qualityCard,/Preparation and coordination remain in full workflow cost/);
+await qualityFlow.click('logout');await flush();assert.equal(qualityFlow.get('codex-savings-comparisons').children.length,0);
 
 assert.match(wholeFlow.get('codex-savings-note').textContent,/Latest 1 complete comparison · 0.8000 credits on its own · 0.6000 with Picard/);
 assert.match(wholeFlow.get('codex-savings-coverage').textContent,/1 finishing-only, 2 incomplete and 3 without a usable credit estimate/);
