@@ -1,0 +1,34 @@
+name: Qualify runtime changes (tests only)
+on:
+  pull_request:
+    paths:
+      - 'experimental/runtime-control/**'
+      - 'experimental/updater/**'
+      - 'test/**'
+      - '.github/workflows/runtime-qualification.yml'
+permissions:
+  contents: read
+concurrency:
+  group: runtime-qualification-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.22.1'
+      - name: Confirm disposable-runner fixture prerequisites
+        run: sudo -n true
+      - name: Updater regression
+        run: npm --prefix experimental/updater test
+      - name: Runtime normal and jitless regression (no provider calls)
+        run: npm --prefix experimental/runtime-control test
+      - name: Runtime Unix socket boundary
+        run: npm --prefix experimental/runtime-control run test:socket
+      - name: Documentation validation
+        run: npm run docs:check

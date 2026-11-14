@@ -108,12 +108,29 @@ export function readLegacyAdmissionMarkers(directory,expectedNames){
   return result;
  }catch{stop('legacy_review_required');}finally{if(fd!==undefined)fs.closeSync(fd);}
 }
-export function createRuntimeAdmissionHandlers({workspaceEnabled=false,publicTestEnabled=false,proxyConfigured=false,publicOrigin,auth,store,binding,origins,now,loadPolicy,currentAvailability}){
+// Optional, read-only historical proof enrollment. Hash pinning and protected
+// ownership are independent of the result row; no database or marker is changed.
+export function createHistoricalModelProofReader({file,sha256}={}){
+ if(!file&&!sha256)return null;
+ return ref=>{
+  if(typeof sha256!=='string'||!/^[a-f0-9]{64}$/.test(sha256))stop('existing_record_invalid');
+  const raw=readExistingAdmissionFile(file,262144,{rootOnly:true}).text;
+  if(admissionHash(raw)!==sha256)stop('existing_record_invalid');
+  const proof=JSON.parse(raw);
+  if(!proof||Object.keys(proof).sort().join(',')!=='kind,records,v'||proof.v!==1||proof.kind!=='PICARD_HISTORICAL_MODEL_RESULTS_V1'
+   ||!Array.isArray(proof.records)||proof.records.length>16)stop('existing_record_invalid');
+  const ids=proof.records.map(r=>r?.gate?.eventId);
+  if(ids.some(id=>typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))||new Set(ids).size!==ids.length)stop('existing_record_invalid');
+  return proof.records.find(r=>r.gate.eventId===ref)??null;
+ };
+}
+
+export function createRuntimeAdmissionHandlers({workspaceEnabled=false,publicTestEnabled=false,proxyConfigured=false,publicOrigin,auth,store,binding,origins,now,loadPolicy,currentAvailability,readHistoricalModelProof=null}){
  // Public-trial origin is separate authority. The existing private picker keeps
  // its exact six-field binding and rejects every other unexpected field.
  const {publicTestOrigin,...ownerBinding}=binding;
  const handler=createAdmissionHandler({activationEnabled:true,store,auth,loadPolicy,binding:ownerBinding,origins,now,currentAvailability});
- const workspace=createWorkspaceHandler({enabled:workspaceEnabled,store,auth,loadPolicy,binding,origins,now,currentAvailability});
+ const workspace=createWorkspaceHandler({enabled:workspaceEnabled,store,auth,loadPolicy,binding,origins,now,currentAvailability,readHistoricalModelProof});
  const publicTest=createPublicTestHandler({enabled:publicTestEnabled,proxyConfigured,publicOrigin,auth,store,binding,origins,now,currentAvailability,loadPolicy});
  return async(req,res)=>await publicTest(req,res)||await workspace(req,res)||await handler(req,res);
 }
@@ -160,7 +177,7 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
   const admissionStore=createAdmissionStore({activationEnabled:true,dbPath:config.dbPath,relayStore:store,now,loadLegacyBaseline,legacyBinding:{...binding,enrollmentId:legacyEnrollmentId},reusableBoardEnabled:config.admissionReusableBoardEnabled===true,measurementRunsEnabled:config.admissionMeasurementRunsEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBinding:{ownerId:binding.ownerId,enrollmentId:binding.enrollmentId},readLegacyMarkers:names=>readLegacyAdmissionMarkers(markerDirectory,names)});
   try{
   adapter.attachStore(admissionStore,{accepting:()=>control.accepting});
-  const handler=createRuntimeAdmissionHandlers({workspaceEnabled:config.workspaceEnabled===true,publicTestEnabled,proxyConfigured:env.BRIDGE_PUBLIC_TEST_PROXY==='caddy-overwrite-v1',publicOrigin:env.BRIDGE_PUBLIC_TEST_ORIGIN,auth,store:admissionStore,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability,loadPolicy});
+  const handler=createRuntimeAdmissionHandlers({workspaceEnabled:config.workspaceEnabled===true,publicTestEnabled,proxyConfigured:env.BRIDGE_PUBLIC_TEST_PROXY==='caddy-overwrite-v1',publicOrigin:env.BRIDGE_PUBLIC_TEST_ORIGIN,auth,store:admissionStore,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability,loadPolicy,readHistoricalModelProof:createHistoricalModelProofReader({file:env.BRIDGE_HISTORICAL_MODEL_RESULTS_FILE,sha256:env.BRIDGE_HISTORICAL_MODEL_RESULTS_SHA256})});
   return {handler,groqKeyExpiresAt,groqReplacement,gradeResult:config.workspaceEnabled===true?input=>{admissionStore.recordAttempt(admissionHash(canonical([binding.ownerId,'quality-grades'])));return admissionStore.saveWorkspaceGrade(input);}:null,readGrade:config.workspaceEnabled===true?ref=>admissionStore.workspaceGrade(ref):null,html:admissionConsoleHtml(baseHtml,{activationEnabled:true,workspaceEnabled:config.workspaceEnabled===true,publicTestEnabled}),dispatchStore:{...store,claimNext:input=>adapter.claimNext(input)},close:()=>admissionStore.close()};
   }catch{admissionStore.close();stop('admission_configuration_invalid');}
  }};
