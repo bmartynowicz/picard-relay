@@ -11,7 +11,7 @@ test('public landing contains only browser files and works under a repository su
  const dir=await mkdtemp(join(tmpdir(),'picard-public-landing-'));
  try{
   const sourceSha='a'.repeat(40),result=await buildLanding({outputDir:dir,sourceSha});
-  assert.deepEqual((await readdir(dir)).sort(),['.nojekyll','build.json','console.css','index.html','landing.css','landing.js','mark.svg','setup-flow.js'].sort());
+  assert.deepEqual((await readdir(dir)).sort(),['.nojekyll','build.json','console.css','index.html','landing.css','landing.js','mark.svg','setup-flow.js','social-preview.png'].sort());
   const html=await readFile(join(dir,'index.html'),'utf8');
   assert.ok(!html.includes('<!-- PICARD_'));assert.ok(!html.includes('Local setup concept'));
   assert.ok(html.includes('Your server. Your workspace.'));
@@ -29,7 +29,18 @@ test('public landing contains only browser files and works under a repository su
    const bytes=await readFile(join(dir,name));assert.equal(bytes.length,evidence.bytes);
    assert.equal(createHash('sha256').update(bytes).digest('hex'),evidence.sha256);
   }
-  assert.ok(result.totalBytes<100000);
+  // The image is metadata-only: ordinary visits do not download it.
+  assert.ok(result.totalBytes-manifest.files['social-preview.png'].bytes<100000);
+  const image=await readFile(join(dir,'social-preview.png'));
+  assert.equal(image.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+  assert.equal(image.readUInt32BE(16),1280);assert.equal(image.readUInt32BE(20),640);
+  assert.ok(image.length<1000000);
+  const website='https://bmartynowicz.github.io/picard-relay/';
+  assert.ok(html.includes('<link rel="canonical" href="'+website+'">'));
+  for(const attr of ['property="og:image"','name="twitter:image"'])assert.ok(html.includes('<meta '+attr+' content="'+website+'social-preview.png">'));
+  assert.ok(html.includes('property="og:url" content="'+website+'"'));
+  assert.ok(html.includes('name="twitter:card" content="summary_large_image"'));
+  assert.ok(!html.includes('<img src="'+website+'social-preview.png"'));
  }finally{await rm(dir,{recursive:true,force:true});}
 });
 

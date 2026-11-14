@@ -63,6 +63,14 @@ The builder composes the existing mark/starfield, makes assets relative for
 preview label, and adds static CSP/referrer policies. `build.json` records the
 source SHA and SHA-256 of every public payload. It refuses nonempty output.
 
+`social-preview.png` is a 1280×640 capture of the public welcome cockpit,
+not an owner workspace. The canonical, Open Graph and large-image card metadata
+use the public Pages address. The image is only referenced in metadata; normal
+visits do not download it. Keep it below 1 MB for GitHub's repository preview,
+upload the same file in the repository's Social preview setting, and verify the
+published image and metadata after rebuilding. No tracking or external assets
+are added.
+
 Publish only that directory to the dedicated Pages branch and configure Pages
 to serve its root. `.nojekyll` preserves the built files. Verify the HTTPS page,
 all asset types/hashes, setup panels, reduced motion and entry into an existing

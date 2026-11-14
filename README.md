@@ -12,6 +12,8 @@ sending it once, then reopen its saved answer whenever you need it.
 
 ## Get started
 
+**[Explore the cockpit →](https://bmartynowicz.github.io/picard-relay/)** · Public setup guide, no sign-in needed.
+
 **New to Picard? [Set up your relay →](docs/SETUP.md)**
 
 The guided setup prepares an existing Linux machine, installs the runtime and
