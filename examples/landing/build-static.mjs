@@ -11,9 +11,17 @@ export async function buildLanding({outputDir,sourceSha=null}){
  await mkdir(output,{recursive:true});
  if((await readdir(output)).length)throw Error('landing_output_not_empty');
  const read=name=>readFile(new URL('./'+name,import.meta.url),'utf8');
+ const oracle=await oracleLaunchAssets();
+ // Oracle's deploy-button importer supports GitHub releases, not Pages-hosted
+ // ZIPs. Bind the immutable release tag to the exact ZIP, including its config.
+ const oracleZipHash=createHash('sha256').update(oracle['oracle-stack.zip']).digest('hex');
+ const oracleZipUrl='https://github.com/bmartynowicz/picard-relay/releases/download/oracle-launch-'+oracleZipHash.slice(0,16)+'/oracle-stack.zip';
  const parts=JSON.parse(await read('console-parts.json'));
  let html=(await read('index.html')).replace('<!-- PICARD_MARK -->',parts.mark).replace('<!-- PICARD_SCENE -->',parts.scene);
  if(html.includes('<!-- PICARD_'))throw Error('landing_unresolved_template');
+ const launches=html.match(/href="https:\/\/cloud\.oracle\.com\/resourcemanager\/stacks\/create\?zipUrl=[^"]+"/g);
+ if(launches?.length!==1)throw Error('oracle_launch_link_missing_or_duplicated');
+ html=html.replace(launches[0],'href="https://cloud.oracle.com/resourcemanager/stacks/create?zipUrl='+encodeURIComponent(oracleZipUrl)+'"');
  for(const asset of ['mark.svg','console.css','landing.css','landing.js'])html=html.replaceAll('"/'+asset+'"','"./'+asset+'"');
  html=html.replace('Local setup concept · no connected relay','Your server. Your workspace.');
  // Pages cannot supply custom response headers. The supported static policies live in HTML.
@@ -29,7 +37,7 @@ export async function buildLanding({outputDir,sourceSha=null}){
   'mark.svg':await read('mark.svg'),
   'social-preview.png':await readFile(new URL('./social-preview.png',import.meta.url)),
   '.nojekyll':'',
-  ...await oracleLaunchAssets()
+  ...oracle
  };
  const files=Object.fromEntries(Object.entries(assets).map(([name,value])=>[name,{bytes:Buffer.byteLength(value),sha256:createHash('sha256').update(value).digest('hex')}]));
  assets['build.json']=JSON.stringify({schemaVersion:1,sourceSha,files},null,2)+'\n';
