@@ -26,7 +26,8 @@
     "preview:landing": "node examples/landing-preview.mjs",
     "build:landing": "node examples/landing/build-static.mjs",
     "test:landing": "node --test test/landing-static.test.mjs test/learning-guide.test.mjs test/public-test-client.test.mjs",
-    "test:setup": "node --test test/setup-linux.test.mjs test/setup-linux-trust.test.mjs test/browser-setup.test.mjs test/oracle-launch.test.mjs && node --jitless --test test/setup-linux.test.mjs test/setup-linux-trust.test.mjs test/browser-setup.test.mjs test/oracle-launch.test.mjs"
+    "test:setup": "node --test test/setup-linux.test.mjs test/setup-linux-trust.test.mjs test/browser-setup.test.mjs test/oracle-launch.test.mjs && node --jitless --test test/setup-linux.test.mjs test/setup-linux-trust.test.mjs test/browser-setup.test.mjs test/oracle-launch.test.mjs",
+    "test:model-evaluation": "node --test experimental/runtime-control/test/groq-model-profiles.test.mjs test/groq-model-pilot.test.mjs"
   },
   "license": "MIT"
 }

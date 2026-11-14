@@ -1,3 +1,4 @@
+import {groqReviewProfile} from './admission-enrollment.mjs';
 // Adapter boundaries, v2. All board and assistant methods are async,
 // because the real D1-backed adapters are asynchronous. The local SQLite
 // fixture implements the same async contract; it is not a claim that
@@ -15,7 +16,7 @@ export class InvocationIncompleteError extends Error {
 export function sanitizeProviderUsage(value){
  const keys='inputTokens,model,outputTokens,provider,totalTokens,v';
  return value&&Object.keys(value).sort().join(',')===keys&&value.v===1
-  &&value.provider==='groq'&&value.model==='openai/gpt-oss-20b'
+  &&value.provider==='groq'&&typeof value.model==='string'&&groqReviewProfile(value.model,{alternateModelsEnabled:true})!==null
   &&[value.inputTokens,value.outputTokens,value.totalTokens].every(n=>Number.isSafeInteger(n)&&n>=0&&n<=1_000_000_000)
   &&value.totalTokens>0&&value.totalTokens===value.inputTokens+value.outputTokens
   ?{...value}:null;
