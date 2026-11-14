@@ -15,13 +15,16 @@ export async function main(){
  const paths=setupPaths(),uid=Number(command('/usr/bin/id',['-u','board-event-relay'])),gid=Number(command('/usr/bin/id',['-g','board-event-relay']));
  const status=value=>{const temp=BOOTSTRAP_ROOT+'/.status-'+process.pid;fs.writeFileSync(temp,JSON.stringify({v:1,...value})+'\n',{mode:0o640,flag:'wx'});fs.chownSync(temp,0,gid);fs.renameSync(temp,BOOTSTRAP_ROOT+'/status.json');};
  const inputPath=BOOTSTRAP_ROOT+'/inbox/request.json',claim=BOOTSTRAP_ROOT+'/claimed-request.json';
- let raw;
+ let raw,inputFd;
  try{
   // Remove the path trigger before any validation or fallible configuration
   // write. Never automatically replay an uncertain/partial initial enrollment.
-  const state=fs.lstatSync(inputPath);check(state.isFile()&&!state.isSymbolicLink()&&state.uid===uid&&state.nlink===1&&(state.mode&0o777)===0o600&&state.size>0&&state.size<=4096,'private_request_required');
+  inputFd=fs.openSync(inputPath,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
+  const state=fs.fstatSync(inputFd);check(state.isFile()&&state.uid===uid&&state.nlink===1&&(state.mode&0o777)===0o600&&state.size>0&&state.size<=4096,'private_request_required');
   if(fs.existsSync(claim)||fs.existsSync(BOOTSTRAP_ROOT+'/activation.json')){fs.renameSync(inputPath,BOOTSTRAP_ROOT+'/refused-request-'+Date.now()+'.json');throw Error('prior_activation_preserved');}
-  fs.renameSync(inputPath,claim);raw=fs.readFileSync(claim);fs.chownSync(claim,0,0);
+  fs.renameSync(inputPath,claim);
+  const moved=fs.lstatSync(claim);check(moved.isFile()&&!moved.isSymbolicLink()&&moved.ino===state.ino&&moved.dev===state.dev&&moved.nlink===1,'request_changed');
+  fs.fchownSync(inputFd,0,0);raw=fs.readFileSync(inputFd);check(raw.length===state.size&&raw.length<=4096,'request_changed');fs.closeSync(inputFd);inputFd=undefined;
   const input=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(raw));
   const config=validateBrowserSetupConfig(JSON.parse(fs.readFileSync(BOOTSTRAP_CONFIG+'/config.json','utf8'))),identity=JSON.parse(fs.readFileSync(BOOTSTRAP_CONFIG+'/identity.json','utf8'));
   const auth=createOwnerAuth({stateDir:paths.state+'/owner-auth',expectedUid:uid});
@@ -30,7 +33,8 @@ export async function main(){
   for(const file of [paths.config+'/relay.env',paths.state+'/relay.db',paths.state+'/STOP'])check(!fs.existsSync(file),'existing_work_refused');
   check(fs.readdirSync(paths.state+'/markers').length===0,'existing_markers_refused');
   const originalAuth=fs.readFileSync(paths.state+'/owner-auth/auth-state.json');
-  fs.writeFileSync(BOOTSTRAP_ROOT+'/activation.json',JSON.stringify({v:1,requestId:input.requestId,inputSha256:digest(raw),startedAt:Date.now(),state:'connecting'})+'\n',{flag:'wx',mode:0o600});
+  const journal=fs.openSync(BOOTSTRAP_ROOT+'/activation.json',fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o600);
+  try{fs.writeFileSync(journal,JSON.stringify({v:1,requestId:input.requestId,inputSha256:digest(raw),startedAt:Date.now(),state:'consumed-no-replay'})+'\n');fs.fsyncSync(journal);}finally{fs.closeSync(journal);}
   status({state:'connecting'});writePrivateSetup(plan,{uid,gid});input.apiKey='';input.sessionToken='';
   const proxy='{\n admin off\n}\n'+fs.readFileSync(BOOTSTRAP_CODE+'/deploy/Caddyfile.workspace.example','utf8').replace('relay.example.com {',config.hostname+' {');
   const candidate=paths.code+'/Caddyfile.enrollment';fs.writeFileSync(candidate,proxy,{flag:'wx',mode:0o444});
@@ -52,6 +56,6 @@ export async function main(){
   status({state:'ready'});fs.unlinkSync(claim);
   console.log(JSON.stringify({state:'browser_setup_complete',providerCalls:0,ownerPreserved:true}));
  }catch(e){try{status({state:'failed'});}catch{}spawnSync('/usr/bin/systemctl',['disable','--now','picard-first-run-activate.path','board-event-relay.service'],{timeout:30000,stdio:'ignore'});console.error(JSON.stringify({state:'browser_setup_stopped',code:/^[a-z0-9_]+$/.test(e.message)?e.message:'activation_failed'}));process.exitCode=1;}
- finally{raw?.fill(0);}
+ finally{if(inputFd!==undefined)fs.closeSync(inputFd);raw?.fill(0);}
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)await main();

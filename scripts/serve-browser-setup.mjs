@@ -47,6 +47,7 @@ export async function main(){
   try{fs.fchmodSync(fd,0o600);fs.writeFileSync(fd,JSON.stringify(input));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
   // link, rather than rename, refuses to overwrite an already accepted request.
   try{fs.linkSync(temp,file);}finally{fs.unlinkSync(temp);}
+  const directory=fs.openSync(BOOTSTRAP_ROOT+'/inbox',fs.constants.O_RDONLY|fs.constants.O_DIRECTORY);try{fs.fsyncSync(directory);}finally{fs.closeSync(directory);}
  }});
  const server=createServer(async(req,res)=>{try{if(await handler(req,res))return;res.writeHead(404).end();}catch{res.writeHead(503).end();}});
  server.headersTimeout=5000;server.requestTimeout=10000;server.maxConnections=8;

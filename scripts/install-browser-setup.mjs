@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {randomBytes} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
+import {get} from 'node:http';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {setupPaths,assertFresh,serviceUnits,NODE_VERSION,CADDY_VERSION} from './setup-linux-core.mjs';
 import {prepareSignedSetup} from './setup-linux-trust.mjs';
@@ -55,7 +56,12 @@ export async function main(args=process.argv.slice(2)){
   command('/usr/bin/systemctl',['daemon-reload']);started=true;command('/usr/bin/systemctl',['enable','--now','picard-first-run.service','picard-first-run-activate.path','picard-relay-web.service']);
   for(const name of ['picard-first-run.service','picard-first-run-activate.path','picard-relay-web.service'])check(command('/usr/bin/systemctl',['is-active',name])==='active','first_run_service_not_active');
   let ready=false;
-  for(let i=0;i<40;i++){try{const health=await fetch('http://127.0.0.1:8787/auth/state',{headers:{Host:config.hostname},signal:AbortSignal.timeout(1000)});if(health.status===200&&(await health.json()).enrolled===false){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,250));}
+  for(let i=0;i<40;i++){try{
+   // Native HTTP preserves the virtual-host header. Fetch deliberately ignores
+   // a Host override and would probe the wrong origin on this loopback socket.
+   const healthy=await new Promise((resolve,reject)=>{const req=get({hostname:'127.0.0.1',port:8787,path:'/auth/state',headers:{Host:config.hostname}},res=>{let raw='';res.on('data',c=>{raw+=c;if(raw.length>512)req.destroy(Error('health_too_large'));});res.on('end',()=>{try{resolve(res.statusCode===200&&JSON.parse(raw).enrolled===false);}catch{resolve(false);}});});req.setTimeout(1000,()=>req.destroy(Error('health_timeout')));req.on('error',reject);});
+   if(healthy){ready=true;break;}
+  }catch{}await new Promise(r=>setTimeout(r,250));}
   check(ready,'first_run_health_failed');
   fs.unlinkSync(paths.code+'/INSTALL-INCOMPLETE');
   console.log(JSON.stringify({state:'first_run_installed',origin:initial.origin,version:signed.manifest.version,providerCalls:0,claimExpiresAt:initial.auth.bootstrap.expiresAt}));
