@@ -123,6 +123,12 @@ disk/storage accounting; it never authorizes deletion of another relay.
 `node scripts/build-oracle-launch.mjs EMPTY_OUTPUT_DIR` creates a Terraform ZIP
 and one content-addressed host archive using explicit file allowlists. The
 landing builder includes these as downloads; visiting the page downloads neither.
+Oracle's launch link uses the ZIP attached to a GitHub release, a supported
+deployment-button source. A Pages-hosted ZIP alone produces Oracle's
+`GetPackage InvalidParameter(400)` error. The release tag is
+`oracle-launch-` plus the first 16 hex characters of the ZIP's SHA-256. Before
+publishing the website, attach that exact ZIP as `oracle-stack.zip` to that
+immutable release; never overwrite an existing release with different bytes.
 The unbuilt repository has `UNPUBLISHED` artifact constants and refuses resource
 creation. Publish the website and its matching packages together after review.
 

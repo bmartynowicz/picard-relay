@@ -29,6 +29,10 @@ test('public landing contains only browser files and works under a repository su
   assert.ok((await readFile(join(dir,'landing.css'),'utf8')).includes("url('./mark.svg')"));
   const manifest=JSON.parse(await readFile(join(dir,'build.json'),'utf8'));
   assert.equal(manifest.sourceSha,sourceSha);
+  const oracleLink=html.match(/href="(https:\/\/cloud\.oracle\.com\/resourcemanager\/stacks\/create\?zipUrl=[^"]+)"/)[1];
+  const zipUrl=new URL(oracleLink).searchParams.get('zipUrl');
+  assert.equal(zipUrl,'https://github.com/bmartynowicz/picard-relay/releases/download/oracle-launch-'+manifest.files['oracle-stack.zip'].sha256.slice(0,16)+'/oracle-stack.zip');
+  assert.ok(!zipUrl.includes('github.io'));
   for(const [name,evidence] of Object.entries(manifest.files)){
    const bytes=await readFile(join(dir,name));assert.equal(bytes.length,evidence.bytes);
    assert.equal(createHash('sha256').update(bytes).digest('hex'),evidence.sha256);
