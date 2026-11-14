@@ -108,6 +108,15 @@ export function readLegacyAdmissionMarkers(directory,expectedNames){
   return result;
  }catch{stop('legacy_review_required');}finally{if(fd!==undefined)fs.closeSync(fd);}
 }
+export function createRuntimeAdmissionHandlers({workspaceEnabled=false,publicTestEnabled=false,proxyConfigured=false,publicOrigin,auth,store,binding,origins,now,loadPolicy,currentAvailability}){
+ // Public-trial origin is separate authority. The existing private picker keeps
+ // its exact six-field binding and rejects every other unexpected field.
+ const {publicTestOrigin,...ownerBinding}=binding;
+ const handler=createAdmissionHandler({activationEnabled:true,store,auth,loadPolicy,binding:ownerBinding,origins,now,currentAvailability});
+ const workspace=createWorkspaceHandler({enabled:workspaceEnabled,store,auth,loadPolicy,binding,origins,now,currentAvailability});
+ const publicTest=createPublicTestHandler({enabled:publicTestEnabled,proxyConfigured,publicOrigin,auth,store,binding,origins,now,currentAvailability,loadPolicy});
+ return async(req,res)=>await publicTest(req,res)||await workspace(req,res)||await handler(req,res);
+}
 export function prepareAdmissionRuntime({activationEnabled=false,config,env=process.env,now=Date.now,fetchImpl=groqHttpsFetch}={}){
  if(activationEnabled!==true)return null;
  if(process.platform!=='linux'||config?.admissionEnabled!==true||config.consoleEnabled!==true||!config.consoleOrigins?.length||env.BRIDGE_PROVIDER!=='groq'||env.GROQ_ENABLED!=='true'||env.GROQ_ONE_SHOT!=='true'||config.assistantId!=='groq:openai/gpt-oss-20b')stop('admission_configuration_invalid');
@@ -151,10 +160,8 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
   const admissionStore=createAdmissionStore({activationEnabled:true,dbPath:config.dbPath,relayStore:store,now,loadLegacyBaseline,legacyBinding:{...binding,enrollmentId:legacyEnrollmentId},reusableBoardEnabled:config.admissionReusableBoardEnabled===true,measurementRunsEnabled:config.admissionMeasurementRunsEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBinding:{ownerId:binding.ownerId,enrollmentId:binding.enrollmentId},readLegacyMarkers:names=>readLegacyAdmissionMarkers(markerDirectory,names)});
   try{
   adapter.attachStore(admissionStore,{accepting:()=>control.accepting});
-  const handler=createAdmissionHandler({activationEnabled:true,store:admissionStore,auth,loadPolicy,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability});
-  const workspace=createWorkspaceHandler({enabled:config.workspaceEnabled===true,store:admissionStore,auth,loadPolicy,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability});
-  const publicTest=createPublicTestHandler({enabled:publicTestEnabled,proxyConfigured:env.BRIDGE_PUBLIC_TEST_PROXY==='caddy-overwrite-v1',publicOrigin:env.BRIDGE_PUBLIC_TEST_ORIGIN,auth,store:admissionStore,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability,loadPolicy});
-  return {handler:async(req,res)=>await publicTest(req,res)||await workspace(req,res)||await handler(req,res),groqKeyExpiresAt,groqReplacement,gradeResult:config.workspaceEnabled===true?input=>{admissionStore.recordAttempt(admissionHash(canonical([binding.ownerId,'quality-grades'])));return admissionStore.saveWorkspaceGrade(input);}:null,readGrade:config.workspaceEnabled===true?ref=>admissionStore.workspaceGrade(ref):null,html:admissionConsoleHtml(baseHtml,{activationEnabled:true,workspaceEnabled:config.workspaceEnabled===true,publicTestEnabled}),dispatchStore:{...store,claimNext:input=>adapter.claimNext(input)},close:()=>admissionStore.close()};
+  const handler=createRuntimeAdmissionHandlers({workspaceEnabled:config.workspaceEnabled===true,publicTestEnabled,proxyConfigured:env.BRIDGE_PUBLIC_TEST_PROXY==='caddy-overwrite-v1',publicOrigin:env.BRIDGE_PUBLIC_TEST_ORIGIN,auth,store:admissionStore,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability,loadPolicy});
+  return {handler,groqKeyExpiresAt,groqReplacement,gradeResult:config.workspaceEnabled===true?input=>{admissionStore.recordAttempt(admissionHash(canonical([binding.ownerId,'quality-grades'])));return admissionStore.saveWorkspaceGrade(input);}:null,readGrade:config.workspaceEnabled===true?ref=>admissionStore.workspaceGrade(ref):null,html:admissionConsoleHtml(baseHtml,{activationEnabled:true,workspaceEnabled:config.workspaceEnabled===true,publicTestEnabled}),dispatchStore:{...store,claimNext:input=>adapter.claimNext(input)},close:()=>admissionStore.close()};
   }catch{admissionStore.close();stop('admission_configuration_invalid');}
  }};
 }

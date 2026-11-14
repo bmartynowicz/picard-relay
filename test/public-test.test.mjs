@@ -5,6 +5,25 @@ import {randomUUID} from 'node:crypto';
 import {workspaceFixture,fixtureToken,fixtureOrigin} from './fixtures/workspace-fixture.mjs';
 import {createPublicTestHandler} from '../experimental/runtime-control/src/admission-handler.mjs';
 import {PUBLIC_TEST_INPUT_SHA} from '../experimental/runtime-control/src/admission-store.mjs';
+import {createAdmissionStore} from '../experimental/runtime-control/src/admission-store.mjs';
+import {createRuntimeAdmissionHandlers} from '../experimental/runtime-control/src/admission-runtime.mjs';
+
+test('Linux production handler composition enables public status without weakening private authentication or bindings',{skip:process.platform!=='linux'},async()=>{
+ const f=await workspaceFixture({realMarkers:false,publicTestEnabled:true});
+ const store=createAdmissionStore({activationEnabled:true,dbPath:f.dbPath,relayStore:f.store.relay,now:f.now});
+ try{
+  const options={workspaceEnabled:true,publicTestEnabled:true,proxyConfigured:true,publicOrigin:'https://public.example',auth:{authenticate:async()=>false},store,binding:f.binding,origins:[fixtureOrigin],now:f.now,loadPolicy:()=>f.policy,currentAvailability:f.router.availability};
+  const handler=createRuntimeAdmissionHandlers(options);
+  for(const [url,status,origin] of [['/public-test/status',200,'https://public.example'],['/workspace/config',401,fixtureOrigin],['/request-catalogue',401,fixtureOrigin]]){
+   const req=Readable.from([]);Object.assign(req,{method:'GET',url,headers:{host:'fixture.invalid',origin},socket:{remoteAddress:'127.0.0.1'}});
+   const res={writeHead(s){this.status=s;},end(b){this.body=JSON.parse(b);}};
+   assert.equal(await handler(req,res),true);assert.equal(res.status,status,url);
+   if(status===200){assert.equal(res.body.enabled,false);assert.equal(res.body.remaining,0);}
+  }
+  assert.throws(()=>createRuntimeAdmissionHandlers({...options,binding:{...f.binding,unexpected:'not allowed'}}),/admission_configuration_invalid/);
+  assert.equal(f.calls,0);assert.equal(f.store.relay.stats().length,0);
+ }finally{store.close();f.close();}
+});
 
 async function fixture(options={}){
  const f=await workspaceFixture({realMarkers:false,publicTestEnabled:true,...options});
