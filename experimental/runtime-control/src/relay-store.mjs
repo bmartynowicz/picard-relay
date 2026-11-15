@@ -215,7 +215,8 @@ function openCodexUsage(db,owner){
    const activity=run=>run.comparison?Math.max(run.comparison.baseline.lastRecordedAt,run.comparison.assisted.lastRecordedAt):run.recordedAt;
    return projected.sort((a,b)=>activity(b)-activity(a)||a.id.localeCompare(b.id));
  }
- function overview(){
+ function overview({comparisonPage=null}={}){
+  if(comparisonPage!==null&&(!Number.isSafeInteger(comparisonPage)||comparisonPage<0||comparisonPage>49))throw Error('comparison_page_invalid');
   // Keep the recent rows and the wider rolling window on one SQLite snapshot.
   db.exec('BEGIN');
   try{
@@ -237,7 +238,12 @@ function openCodexUsage(db,owner){
     savedPercent:sampleCount?savedCredits/baselineCredits*100:null,
     increasedCount:selected.filter(row=>row.assisted>row.baseline).length,
     fromRecordedAt:sampleCount?selected.at(-1).recordedAt:null,toRecordedAt:sampleCount?selected[0].recordedAt:null,excluded};
-   db.exec('COMMIT');return {runs:projected.slice(0,12),rolling};
+   // Comparison history must not disappear behind newer unpaired usage rows.
+   // Page the same bounded projection; no extra query or ledger mutation.
+   const pairs=projected.flatMap(row=>row.comparison?[row.comparison]:[]),limit=20;
+   const page=comparisonPage===null?null:Math.min(comparisonPage,Math.max(0,Math.ceil(pairs.length/limit)-1));
+   const comparisonHistory={page,limit,total:pairs.length,pairs:page===null?[]:pairs.slice(page*limit,(page+1)*limit)};
+   db.exec('COMMIT');return {runs:projected.slice(0,12),rolling,comparisonHistory};
   }catch(error){db.exec('ROLLBACK');throw error;}
  }
  return {

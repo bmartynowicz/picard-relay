@@ -2,6 +2,14 @@
 
 ## Recorded quality in Savings
 
+Open **Comparison history** in Overview to inspect retained comparisons, twenty
+at a time. **Older comparisons** and **Newer comparisons** page independently of
+the twelve recent usage rows. The range shows which records are displayed;
+legacy, incomplete and increased-cost comparisons remain inspectable. This reads
+saved data only. The rolling headline still uses its separate latest-twenty
+complete-workflow window. History is bounded by the existing 1,000 usage-row
+retention limit; it is not an unlimited archive.
+
 Savings can display authenticated native review observations beside each cost
 comparison: first review, final qualification, actual repair turns and repair
 checks with their tokens and estimated Codex credits. Quality observations are
