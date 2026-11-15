@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"e89e3dd8cd113e89ef5a77d79fb0d969bed5e8cc3050efee3fe9386158b5bb6f");
+assert.equal(createHash('sha256').update(script).digest('hex'),"bde1545f41b9fafed5d5e511f4b43afe1af919d82d88e1de10a5082d66ef2076");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:(?:stealth|cockpit)Preference|'picard:windshield-readout')\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\)|setItem\('picard:windshield-readout',hidden\?'hidden':'shown'\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
@@ -29,7 +29,7 @@ function harness(handler,{jobsHandler,clock=Date,storage,manualAnimations=false,
  const window={matchMedia:()=>pref,addEventListener:(n,fn)=>wl[n]=fn};
  const navigator={clipboard:{writeText:async text=>{copied.push(text);await clipboardWrite(text);}}};
  let count=0;const requests=[],timers=new Map();
- vm.runInNewContext(script.replace('motion();void boot();','window.cockpitTest={get deck(){return openDeck},get instrument(){return openInstrument},get retracting(){return retractingDeck}};motion();void boot();'),{Event,ResizeObserver:class{observe(){}},getComputedStyle:()=>({getPropertyValue:()=>''}),document,window,navigator,localStorage:storage,TextEncoder,AbortController,crypto:{randomUUID:()=>replacementId},Date:clock,queueMicrotask,setTimeout:fn=>{timers.set(++count,fn);return count},clearTimeout:id=>timers.delete(id),fetch:async(path,options)=>{assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.ok(['/auth/state','/auth/setup','/auth/login','/auth/logout','/status','/updates','/groq/key'].includes(path)||path==='/jobs'||path.startsWith('/jobs?cursor='));if(options.method==='POST')assert.equal(options.headers['Content-Type'],'application/json');requests.push({path,options});return path.startsWith('/jobs')?(jobsHandler?jobsHandler(path,options):ok({v:1,rows:[],nextCursor:null,observedAt:health.observedAt})):handler(path,options)}});
+ vm.runInNewContext(script.replace('motion();void boot();','window.cockpitTest={get deck(){return openDeck},get instrument(){return openInstrument},get retracting(){return retractingDeck}};motion();void boot();'),{Event,ResizeObserver:class{observe(){}},getComputedStyle:()=>({getPropertyValue:()=>''}),document,window,navigator,localStorage:storage,TextEncoder,AbortController,crypto:{randomUUID:()=>replacementId},Date:clock,queueMicrotask,setTimeout:fn=>{timers.set(++count,fn);return count},clearTimeout:id=>timers.delete(id),fetch:async(path,options)=>{assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.ok(['/auth/state','/auth/setup','/auth/login','/auth/logout','/status','/updates','/groq/key'].includes(path)||path.startsWith('/status?comparisons=')||path==='/jobs'||path.startsWith('/jobs?cursor='));if(options.method==='POST')assert.equal(options.headers['Content-Type'],'application/json');requests.push({path,options});return path.startsWith('/jobs')?(jobsHandler?jobsHandler(path,options):ok({v:1,rows:[],nextCursor:null,observedAt:health.observedAt})):handler(path,options)}});
  return {get:id=>els.get(id),get deckState(){return window.cockpitTest},els,requests,timers,wl,dl,ml,pref,document,animations,starAnimations,copied,async submit(id){await els.get(id).listeners.submit({preventDefault(){}})},async click(id){await els.get(id).listeners.click({currentTarget:els.get(id)})}};
 }
 const feedbackFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok(health));
@@ -93,6 +93,31 @@ assert.match(qualityCard,/Repairs: 1 turn · 120 Codex tokens · 0.0076 estimate
 assert.match(qualityCard,/Repair checks: 1 turn · 100 Codex tokens · 0.0040 estimated credits/);
 assert.match(qualityCard,/separate from owner acceptance/);assert.match(qualityCard,/Preparation and coordination remain in full workflow cost/);
 await qualityFlow.click('logout');await flush();assert.equal(qualityFlow.get('codex-savings-comparisons').children.length,0);
+
+// The comparison page is independent of the newest twelve unpaired run rows.
+const historyPair={id:'older-model-comparison',baseline:{...side(12000,12000),workflow:{...w,picardCalls:0,picardTokens:0}},assisted:{...side(11000,11000),workflow:w,quality:qualityExample}};
+let historyReadFails=false;
+const historyFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):path==='/status?comparisons=1'&&historyReadFails?bad(503,'unavailable'):ok({...health,codexUsage:{state:'ready',runs:[],comparisonHistory:{page:path==='/status'?null:path==='/status?comparisons=1'?1:0,limit:20,total:21,pairs:path==='/status'?[]:path==='/status?comparisons=1'?[historyPair]:Array.from({length:20},(_,i)=>({...historyPair,id:'recent-'+i}))}}}));
+await flush();
+assert.equal(historyFlow.get('codex-savings-history').hidden,false);
+assert.equal(historyFlow.get('codex-savings-history-title').textContent,'Comparison history · 21 comparisons');
+assert.equal(historyFlow.get('codex-savings-comparisons').children.length,0);
+assert(!historyFlow.requests.some(r=>r.path.startsWith('/status?comparisons=')));
+historyFlow.get('codex-savings-history').open=true;await historyFlow.get('codex-savings-history').listeners.toggle();await flush();
+assert.equal(historyFlow.get('codex-savings-history-title').textContent,'Comparison history · 1–20 of 21');
+assert.equal(historyFlow.get('codex-savings-newer').disabled,true);
+await historyFlow.click('codex-savings-older');await flush();
+assert.equal(historyFlow.get('codex-savings-history-title').textContent,'Comparison history · 21–21 of 21');
+assert.equal(historyFlow.get('codex-savings-older').disabled,true);
+assert.match(historyFlow.get('codex-savings-comparisons').textContent,/older-model-comparison.*Quality: Passed after corrections.*Repairs: 1 turn/s);
+await historyFlow.click('codex-savings-newer');await flush();
+historyReadFails=true;await historyFlow.click('codex-savings-older');await flush();
+assert.equal(historyFlow.get('codex-savings-history-title').textContent,'Comparison history · 1–20 of 21');
+assert.equal(historyFlow.get('codex-savings-older').disabled,false);
+assert(historyFlow.requests.every(r=>!r.options.method||r.options.method==='GET'));
+historyFlow.wl.pagehide();assert.equal(historyFlow.get('codex-savings-history').hidden,true);
+assert.equal(historyFlow.get('codex-savings-history').open,false);
+assert.equal(historyFlow.get('codex-savings-history-title').textContent,'Comparison history');
 
 assert.match(wholeFlow.get('codex-savings-note').textContent,/Latest 1 complete comparison · 0.8000 credits on its own · 0.6000 with Picard/);
 assert.match(wholeFlow.get('codex-savings-coverage').textContent,/1 finishing-only, 2 incomplete and 3 without a usable credit estimate/);
@@ -459,7 +484,7 @@ await app.get('jobs-list').children[0].children[0].listeners.click();assert.equa
 for(const [filter,expected] of [['completed',1],['active',1],['attention',1],['all',3]]){app.get('jobs-filter').value=filter;app.get('jobs-filter').listeners.change();assert.equal(app.get('jobs-list').children.length,expected);assert.equal(app.get('job-details').hidden,true);assert.equal(app.get('detail-ref').textContent,'-');}
 assert.deepEqual(app.requests.slice(requestsBeforeNavigation).map(r=>({path:r.path,method:r.options.method})),[{path:"/updates",method:"GET"}]);assert.equal(app.get('activity-list').children.length,3);
 assert.equal(app.get('groq-availability').textContent,'Not available for new work');assert.match(app.get('groq-blocking').textContent,/unavailable|not supplied|not reported/i);
-assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.match(html,/<details class="technical"><summary>Request limits and safeguards<\/summary>/);assert.equal((html.match(/<details/g)||[]).length,5);assert.match(html,/<details class="console-info"><summary aria-label="About status and privacy">/);
+assert.ok(html.includes('This console cannot submit or approve a request.'));assert.ok(html.includes('Filters apply to loaded rows only.'));assert.match(html,/<details class="technical"><summary>Request limits and safeguards<\/summary>/);assert.equal((html.match(/<details/g)||[]).length,6);assert.match(html,/<details class="console-info"><summary aria-label="About status and privacy">/);
 
 for(const event of ['logout','401','403','pagehide']){
  let lost=false;const code=event==='403'?403:401;

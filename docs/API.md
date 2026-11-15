@@ -147,6 +147,15 @@ The percentage is the difference of combined totals divided by the combined
 baseline, including negative results. Empty totals and percentage are `null`.
 `increasedCount` counts selected comparisons that cost more; `fromRecordedAt` and
 `toRecordedAt` bound their latest activity, including corrections.
+
+The same owner-authenticated response includes `codexUsage.comparisonHistory`:
+`page` (zero-based), `limit` (20), `total` retained pairs and `pairs`. Normal status
+returns only the count (`page: null`, `pairs: []`). Read
+`GET /status?comparisons=0` to load history, then page 1 for the next page. Pages must be integers 0–49;
+out-of-range retained history clamps to its last page. History includes legacy,
+incomplete and increased-cost pairs, ordered by latest recorded activity, while
+`rolling` keeps its independent eligible window and `runs` stays the latest 12.
+Paging reads the existing bounded projection without writing or calling a model.
 `excluded` counts paired legacy, incomplete and unpriced workflows. Unpaired
 turns do not enter the window. Both workflows must be complete, have finite
 credit estimates, and have a positive baseline. Provider tokens have no Codex

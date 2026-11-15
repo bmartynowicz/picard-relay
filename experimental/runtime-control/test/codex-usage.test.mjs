@@ -104,18 +104,29 @@ test('rolling window uses twenty comparisons beyond the twelve rows and updates 
  for(let i=2;i<=22;i++)fullPair(usage,i,20000,10000);
  // Newer unpaired activity fills all twelve visible rows without changing the wider window.
  for(let i=0;i<15;i++)usage.record({...run,id:createHash('sha256').update('unpaired'+i).digest('hex'),comparisonId:null,variant:null,recordedAt:1000+i});
- let snapshot=usage.overview();
+ assert.deepEqual(usage.overview().comparisonHistory,{page:null,limit:20,total:22,pairs:[]});
+ let snapshot=usage.overview({comparisonPage:0});
  assert.equal(snapshot.runs.length,12);assert(snapshot.runs.every(row=>!row.comparison));
+ assert.equal(snapshot.comparisonHistory.total,22);assert.equal(snapshot.comparisonHistory.pairs.length,20);
+ assert.equal(snapshot.comparisonHistory.pairs[0].id,'rolling-22');
+ const older=usage.overview({comparisonPage:1});
+ assert.equal(older.comparisonHistory.page,1);assert.deepEqual(older.comparisonHistory.pairs.map(p=>p.id),['rolling-2','rolling-1']);
+ assert.deepEqual(older.rolling,snapshot.rolling);assert.deepEqual(older.runs,snapshot.runs);
+ assert.equal(usage.overview({comparisonPage:49}).comparisonHistory.page,1);
+ for(const comparisonPage of [-1,50,1.5,'1'])assert.throws(()=>usage.overview({comparisonPage}),/comparison_page_invalid/);
+ assert.deepEqual(store.openCodexUsage('other').overview().comparisonHistory,{page:null,limit:20,total:0,pairs:[]});
  assert.equal(snapshot.rolling.sampleCount,20);assert.equal(snapshot.rolling.eligibleCount,22);
  assert.equal(snapshot.rolling.baselineCredits,20);assert.equal(snapshot.rolling.assistedCredits,10);
  assert.equal(snapshot.rolling.fromRecordedAt,31);
  const fix={...run,id:'f'.repeat(64),comparisonId:null,variant:null,model:'gpt-6.1-sol',recordedAt:2000,inputTokens:20000,cachedInputTokens:0,outputTokens:0,followUpTo:first.withPicard.id};
  assert.equal(usage.record(fix),'saved');assert.equal(usage.record(fix),'duplicate');
- snapshot=usage.overview();
+ snapshot=usage.overview({comparisonPage:0});
  assert.equal(snapshot.rolling.sampleCount,20);assert.equal(snapshot.rolling.eligibleCount,22);
  assert.equal(snapshot.rolling.baselineCredits,69);assert.equal(snapshot.rolling.assistedCredits,60.5);
  assert.equal(snapshot.rolling.toRecordedAt,2000);assert.equal(snapshot.runs[0].id,first.withPicard.id);
  assert.equal(snapshot.runs[0].comparison.assisted.workflow.followUpCount,1);
+ assert.equal(snapshot.comparisonHistory.pairs[0].id,'rolling-1');
+ assert.equal(snapshot.comparisonHistory.pairs.filter(pair=>pair.id==='rolling-1').length,1);
 });
 
 test('empty rolling history exposes unknown savings rather than zero',t=>{
@@ -349,6 +360,12 @@ test('native writes require the dedicated token and only the console owner can r
  assert.equal((await push('Bearer '+token,{},link)).status,200);
  const updated=await read({cookie:'__Host-PicardSession='+session});
  assert.equal(updated.data.codexUsage.runs.find(row=>row.id===assisted.id).comparison.assisted.totalTokens,8040);
+ for(let i=1;i<=22;i++)fullPair(store.openCodexUsage('owner'),i,20000,10000);
+ const history=await send('/status?comparisons=1',{headers:{cookie:'__Host-PicardSession='+session}});
+ assert.equal(history.status,200);assert.equal(history.data.codexUsage.comparisonHistory.page,1);
+ assert.equal(history.data.codexUsage.comparisonHistory.total,23);assert.equal(history.data.codexUsage.comparisonHistory.pairs.length,3);
+ assert.equal((await send('/status?comparisons=1',{headers:{authorization:'Bearer '+token}})).status,401);
+ assert.equal((await send('/status?comparisons=50',{headers:{cookie:'__Host-PicardSession='+session}})).status,400);
 });
 
 
