@@ -271,9 +271,10 @@ export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecen
  const cookie=(token,seconds)=>`__Host-PicardSession=${token}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=${seconds}`;
  return async(req,res)=>{
   const path=req.url;
+   const statusPath=typeof path==='string'&&/^\/status(?:\?comparisons=(?:0|[1-9][0-9]?))?$/.test(path);
    const jobsPath=typeof path==='string'&&path.length<=1024&&/^\/jobs(?:\?[^#]*)?$/.test(path);
    const usageWrite=path==='/codex/usage'&&req.method==='POST'&&codexUsage&&codexUsageKey;
-   if(!enabled||!(usageWrite||(req.method==='GET'&&(['/','/status','/auth/state','/updates','/groq/key'].includes(path)||jobsPath))||(req.method==='POST'&&['/auth/setup','/auth/login','/auth/logout','/updates','/groq/key'].includes(path))))return false;
+   if(!enabled||!(usageWrite||(req.method==='GET'&&(['/','/auth/state','/updates','/groq/key'].includes(path)||statusPath||jobsPath))||(req.method==='POST'&&['/auth/setup','/auth/login','/auth/logout','/updates','/groq/key'].includes(path))))return false;
   const reply=(status,body,extra={})=>{res.writeHead(status,{...headers,'Content-Type':'application/json; charset=utf-8',...extra});res.end(JSON.stringify(body));return true;};
   let origin=null;try{const host=req.headers.host;if(typeof host==='string'){const u=new URL('https://'+host);if(u.host===host&&u.pathname==='/'&&!u.search&&!u.hash&&!u.username&&!u.password)origin=u.origin;}}catch{}
   if(!origin||!allowed.has(origin))return reply(403,{error:'auth_failed'});
@@ -296,13 +297,15 @@ export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecen
   if(!auth)return reply(503,{error:'auth_unavailable'});
   try{
    if(path==='/auth/state'){const state=await auth.readPublicState();if(typeof state?.enrolled!=='boolean')throw Error('auth_unavailable');return reply(200,{enrolled:state.enrolled});}
-   if(path==='/status'){
+   if(statusPath){
     if(!await auth.authenticate(tokenFrom(req)))return reply(401,{error:'auth_failed'});
+    const comparisonPage=path==='/status'?null:Number(path.split('=')[1]);
+    if(comparisonPage>49)return reply(400,{error:'request_invalid'});
     const snapshot=getSnapshot();
     const display=typeof recognition==='function'?recognition():recognition;
     const keyReplacement=groqReplacement?.status();
     let usage;
-    if(codexUsage){try{usage={state:'ready',...(codexUsage.overview?codexUsage.overview():{runs:codexUsage.list()})};}catch{usage={state:'unavailable',runs:[]};}}
+    if(codexUsage){try{usage={state:'ready',...(codexUsage.overview?codexUsage.overview({comparisonPage}):{runs:codexUsage.list()})};}catch{usage={state:'unavailable',runs:[]};}}
     return reply(200,{...snapshot,...(display?{recognition:display}:{}),...(keyReplacement?.enabled?{keyReplacement}:{}),...(usage?{codexUsage:usage}:{})});
    }
    if(path==='/updates'){
@@ -707,23 +710,46 @@ const SAVINGS_STYLE=String.raw`
 #codex-savings-comparisons article{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
 #codex-savings-comparisons h3{margin:0 0 8px;font-size:14px}
 #codex-savings-comparisons summary{min-height:44px;padding:12px 0;cursor:pointer}
+#codex-savings-history>summary{min-height:44px;padding:12px 0;cursor:pointer}
+.savings-pagination{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
 .savings-sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .savings-sides p{margin:2px 0;font-size:13px}
 .savings-sides strong{display:block;font-size:clamp(15px,3vw,20px)}
+@media(max-width:600px){.savings-sides{grid-template-columns:minmax(0,1fr)}}
 `;
-const SAVINGS_PANEL='<section id="codex-savings" aria-labelledby="codex-savings-title"><h2 id="codex-savings-title">Savings</h2><strong id="codex-savings-headline">Rolling savings not yet measured</strong><p class="muted" id="codex-savings-note">Connect Codex to record usage as you work.</p><p id="codex-savings-coverage" class="muted"></p><details><summary>How rolling savings is measured</summary><p>Latest 20 complete, comparable tasks, ordered by their latest recorded activity. Savings is calculated from combined Codex credit totals, so larger tasks carry more weight. Preparation, finishing and linked fixes count. Tasks where Picard uses more credits stay included. Picard provider tokens are tracked separately. These are estimates, not a reading of your subscription allowance or billed cost.</p></details><div id="codex-savings-comparisons" aria-label="Codex comparisons"></div><div id="codex-savings-runs" aria-label="Recent Codex runs"></div></section>';
+const SAVINGS_PANEL='<section id="codex-savings" aria-labelledby="codex-savings-title"><h2 id="codex-savings-title">Savings</h2><strong id="codex-savings-headline">Rolling savings not yet measured</strong><p class="muted" id="codex-savings-note">Connect Codex to record usage as you work.</p><p id="codex-savings-coverage" class="muted"></p><details><summary>How rolling savings is measured</summary><p>Latest 20 complete, comparable tasks, ordered by their latest recorded activity. Savings is calculated from combined Codex credit totals, so larger tasks carry more weight. Preparation, finishing and linked fixes count. Tasks where Picard uses more credits stay included. Picard provider tokens are tracked separately. These are estimates, not a reading of your subscription allowance or billed cost.</p></details><details id="codex-savings-history" hidden><summary id="codex-savings-history-title">Comparison history</summary><div id="codex-savings-comparisons" aria-label="Codex comparisons"></div><div class="savings-pagination"><button id="codex-savings-newer" type="button">Newer comparisons</button><button id="codex-savings-older" type="button">Older comparisons</button></div></details><div id="codex-savings-runs" aria-label="Recent Codex runs"></div></section>';
 const SAVINGS_CLIENT=String.raw`
-let lastCodexUsage='';
+let lastCodexUsage='',savingsPage=null,savingsHistory=null;
+function renderSavingsControls(){
+ const history=savingsHistory;
+ $('codex-savings-history').hidden=!history?.total;
+ const range=history?.page===null?history.total+' comparisons':history?(history.page*history.limit+1)+'–'+Math.min((history.page+1)*history.limit,history.total)+' of '+history.total:'';
+ $('codex-savings-history-title').textContent='Comparison history'+(history?.total?' · '+range:'');
+ $('codex-savings-newer').hidden=$('codex-savings-older').hidden=!history||history.page===null||history.total<=history.limit;
+ $('codex-savings-newer').disabled=pending||!history||history.page===null||history.page===0;
+ $('codex-savings-older').disabled=pending||!history||history.page===null||(history.page+1)*history.limit>=history.total;
+}
+$('codex-savings-history').addEventListener('toggle',async()=>{
+ if(!$('codex-savings-history').open||savingsPage!==null||pending||!authenticated)return;
+ busy(true);try{await status({automatic:true,comparisonPage:0});}finally{busy(false);}
+});
+for(const [id,delta]of [['codex-savings-newer',-1],['codex-savings-older',1]])$(id).addEventListener('click',async()=>{
+ if(pending||!authenticated||$(id).disabled)return;
+ busy(true);try{await status({automatic:true,comparisonPage:savingsPage+delta});}finally{busy(false);}
+});
 function renderCodexSavings(usage){
  const signature=JSON.stringify(usage??null);
  if(signature===lastCodexUsage)return;
  lastCodexUsage=signature;
  const list=$('codex-savings-runs');
  const comparisons=$('codex-savings-comparisons');
+ if(!usage)$('codex-savings-history').open=false;
  list.replaceChildren();
  comparisons.replaceChildren();
  const runs=Array.isArray(usage?.runs)?usage.runs:[];
- const pairs=runs.flatMap(run=>run.comparison?[run.comparison]:[]);
+ const pairs=Array.isArray(usage?.comparisonHistory?.pairs)?usage.comparisonHistory.pairs:runs.flatMap(run=>run.comparison?[run.comparison]:[]);
+ savingsHistory=usage?.comparisonHistory??(pairs.length?{page:0,limit:20,total:pairs.length,pairs}:null);
+ savingsPage=savingsHistory?.page??null;renderSavingsControls();
  const rolling=usage?.rolling;
  const full=pair=>pair?.baseline.workflow?.complete&&pair?.assisted.workflow?.complete;
  const scoped=pair=>pair?.baseline.workflow||pair?.assisted.workflow;
@@ -842,7 +868,9 @@ const CONSOLE_BASE_HTML=CONSOLE_SHELL_HTML
   .replace('<p>Picard Relay</p>','<p id="brand-name">Picard Relay</p>')
   .replace('id="training-rank" hidden></small>','id="training-rank" hidden></small><small id="recognition" hidden></small>')
   .replace('function clearPrivate(){','function clearPrivate(){\n showRecognition();resetGroqReplacement();renderCodexSavings();')
-  .replace("render(project(await request('/status')));","const data=await request('/status');render(project(data));renderCodexSavings(data.codexUsage);showRecognition(typeof data.recognition==='string'?data.recognition:'');if(!keySaving)renderGroqReplacement(data.keyReplacement);")
+  .replace('function busy(value){pending=value;','function busy(value){pending=value;renderSavingsControls();')
+  .replace('async function status({automatic=false}={}){',"async function status({automatic=false,comparisonPage=$('codex-savings-history').open?savingsPage??0:null}={}){")
+  .replace("render(project(await request('/status')));","const data=await request(comparisonPage!==null?'/status?comparisons='+comparisonPage:'/status');render(project(data));renderCodexSavings(data.codexUsage);showRecognition(typeof data.recognition==='string'?data.recognition:'');if(!keySaving)renderGroqReplacement(data.keyReplacement);")
   .replace('<summary aria-label="Documentation and account"','<summary id="console-tools-toggle" aria-label="Documentation and account"')
   .replace(MOTION_CONTROL,'')
   .replace('.motion{margin-top:auto;text-align:left;font-size:13px;color:var(--muted);padding:9px 12px;border:0}','')
