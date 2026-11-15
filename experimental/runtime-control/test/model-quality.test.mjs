@@ -27,6 +27,19 @@ test('baseline review and unknown outcomes stay explicit',async t=>{
  const x=await setup(t);const q={...x.quality,id:hash('baseline-q'),rootId:x.b.id,initialReviewId:x.review.id,providerRef:null,providerModel:null,firstPassPassed:null,finalQualified:null};
  assert.equal(x.usage.record(q),'saved');assert.equal(x.pair().baseline.quality.firstPassPassed,null);assert.equal(x.pair().baseline.quality.repairs.turns,0);
 });
+
+test('older comparison quality and original provider usage survive newer unrelated activity',async t=>{
+ const x=await setup(t);assert.equal(x.usage.record(x.quality),'saved');
+ const before=x.pair(),jobs=x.store.stats();
+ for(let i=0;i<15;i++)assert.equal(x.usage.record(x.native('later-'+i,{recordedAt:Date.now()+10000+i})),'saved');
+ const snapshot=x.usage.overview({comparisonPage:0});
+ assert(snapshot.runs.every(row=>!row.comparison));
+ assert.deepEqual(snapshot.comparisonHistory.pairs,[before]);
+ assert.equal(snapshot.comparisonHistory.pairs[0].assisted.quality.firstPassPassed,false);
+ assert.equal(snapshot.comparisonHistory.pairs[0].assisted.quality.finalQualified,false);
+ assert.equal(snapshot.comparisonHistory.pairs[0].assisted.workflow.picardCalls,1);
+ assert.deepEqual(x.store.stats(),jobs);
+});
 test('wrong models, owner scopes, root links and initial reviews fail closed',async t=>{
  const x=await setup(t);assert.equal(x.usage.record({...x.quality,providerModel:'openai/gpt-oss-120b'}),'conflict');
  assert.equal(x.store.openCodexUsage('other').record(x.quality),'conflict');assert.equal(x.usage.record({...x.quality,initialReviewId:hash('missing')}),'conflict');
