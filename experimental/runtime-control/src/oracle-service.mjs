@@ -258,7 +258,7 @@ function codexUsageTokenHash(path){
  }finally{closeSync(fd);}
 }
 
-export const CONSOLE_MAX_BYTES=208896;
+export const CONSOLE_MAX_BYTES=212992;
 export function createConsoleHandler({enabled=false,html='',getSnapshot,getRecentJobs,auth=null,origins=[],updates=createUpdateRequestBridge(),groqReplacement=null,recognition='',codexUsage=null,codexUsageKey=null}={}){
  if(typeof html!=='string'||Buffer.byteLength(html)>CONSOLE_MAX_BYTES)throw Error('console_document_invalid');
  const hash=s=>"'sha256-"+createHash('sha256').update(s).digest('base64')+"'";
