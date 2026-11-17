@@ -7,7 +7,7 @@ import {createAdmissionStore,admissionHash,legacyMarkerName,stop} from './admiss
 import {readBoundAdmissionPolicy} from './admission-policy.mjs';
 import {priorGroqEnrollmentIds,recordedGroqKeyExpiry,validCostEnrollmentMetadata} from './admission-enrollment.mjs';
 import {createAdmissionAssistantAdapter} from './admission-dispatch.mjs';
-import {createAdmissionHandler,createWorkspaceHandler,createPublicTestHandler} from './admission-handler.mjs';
+import {createAdmissionHandler,createWorkspaceHandler,createPublicTestHandler,createBadgeInterestHandler} from './admission-handler.mjs';
 import {admissionConsoleHtml} from './admission-ui.mjs';
 import {groqHttpsFetch} from './https-fetch.mjs';
 import {TextDecoder} from 'node:util';
@@ -125,14 +125,15 @@ export function createHistoricalModelProofReader({file,sha256}={}){
  };
 }
 
-export function createRuntimeAdmissionHandlers({workspaceEnabled=false,publicTestEnabled=false,proxyConfigured=false,publicOrigin,auth,store,binding,origins,now,loadPolicy,currentAvailability,readHistoricalModelProof=null}){
+export function createRuntimeAdmissionHandlers({workspaceEnabled=false,publicTestEnabled=false,badgeInterestEnabled=false,proxyConfigured=false,publicOrigin,auth,store,binding,origins,now,loadPolicy,currentAvailability,readHistoricalModelProof=null}){
  // Public-trial origin is separate authority. The existing private picker keeps
  // its exact six-field binding and rejects every other unexpected field.
  const {publicTestOrigin,...ownerBinding}=binding;
  const handler=createAdmissionHandler({activationEnabled:true,store,auth,loadPolicy,binding:ownerBinding,origins,now,currentAvailability});
  const workspace=createWorkspaceHandler({enabled:workspaceEnabled,store,auth,loadPolicy,binding,origins,now,currentAvailability,readHistoricalModelProof});
  const publicTest=createPublicTestHandler({enabled:publicTestEnabled,proxyConfigured,publicOrigin,auth,store,binding,origins,now,currentAvailability,loadPolicy});
- return async(req,res)=>await publicTest(req,res)||await workspace(req,res)||await handler(req,res);
+ const badgeInterest=createBadgeInterestHandler({enabled:badgeInterestEnabled,proxyConfigured,publicOrigin,store,binding,origins,now});
+ return async(req,res)=>await badgeInterest(req,res)||await publicTest(req,res)||await workspace(req,res)||await handler(req,res);
 }
 export function prepareAdmissionRuntime({activationEnabled=false,config,env=process.env,now=Date.now,fetchImpl=groqHttpsFetch}={}){
  if(activationEnabled!==true)return null;
@@ -141,6 +142,8 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
  if(config.admissionMeasurementRunsEnabled===true&&config.admissionReusableBoardEnabled!==true)stop('admission_configuration_invalid');
  if(config.workspaceEnabled===true&&config.admissionReusableBoardEnabled!==true)stop('admission_configuration_invalid');
  const publicTestEnabled=env.BRIDGE_PUBLIC_TEST_ENABLED==='true';
+ const badgeInterestEnabled=env.BRIDGE_BADGE_INTEREST_ENABLED==='true';
+ if(badgeInterestEnabled&&(config.workspaceEnabled!==true||env.BRIDGE_PUBLIC_TEST_PROXY!=='caddy-overwrite-v1'||!env.BRIDGE_PUBLIC_TEST_ORIGIN))stop('badge_interest_configuration_invalid');
  if(publicTestEnabled&&(config.workspaceEnabled!==true||env.BRIDGE_PUBLIC_TEST_PROXY!=='caddy-overwrite-v1'||!env.BRIDGE_PUBLIC_TEST_ORIGIN))stop('public_test_configuration_invalid');
  // Anchor to the EXISTING retained enrollment and key. A catalogue cannot invent
  // another enrollment to evade an old shared uncertainty/cost latch.
@@ -177,7 +180,7 @@ export function prepareAdmissionRuntime({activationEnabled=false,config,env=proc
   const admissionStore=createAdmissionStore({activationEnabled:true,dbPath:config.dbPath,relayStore:store,now,loadLegacyBaseline,legacyBinding:{...binding,enrollmentId:legacyEnrollmentId},reusableBoardEnabled:config.admissionReusableBoardEnabled===true,measurementRunsEnabled:config.admissionMeasurementRunsEnabled===true,workspaceEnabled:config.workspaceEnabled===true,reusableBinding:{ownerId:binding.ownerId,enrollmentId:binding.enrollmentId},readLegacyMarkers:names=>readLegacyAdmissionMarkers(markerDirectory,names)});
   try{
   adapter.attachStore(admissionStore,{accepting:()=>control.accepting});
-  const handler=createRuntimeAdmissionHandlers({workspaceEnabled:config.workspaceEnabled===true,publicTestEnabled,proxyConfigured:env.BRIDGE_PUBLIC_TEST_PROXY==='caddy-overwrite-v1',publicOrigin:env.BRIDGE_PUBLIC_TEST_ORIGIN,auth,store:admissionStore,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability,loadPolicy,readHistoricalModelProof:createHistoricalModelProofReader({file:env.BRIDGE_HISTORICAL_MODEL_RESULTS_FILE,sha256:env.BRIDGE_HISTORICAL_MODEL_RESULTS_SHA256})});
+  const handler=createRuntimeAdmissionHandlers({workspaceEnabled:config.workspaceEnabled===true,publicTestEnabled,badgeInterestEnabled,proxyConfigured:env.BRIDGE_PUBLIC_TEST_PROXY==='caddy-overwrite-v1',publicOrigin:env.BRIDGE_PUBLIC_TEST_ORIGIN,auth,store:admissionStore,binding,origins:config.consoleOrigins,now,currentAvailability:adapter.availability,loadPolicy,readHistoricalModelProof:createHistoricalModelProofReader({file:env.BRIDGE_HISTORICAL_MODEL_RESULTS_FILE,sha256:env.BRIDGE_HISTORICAL_MODEL_RESULTS_SHA256})});
   return {handler,groqKeyExpiresAt,groqReplacement,gradeResult:config.workspaceEnabled===true?input=>{admissionStore.recordAttempt(admissionHash(canonical([binding.ownerId,'quality-grades'])));return admissionStore.saveWorkspaceGrade(input);}:null,readGrade:config.workspaceEnabled===true?ref=>admissionStore.workspaceGrade(ref):null,html:admissionConsoleHtml(baseHtml,{activationEnabled:true,workspaceEnabled:config.workspaceEnabled===true,publicTestEnabled}),dispatchStore:{...store,claimNext:input=>adapter.claimNext(input)},close:()=>admissionStore.close()};
   }catch{admissionStore.close();stop('admission_configuration_invalid');}
  }};

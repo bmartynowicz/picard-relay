@@ -50,7 +50,7 @@
 </section>
 <div class="cockpit-dash landing-dash">
 <svg class="folding-arc" aria-hidden="true" viewBox="0 0 1 1" preserveAspectRatio="none"><defs><linearGradient id="folding-arc-fill" x2="0%" y2="100%"><stop stop-color="#294254" stop-opacity=".83"/><stop offset="1" stop-color="#14212c" stop-opacity=".77"/></linearGradient></defs><path class="folding-arc-face" fill="url(#folding-arc-fill)"/><path class="folding-arc-edge"/><path class="folding-arc-track"/></svg>
-<div class="folding-glass"><div class="folding-side landing-display"><button type="button" id="stars-toggle" aria-pressed="true">Stars</button><button type="button" id="motion" aria-pressed="false">Pause motion</button></div><div class="folding-side landing-source"><a href="https://github.com/bmartynowicz/picard-relay" target="_blank" rel="noopener noreferrer">Open source ↗</a></div></div>
+<div class="folding-glass"><div class="folding-side landing-display"><button type="button" id="stars-toggle" aria-pressed="true">Stars</button><button type="button" id="motion" aria-pressed="false">Pause motion</button></div><div class="folding-side landing-source"><button type="button" data-panel="badge" aria-controls="landing-panel" aria-expanded="false">Badge</button><a href="https://github.com/bmartynowicz/picard-relay" target="_blank" rel="noopener noreferrer">Open source ↗</a></div></div>
 <div class="hud-instruments" id="hud-instruments" aria-label="Your setup path">
 <button type="button" id="hud-ready" data-panel="setup" aria-controls="landing-panel" aria-expanded="false"><span>Your relay</span><strong>Awaiting setup</strong></button>
 <button type="button" class="landing-step" data-panel="setup" aria-controls="landing-panel" aria-expanded="false"><b class="hud-numeral">01</b><small>Server</small></button>
@@ -88,5 +88,6 @@ sudo bash scripts/setup-linux.sh</code></pre><p>The guided installer asks for yo
 <template id="content-trial">
 <section id="public-trial" class="guide-stage"><h3>One useful request.</h3><blockquote></blockquote><p class="landing-muted">Groq Free · 512 tokens · one call · public answer</p><details><summary>What is sent</summary><p>Public demonstration. Reply with three short numbered actions only. No tools, links or code execution.</p><p>Eight shared tests total. Refill is manual. No retries or paid fallback.</p></details><p role="status" aria-live="polite">Review the request, then check for a live slot.</p><pre class="guide-answer" hidden></pre><div class="guide-actions"><button type="button" class="request-primary" data-live-start>Check availability</button><button type="button" data-live-check hidden>Check saved result</button><button type="button" data-live-reset hidden>Review another test</button></div><button type="button" class="landing-text" data-panel="guide">Use the practice guide →</button></section>
 </template>
+<template id="content-badge"><p>Loading badge…</p></template>
 </body>
 </html>

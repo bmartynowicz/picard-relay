@@ -42,6 +42,15 @@ This lesson does not enable a public AI endpoint. A real public trial needs a
 separate owner-approved, server-enforced allowance and public-only result scope;
 the private owner workspace and exact-request approval remain protected.
 
+## Badge interest candidate
+
+The **Badge** HUD control opens a small rotating desk-badge concept and an
+anonymous interest vote. The preview and vote module load on demand. The
+configured public relay must explicitly enable its separate badge-interest API;
+a static website publication does not activate it. There is no sign-up, contact
+collection, preorder or hardware availability promise. See
+[the retained-token and abuse limits](../../docs/PUBLIC-TRIAL.md#anonymous-badge-interest).
+
 ## Reuse and scope
 
 - `build-assets.mjs` derives CSS and insignia from the current exported
