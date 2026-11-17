@@ -3,8 +3,8 @@
   "sourceSha": "83601db6c9fda85113e41fb85343fd45d4e794d2",
   "files": {
     "index.html": {
-      "bytes": 22781,
-      "sha256": "217eb00765f16ee99d8c926dcff58b967cbeede484751deecf9c722e49fb7c8f"
+      "bytes": 22689,
+      "sha256": "3a1293f0d7b0fd74e6d2c949d018af794e770668b91166d7e8a9d769cb4ae9e8"
     },
     "console.css": {
       "bytes": 49399,
@@ -58,7 +58,7 @@
       "files": [
         "index.html"
       ],
-      "scope": "Static contributor acknowledgement only; existing Oracle bundles and all other published assets retained."
+      "scope": "Static contributor acknowledgement and HTML newline normalization only; existing Oracle bundles and all other published assets retained."
     }
   ]
 }
