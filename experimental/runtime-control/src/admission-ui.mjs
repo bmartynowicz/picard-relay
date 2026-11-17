@@ -120,11 +120,12 @@ const workspaceCorrection=${JSON.stringify(REVIEWED_REGRESSION_RESULT)};
 const workRanks=${JSON.stringify(WORK_RANKS)};
 let walkthroughReviewed;
 let workConfigAttempted=false,workConfigFlight=null,workGraduated=false,workProgress=null;
-let workConfig=null,workDraft=null,workResult=null,workRef=null,workBusy=false,workGeneration=0,workTimer=null,workRead=null,workFresh=false,workDraftId=null,workSubmissionUnknown=false;
+let workConfig=null,workDraft=null,workResult=null,workRef=null,workBusy=false,workGeneration=0,workTimer=null,workRead=null,workFresh=false,workDraftId=null,workHandoff='';
 const workControllers=new Set(),workDownloads=new Set();
 const workFields=['request-title','request-text','request-context','request-task'];
 function stopWorkspacePoll(){clearTimeout(workTimer);workTimer=null;}
 function workNotice(text,warn=false){$('request-notice').textContent=text;$('request-notice').dataset.tone=warn?'warn':'';}
+function renderWorkHandoff(){$('request-state').textContent=workHandoff==='saved'?'Approval saved':'Handoff unconfirmed';$('request-next').textContent='Check saved status for this exact request.';}
 // Ranks teach the interface; they never grant provider or execution authority.
 function rememberProgress(c){
  const age=Date.now()-Date.parse(c?.observedAt),t=c?.training,s=c?.setup;
@@ -183,7 +184,7 @@ function trainingAction(){
 function clearWorkspace(){
  walkthroughReviewed=undefined;$('first-run-walkthrough').open=false;$('first-run-walkthrough').hidden=true;$('walkthrough-replay').hidden=true;
  clearTraining();workConfigAttempted=false;workConfigFlight=null;workGraduated=false;workProgress=null;
- workGeneration++;stopWorkspacePoll();for(const c of workControllers)c.abort();workControllers.clear();workRead=null;for(const url of workDownloads)URL.revokeObjectURL(url);workDownloads.clear();workConfig=null;workDraft=null;workResult=null;workRef=null;workDraftId=null;workBusy=false;workFresh=false;workSubmissionUnknown=false;
+ workGeneration++;stopWorkspacePoll();for(const c of workControllers)c.abort();workControllers.clear();workRead=null;for(const url of workDownloads)URL.revokeObjectURL(url);workDownloads.clear();workConfig=null;workDraft=null;workResult=null;workRef=null;workDraftId=null;workBusy=false;workFresh=false;workHandoff='';
  for(const id of [...workFields,'request-review-note','request-grade-score','request-grade-note'])$(id).value='';
  for(const id of ['request-exact-text','request-exact-context','request-original','request-sheet-title','request-next','request-state','request-observed','request-review-summary'])$(id).textContent='';
  for(const id of ['request-output','request-provenance','request-review-history','request-grade-history','request-limits','request-setup-list'])$(id).replaceChildren();
@@ -202,7 +203,7 @@ function workButtons(){
  const configCurrent=workConfig&&Date.now()-Date.parse(workConfig.observedAt)<60000&&Date.now()-Date.parse(workConfig.observedAt)>=-5000;
  if(workConfig&&!configCurrent)$('request-provider').textContent='Availability needs a fresh check. Select Refresh.';
  for(const id of ['request-prepare','request-edit','request-new','request-refresh','request-check','request-accept','request-changes'])$(id).disabled=workBusy;
- $('request-approve').disabled=workBusy||!workFresh||!configCurrent||workConfig?.ready!==true||!workDraft||workSubmissionUnknown||workDraft.approval.expiresAt<=Date.now();
+ $('request-approve').disabled=workBusy||!workFresh||!configCurrent||workConfig?.ready!==true||!workDraft||workHandoff||workDraft.approval.expiresAt<=Date.now();
  for(const id of ['request-accept','request-changes'])$(id).disabled=workBusy||!workFresh||!workResult?.resultAvailable;
  $('request-grade-save').disabled=workBusy||!workFresh||!workResult?.resultAvailable||!workResult?.grade||!['1','2','3','4','5'].includes($('request-grade-score').value);
  for(const id of ['request-copy','request-download','request-handoff'])$(id).disabled=!workResult?.resultAvailable;
@@ -227,7 +228,7 @@ async function fetchWorkConfig(){
 }
 function workNavigate(ref,replace=false){workRef=ref;preferredRoute={view:'requests',ref};writeRoute(replace);}
 function newWorkspaceRequest(){
- if(workBusy)return;stopWorkspacePoll();workRead?.abort();workRead=null;workDraft=null;workResult=null;workRef=null;workDraftId=null;workFresh=false;workSubmissionUnknown=false;
+ if(workBusy)return;stopWorkspacePoll();workRead?.abort();workRead=null;workDraft=null;workResult=null;workRef=null;workDraftId=null;workFresh=false;workHandoff='';
  for(const id of [...workFields,'request-review-note','request-grade-score','request-grade-note'])$(id).value='';$('request-grade-details').open=false;$('request-template').value='custom';$('request-purpose').value='sanitized-source-proposal';$('request-context-details').open=false;
  $('request-sheet').hidden=true;$('request-compose').hidden=false;$('request-result').hidden=true;$('request-output').replaceChildren();$('request-original').textContent='';workNavigate(null);workNotice('');workCounts();workButtons();$('request-title').focus?.();
 }
@@ -240,7 +241,7 @@ function renderWorkspaceDraft(d){
  $('request-exact-text').textContent=d.payload.request.text;$('request-exact-context').textContent=d.payload.context.latestFinding;$('request-exact-context-wrap').hidden=!d.payload.context.latestFinding;$('request-result').hidden=true;$('request-approve').hidden=expired;$('request-edit').hidden=false;
  $('request-observed').textContent='Approval expires '+formatTime(d.approval.expiresAt);const root=$('request-limits');root.replaceChildren();for(const [k,v]of [['Provider','Groq · openai/gpt-oss-20b'],['Calls','1'],['Output ceiling','4,096 tokens'],['Execution','Text proposal only']])workPair(root,k,v);
  $('request-cost').textContent='Retained Free-plan enrollment. Live billing and remaining quota are unknown. No tools, automatic retries, model substitution or paid fallback.';
- const meta=$('request-provenance');meta.replaceChildren();for(const [k,v]of [['Request',d.payload.eventId],['Task reference',d.payload.taskId],['Input SHA-256',d.approval.inputSha256],['Draft SHA-256',d.draftSha256],['Created',formatTime(d.approval.issuedAt)]])workPair(meta,k,v);workButtons();
+ const meta=$('request-provenance');meta.replaceChildren();for(const [k,v]of [['Request',d.payload.eventId],['Task reference',d.payload.taskId],['Input SHA-256',d.approval.inputSha256],['Draft SHA-256',d.draftSha256],['Created',formatTime(d.approval.issuedAt)]])workPair(meta,k,v);workButtons();if(workHandoff)renderWorkHandoff();
 }
 function projectWorkspace(value,ref){
  if(value?.v!==1||value.ref!==ref||!['queued','claimed','invoking','completed','failed','blocked','cancelled','uncertain'].includes(value.state)||typeof value.resultAvailable!=='boolean'||typeof value.request?.title!=='string'||typeof value.request?.text!=='string'||typeof value.request?.context!=='string'||!Number.isFinite(Date.parse(value.observedAt))||typeof value.provenance?.model!=='string'||!Number.isSafeInteger(value.review?.revision)||!Array.isArray(value.review.history)||value.review.history.length>100)throw Error('result');
@@ -285,15 +286,15 @@ async function prepareWorkspace(event){
  event.preventDefault();if(workBusy)return;const training=trainingState();if(!training?.setup){workNotice('Complete setup before preparing your first request.',true);return;}if(!workAdvanced()&&($('request-context').value||$('request-task').value||$('request-purpose').value==='public-source-review')){workNotice('Review a saved answer to unlock context and task links.',true);return;}if(!$('request-title').value.trim()||!$('request-text').value.trim()){workNotice('Enter a title and a request.',true);return;}
  workBusy=true;workButtons();const generation=workGeneration;workDraftId=workDraftId??crypto.randomUUID();
  const body={requestId:workDraftId,taskId:$('request-task').value,title:$('request-title').value,requestText:$('request-text').value,context:$('request-context').value,purpose:$('request-purpose').value};
- try{const value=await workRequest('/workspace/drafts',body);if(generation!==workGeneration)return;workDraft=value.draft;workResult=null;workFresh=true;workSubmissionUnknown=false;workNavigate(workDraft.payload.eventId);renderWorkspaceDraft(workDraft);workNotice('Draft saved. No provider call has been made.');$('request-sheet-title').focus?.();await workLoadConfig();}
+ try{const value=await workRequest('/workspace/drafts',body);if(generation!==workGeneration)return;workDraft=value.draft;workResult=null;workFresh=true;workHandoff='';workNavigate(workDraft.payload.eventId);renderWorkspaceDraft(workDraft);workNotice('Draft saved. No provider call has been made.');$('request-sheet-title').focus?.();await workLoadConfig();}
  catch(e){if(generation===workGeneration&&authenticated)workNotice(e.code==='request_too_large'?'The combined input is too large. Shorten the request or context.':e.code==='draft_conflict'?'This draft ID already belongs to different input. Edit the brief and prepare a new draft.':'Draft saving was not confirmed. Review request again to recover the same draft; no provider call was made.',true);}
  finally{if(generation===workGeneration){workBusy=false;workButtons();workSchedule();}}
 }
 async function readWorkspaceRequest(){
  if(!authenticated||!workRef||workRead)return;const ref=workRef,generation=workGeneration,controller=new AbortController();workRead=controller;
  if(workResult?.ref!==ref){$('request-grade-score').value='';$('request-grade-note').value='';$('request-grade-details').open=false;}
- try{const v=await workRequest('/workspace/requests/'+ref,undefined,controller);if(generation!==workGeneration||ref!==workRef)return;const age=Date.now()-Date.parse(v.observedAt);workFresh=Number.isFinite(age)&&age>=-5000&&age<60000;workSubmissionUnknown=false;
-  if(v.draft){if(v.draft.payload?.eventId!==ref)throw Error('draft');workDraft=v.draft;workResult=null;renderWorkspaceDraft(workDraft);}else{const next=projectWorkspace(v,ref);if(workResult?.ref===ref&&workResult.result?.sha256===next.result?.sha256){if(workResult.review.revision>next.review.revision)next.review=workResult.review;if(workResult.grade&&next.grade&&workResult.grade.revision>next.grade.revision)next.grade=workResult.grade;}workResult=next;workDraft=null;renderWorkspaceResult(workResult);}workNotice(workFresh?'Saved status checked. No request was resubmitted.':'The observation time is stale or ahead of this browser. Refresh and check the host clock before approving or reviewing.',!workFresh);
+ try{const v=await workRequest('/workspace/requests/'+ref,undefined,controller);if(generation!==workGeneration||ref!==workRef)return;const age=Date.now()-Date.parse(v.observedAt);workFresh=Number.isFinite(age)&&age>=-5000&&age<60000;
+  if(v.draft){if(v.draft.payload?.eventId!==ref||workHandoff==='saved')throw Error('draft');workHandoff='';workDraft=v.draft;workResult=null;renderWorkspaceDraft(workDraft);}else{const next=projectWorkspace(v,ref);workHandoff='';if(workResult?.ref===ref&&workResult.result?.sha256===next.result?.sha256){if(workResult.review.revision>next.review.revision)next.review=workResult.review;if(workResult.grade&&next.grade&&workResult.grade.revision>next.grade.revision)next.grade=workResult.grade;}workResult=next;workDraft=null;renderWorkspaceResult(workResult);}workNotice(workFresh?'Saved status checked. No request was resubmitted.':'The observation time is stale or ahead of this browser. Refresh and check the host clock before approving or reviewing.',!workFresh);
  }catch(e){if(generation===workGeneration&&ref===workRef&&authenticated){workFresh=false;workNotice(e.status===404?'No request is available at this link for this owner.':'Current request status is unknown. The last observation is preserved. Checking status never resubmits work.',true);}}
  finally{if(workRead===controller)workRead=null;workButtons();workSchedule();}
 }
@@ -301,8 +302,8 @@ async function approveWorkspace(){
  if($('request-approve').disabled||!workDraft)return;const draft=workDraft,generation=workGeneration;workBusy=true;workButtons();
  try{await workLoadConfig();if(!workConfig?.ready)throw Error('unavailable');const proof=await workRequest('/workspace/approvals',{requestId:draft.payload.requestId});
   if(proof.ref!==draft.payload.eventId)throw Error('approval');if(!proof.existing){if(proof.draftSha256!==draft.draftSha256||!/^[A-Za-z0-9_-]{43}$/.test(proof.nonce??''))throw Error('approval');await workRequest('/workspace/requests',{requestId:draft.payload.requestId,nonce:proof.nonce,draftSha256:draft.draftSha256,approve:true});}
-  if(generation===workGeneration){$('request-state').textContent='Approval saved';$('request-next').textContent='Check saved status for this exact request.';await readWorkspaceRequest();if(workFresh)workNotice('Registered once. Following the saved request.');}
- }catch{if(generation===workGeneration&&authenticated){workSubmissionUnknown=true;workFresh=false;$('request-state').textContent='Handoff unconfirmed';$('request-next').textContent='Check saved status for this exact request.';workNotice('Submission was not confirmed. Check saved status to recover this exact request. No retry or replacement was sent.',true);}}
+  if(generation===workGeneration){workHandoff='saved';renderWorkHandoff();await readWorkspaceRequest();if(workFresh)workNotice('Registered once. Following the saved request.');}
+ }catch{if(generation===workGeneration&&authenticated){workHandoff='unknown';workFresh=false;renderWorkHandoff();workNotice('Submission was not confirmed. Check saved status to recover this exact request. No retry or replacement was sent.',true);}}
  finally{if(generation===workGeneration){workBusy=false;workButtons();workSchedule();}}
 }
 function editWorkspace(){
