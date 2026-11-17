@@ -44,8 +44,13 @@ the private owner workspace and exact-request approval remain protected.
 
 ## Reuse and scope
 
-- `build-assets.mjs` derives CSS, insignia and SVG star planes from the current
-  exported `CONSOLE_HTML`. It does not copy its API or authentication scripts.
+- `build-assets.mjs` derives CSS and insignia from the current exported
+  `CONSOLE_HTML`. It does not copy its API or authentication scripts.
+- `starfield.mjs` builds 136 deterministic, irregular star positions on two SVG
+  depth planes. Grouped round points use CSS transform/opacity travel, without a
+  render loop, filters, WebGL or dependencies. Pause, hidden-tab and reduced-motion
+  handling apply to both planes. This is a marketing visual, not an experiment
+  activation or a change to a running relay.
 - The curvature calculation follows the same quadratic curve as the product.
 - Only landing behavior and setup content are new. Generated `console.css` and
   `console-parts.json` are rebuilt after upstream console changes.

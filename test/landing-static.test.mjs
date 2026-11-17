@@ -6,6 +6,23 @@ import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {buildLanding} from '../examples/landing/build-static.mjs';
 import {relayAddress} from '../examples/landing/setup-flow.mjs';
+import {landingStarfield} from '../examples/landing/starfield.mjs';
+
+test('marketing stars use bounded unique geometry on two inert depth planes',async()=>{
+ const scene=landingStarfield();
+ assert.equal(scene,landingStarfield());
+ assert.notEqual(scene,landingStarfield(7));
+ assert.equal((scene.match(/<svg /g)||[]).length,2);
+ assert.equal((scene.match(/<path /g)||[]).length,8);
+ // Halo paths reuse only their own bright-star positions; there are 136 stars.
+ const points=[...scene.matchAll(/M(\d+) (\d+)h0\.01/g)].map(m=>m[1]+','+m[2]);
+ assert.equal(new Set(points).size,136);
+ assert.ok(points.every(p=>p.split(',').every(n=>Number(n)>=12&&Number(n)<=988)));
+ assert.ok(Buffer.byteLength(scene)<4000);
+ assert.ok(!/<(?:script|image|filter|animate)|\bon\w+=|\bstyle=/.test(scene));
+ const parts=JSON.parse(await readFile(new URL('../examples/landing/console-parts.json',import.meta.url),'utf8'));
+ assert.equal(parts.scene,scene,'regenerate the checked-in preview geometry with build-assets.mjs');
+});
 
 test('public landing contains only browser files and works under a repository subpath',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'picard-public-landing-'));

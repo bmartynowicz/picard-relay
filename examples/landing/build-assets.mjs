@@ -1,10 +1,11 @@
 // Build from the actual console, without its authentication or API scripts.
 import fs from 'node:fs';
 import {CONSOLE_HTML} from '../../experimental/runtime-control/src/oracle-service.mjs';
+import {landingStarfield} from './starfield.mjs';
 
 const styles=[...CONSOLE_HTML.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(match=>match[1]).join('\n');
 const mark=CONSOLE_HTML.match(/<span class="logo rank-logo"[\s\S]*?<\/svg><\/span>/)?.[0];
-const scene=CONSOLE_HTML.match(/<div id="space-scene"[\s\S]*?<\/div>/)?.[0];
+const scene=landingStarfield();
 if(!styles||!mark||!scene)throw Error('console_assets_missing');
 fs.writeFileSync(new URL('./console.css',import.meta.url),styles+'\n');
 fs.writeFileSync(new URL('./console-parts.json',import.meta.url),JSON.stringify({mark,scene})+'\n');
