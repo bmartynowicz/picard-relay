@@ -55,3 +55,11 @@ html,body{margin:0;min-height:100%;background:#070d17}
 
 /* Same brass geometry as the cockpit; setup remains one readable panel. */
 .launch-path{list-style:none;padding:0;display:grid;gap:18px;margin:24px 0 30px}.launch-path li{display:flex;gap:16px;align-items:start}.launch-path li>span{font:12px ui-monospace,monospace;color:#dec387;border-top:1px solid #dec38766;padding-top:5px}.launch-path strong,.launch-path small{display:block}.launch-path small{color:#a8b1b8;margin-top:3px;font-size:13px}.launch-oracle{display:inline-block;text-decoration:none}.launch-details{margin:22px 0}.launch-details summary{cursor:pointer;color:#dec387}.launch-details p{font-size:14px}
+
+/* Separate depth, irregular geometry, no tiles, filters or per-frame JavaScript. */
+.landing-console .space-scene{background:radial-gradient(ellipse at 12% 72%,#24465e30,transparent 58%),radial-gradient(ellipse at 88% 24%,#4a2c4420,transparent 49%),#070d17}
+.landing-console[data-cockpit=true] .space-plane-0{animation:landing-distant-stars 211s linear infinite;animation-delay:-86s;transform-origin:39% 44%}
+.landing-console[data-cockpit=true] .space-plane-1{animation:landing-near-stars 131s linear infinite;animation-delay:-48s;transform-origin:43% 48%}
+@keyframes landing-distant-stars{0%{transform:scale(.88) translate3d(8px,-5px,0);opacity:0}12%{opacity:.85}85%{opacity:.85}100%{transform:scale(1.24) translate3d(-8px,5px,0);opacity:0}}
+@keyframes landing-near-stars{0%{transform:scale(.62) translate3d(14px,-9px,0);opacity:0}15%{opacity:1}78%{opacity:1}100%{transform:scale(1.7) translate3d(-14px,9px,0);opacity:0}}
+.landing-console[data-motion=off] .space-plane{animation-play-state:paused;will-change:auto}

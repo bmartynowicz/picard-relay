@@ -3,16 +3,16 @@
   "sourceSha": "83601db6c9fda85113e41fb85343fd45d4e794d2",
   "files": {
     "index.html": {
-      "bytes": 22689,
-      "sha256": "3a1293f0d7b0fd74e6d2c949d018af794e770668b91166d7e8a9d769cb4ae9e8"
+      "bytes": 23548,
+      "sha256": "9f99f6db387c9dcdc3365137f6a95fe32dfed3bdffa5f271fcbe18fc09a1b475"
     },
     "console.css": {
       "bytes": 49399,
       "sha256": "e49e9ad109457f85b1f0298166f1bc2dcd1b8eba55c777f51250b453a158fd28"
     },
     "landing.css": {
-      "bytes": 11644,
-      "sha256": "d1aac9d0df80df5970542ce3ce9a92477b3aaf13840dcb1d68104e0d0f579358"
+      "bytes": 12662,
+      "sha256": "879c97644f57fc17a86b6b0a9eced4560a2691be21de56d4e108ea1efa24393b"
     },
     "landing.js": {
       "bytes": 6827,
@@ -59,6 +59,15 @@
         "index.html"
       ],
       "scope": "Static contributor acknowledgement and HTML newline normalization only; existing Oracle bundles and all other published assets retained."
+    },
+    {
+      "sourceSha": "c3c1889e42e9dfd0fe1ac4dc781600e8a533e3c9",
+      "pullRequest": 186,
+      "files": [
+        "index.html",
+        "landing.css"
+      ],
+      "scope": "Marketing star geometry and CSS depth travel only; existing copy, scripts, Oracle launch URL and setup bundles retained."
     }
   ]
 }
