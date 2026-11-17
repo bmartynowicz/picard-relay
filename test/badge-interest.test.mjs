@@ -5,6 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {workspaceFixture,fixtureOrigin} from './fixtures/workspace-fixture.mjs';
 import {createBadgeInterestHandler} from '../experimental/runtime-control/src/admission-handler.mjs';
 import {createRuntimeAdmissionHandlers} from '../experimental/runtime-control/src/admission-runtime.mjs';
+import {createAdmissionStore} from '../experimental/runtime-control/src/admission-store.mjs';
 
 async function fixture(){
  const f=await workspaceFixture({realMarkers:false});
@@ -73,13 +74,13 @@ test('count capacity is finite and existing vote receipts remain readable at cap
 });
 
 test('production composition keeps badge interest opt-in and private endpoints authenticated',{skip:process.platform!=='linux'},async()=>{
- const x=await fixture();try{
-  const options={workspaceEnabled:true,badgeInterestEnabled:true,proxyConfigured:true,publicOrigin:'https://public.example',auth:{authenticate:async()=>false},store:x.f.store,binding:x.f.binding,origins:[fixtureOrigin],now:x.f.now,loadPolicy:()=>x.f.policy,currentAvailability:x.f.router.availability};
+ const x=await fixture(),store=createAdmissionStore({activationEnabled:true,dbPath:x.f.dbPath,relayStore:x.f.store.relay,now:x.f.now});try{
+  const options={workspaceEnabled:true,badgeInterestEnabled:true,proxyConfigured:true,publicOrigin:'https://public.example',auth:{authenticate:async()=>false},store,binding:x.f.binding,origins:[fixtureOrigin],now:x.f.now,loadPolicy:()=>x.f.policy,currentAvailability:x.f.router.availability};
   const on=createRuntimeAdmissionHandlers(options),off=createRuntimeAdmissionHandlers({...options,badgeInterestEnabled:false});
   async function call(h,url){const req=Readable.from([]);Object.assign(req,{url,method:'GET',socket:{remoteAddress:'127.0.0.1'},headers:{host:'fixture.invalid',origin:'https://public.example'}});const res={writeHead(s){this.status=s;},end(b){this.body=JSON.parse(b);}};return {handled:await h(req,res),...res};}
   assert.equal((await call(on,'/public/badge-interest')).status,200);
   assert.equal((await call(off,'/public/badge-interest')).handled,false);
   assert.equal((await call(on,'/workspace/config')).status,401);
   assert.equal(x.f.calls,0);
- }finally{x.f.close();}
+ }finally{store.close();x.f.close();}
 });
