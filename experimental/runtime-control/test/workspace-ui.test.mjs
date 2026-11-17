@@ -8,9 +8,10 @@ import {admissionConsoleHtml} from '../src/admission-ui.mjs';
 const html=admissionConsoleHtml(CONSOLE_HTML,{activationEnabled:true,workspaceEnabled:true}),script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1];
 test('the complete workspace fits the production console document limit',()=>{
  assert.doesNotThrow(()=>createConsoleHandler({enabled:true,html}));
+ assert.doesNotThrow(()=>createConsoleHandler({enabled:true,html:admissionConsoleHtml(CONSOLE_HTML,{activationEnabled:true,workspaceEnabled:true,publicTestEnabled:true})}));
 });
 const flush=()=>new Promise(r=>setImmediate(r));
-async function harness(t,{configTransform=value=>value,beforeBoot=async()=>{},initialHash='#requests',configDelayMs=0,storage}={}){
+async function harness(t,{configTransform=value=>value,approvalTransform=value=>value,beforeBoot=async()=>{},initialHash='#requests',configDelayMs=0,storage}={}){
  const f=await workspaceFixture({realMarkers:false});t.after(()=>f.close());const created=[],downloads=[],urls=new Map(),listeners={},windowListeners={},mediaListeners={},timers=new Map();let timerId=0,signedIn=true,failReads=false,holdRead=null,heldResultResponse=null;
  const element=(tag='div')=>{const n={tag,children:[],attrs:{},offsetWidth:100,removeAttribute(k){delete this.attrs[k]},hasAttribute(k){return k in this.attrs},style:{setProperty(){},getPropertyValue(){return ''}},getBoundingClientRect(){return {left:0,top:0,width:1200,height:100,bottom:100};},dataset:{},listeners:{},value:'',hidden:true,disabled:false,_text:'',get textContent(){return this._text+this.children.map(x=>x.textContent).join('');},set textContent(v){this._text=String(v);this.children=[];},classList:{toggle(){}},setAttribute(k,v){this.attrs[k]=String(v);},addEventListener(k,fn){this.listeners[k]=fn;},append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this._text='';this.children=nodes;},focus(){},remove(){},click(){if(this.tag==='a')downloads.push({name:this.download,url:this.href});else return this.listeners.click?.();},animate(){return {cancel(){}};}};created.push(n);return n;};
  const els=new Map([...html.matchAll(/id="([^"]+)"/g)].map(([,id])=>[id,element()]));
@@ -30,7 +31,7 @@ async function harness(t,{configTransform=value=>value,beforeBoot=async()=>{},in
   if(url.startsWith('/workspace/requests/')&&holdRead)await holdRead;
   if(options.signal?.aborted)throw Error('aborted');
   if(failReads&&options.method==='GET'&&url.startsWith('/workspace/requests/'))throw Error('synthetic_read_failure');
-  const r=await f.request(url,{method:options.method,body:options.body===undefined?undefined:JSON.parse(options.body)});if(options.method==='GET'&&url.startsWith('/workspace/requests/')&&heldResultResponse){const held=heldResultResponse;heldResultResponse=null;held.captured();await held.gate;}return response(r.status,url==='/workspace/config'?configTransform(r.body):r.body);
+  const r=await f.request(url,{method:options.method,body:options.body===undefined?undefined:JSON.parse(options.body)});if(options.method==='GET'&&url.startsWith('/workspace/requests/')&&heldResultResponse){const held=heldResultResponse;heldResultResponse=null;held.captured();await held.gate;}return response(r.status,url==='/workspace/config'?configTransform(r.body):url==='/workspace/approvals'?approvalTransform(r.body):r.body);
  };
  const context=vm.createContext({ResizeObserver:class{observe(){}},getComputedStyle:()=>({getPropertyValue:()=>''}),document,window,localStorage:storage,TextEncoder,AbortController,Date,queueMicrotask,crypto:{randomUUID},Blob,URL:{createObjectURL:b=>{const id='blob:'+randomUUID();urls.set(id,b);return id;},revokeObjectURL:id=>urls.delete(id)},navigator:{clipboard:{writeText:async text=>{context.copied=text;}}},setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id),fetch});
  await beforeBoot(f);
@@ -202,6 +203,35 @@ test('material future observation keeps saved text readable but disables review'
 });
 test('uncertain submission response offers status recovery without automatic replacement',async t=>{
  const h=await harness(t);await h.brief();const original=h.context.workspaceTest.draft;h.f.loseResponse();await h.click('request-approve');assert.equal(h.get('request-approve').disabled,true);assert.match(h.get('request-notice').textContent,/Submission was not confirmed/);h.f.loseResponse(false);await h.click('request-check');assert.equal(h.context.workspaceTest.ref,original.payload.eventId);assert.equal(h.context.workspaceTest.result.state,'queued');assert.equal(h.f.calls,0);await h.f.dispatcher.runOnce();assert.equal(h.f.calls,1);
+});
+
+test('a lost handoff response clears the ready-for-approval label and only reads the original request',async t=>{
+ const h=await harness(t);await h.brief();const ref=h.context.workspaceTest.ref;h.f.loseResponse();await h.click('request-approve');
+ assert.equal(h.get('request-state').textContent,'Handoff unconfirmed');assert.match(h.get('request-next').textContent,/Check saved status/);assert.equal(h.get('request-approve').disabled,true);
+ const posts=h.calls.filter(c=>c.method==='POST').length;await h.click('request-approve');h.f.loseResponse(false);await h.click('request-check');await h.click('request-check');
+ assert.equal(h.calls.filter(c=>c.method==='POST').length,posts);assert.equal(h.context.workspaceTest.ref,ref);assert.equal(h.f.calls,0);assert.equal(h.get('request-state').textContent,'Approval saved · queued');assert.match(h.get('request-next').textContent,/Provider not started/);
+});
+
+test('a confirmed registration and failed status read retain approval evidence without claiming execution',async t=>{
+ const h=await harness(t);await h.brief();const ref=h.context.workspaceTest.ref;h.setFailReads(true);await h.click('request-approve');
+ assert.equal(h.get('request-state').textContent,'Approval saved');assert.match(h.get('request-next').textContent,/Check saved status/);assert.match(h.get('request-notice').textContent,/status is unknown/);assert.equal(h.get('request-approve').disabled,true);assert.equal(h.f.calls,0);
+ h.setFailReads(false);await h.click('request-check');assert.equal(h.context.workspaceTest.ref,ref);assert.equal(h.get('request-state').textContent,'Approval saved · queued');
+});
+
+test('claim, invocation boundary and uncertainty remain distinct without a recovery call',async t=>{
+ const h=await harness(t);await h.brief();await h.click('request-approve');const ref=h.context.workspaceTest.ref;
+ const claim=h.f.router.claimNext({workerId:'recovery-ui-fixture',claimTtlMs:1000});await h.click('request-check');
+ assert.equal(h.get('request-state').textContent,'Preparing');assert.match(h.get('request-next').textContent,/handoff is not confirmed/);assert.equal(h.f.calls,0);
+ h.f.store.relay.startInvocation({requestId:ref,workerId:'recovery-ui-fixture',attempt:claim.attempt});await h.click('request-check');
+ assert.equal(h.get('request-state').textContent,'Running');assert.match(h.get('request-next').textContent,/remote acceptance is not confirmed/);
+ h.f.advance(1001);await h.f.dispatcher.runOnce();await h.click('request-check');
+ assert.equal(h.get('request-state').textContent,'Outcome unknown');assert.match(h.get('request-next').textContent,/do not resend/);const posts=h.calls.filter(c=>c.method==='POST').length;await h.click('request-check');await h.click('request-approve');
+ assert.equal(h.calls.filter(c=>c.method==='POST').length,posts);assert.equal(h.context.workspaceTest.ref,ref);assert.equal(h.f.calls,0);
+});
+
+test('an existing-approval response for a different identity cannot claim saved approval or submit',async t=>{
+ const h=await harness(t,{approvalTransform:value=>({...value,existing:true,ref:'f'.repeat(64)})});await h.brief();const ref=h.context.workspaceTest.ref;await h.click('request-approve');
+ assert.equal(h.get('request-state').textContent,'Handoff unconfirmed');assert.equal(h.calls.filter(c=>c.url==='/workspace/requests'&&c.method==='POST').length,0);assert.equal(h.context.workspaceTest.ref,ref);assert.equal(h.f.calls,0);
 });
 
 test('reviewed bootstrap waits for delayed configuration completion instead of event-loop ticks',async t=>{

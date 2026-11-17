@@ -32,6 +32,31 @@ layout. Rotating or resizing keeps the current request and answer open.
 
 ![Choose new work or recover a saved result](images/using-picard.svg)
 
+## Follow an interrupted handoff
+
+Requests separates saved approval from execution progress:
+
+| Reading | Recorded evidence and next step |
+| --- | --- |
+| Approval saved | Registration was confirmed, but its latest status could not be read. Check saved status; execution is not confirmed. |
+| Approval saved · queued | The original request is durably queued; its provider invocation has not started in this observation. |
+| Preparing | A relay worker has claimed it. Provider handoff is not confirmed. |
+| Running | The invocation boundary is recorded. This does not prove remote acceptance. |
+| Handoff unconfirmed | The browser did not receive confirmation. Use **Check saved status** for the same request. |
+| Outcome unknown | The request is spent. Check its saved status or ask the operator; do not resend it. |
+
+The observation timestamp remains separate. A failed read preserves the last
+saved answer and disables actions that need fresh evidence. Checking status
+does not create an approval, replacement request or provider call. A completed
+answer remains readable when new execution is blocked. Failed requests are not
+automatically retryable.
+
+For synthetic browser qualification, run `node examples/recovery-preview.mjs`
+and open its printed `/fixtures` address. This uses a disposable local ledger,
+including an uncertain boundary and a retained answer. To reproduce a lost
+registration response, set `PICARD_RECOVERY_SCENARIO=lost-response` first. The
+preview never contacts a provider, resumes uncertain work or changes a live relay.
+
 ## Measure Codex usage
 
 **Overview → Savings** records completed Codex turns once the connection is

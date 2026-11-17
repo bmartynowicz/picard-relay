@@ -114,6 +114,7 @@ const WORKSPACE_MARKUP=String.raw`<section id="view-requests" aria-labelledby="h
 </article>
 </section>`;
 
+// Trim generated-code indentation to retain the fixed console/preview byte cap.
 const WORKSPACE_SCRIPT=()=>String.raw`
 const workspaceCorrection=${JSON.stringify(REVIEWED_REGRESSION_RESULT)};
 const workRanks=${JSON.stringify(WORK_RANKS)};
@@ -247,13 +248,13 @@ function projectWorkspace(value,ref){
  const grade=value.grade;if(grade!==undefined&&grade!==null&&(!Number.isSafeInteger(grade?.revision)||grade.revision<0||grade.revision>100||!Array.isArray(grade.history)||grade.history.length!==grade.revision||grade.history.some((g,i)=>g.ref!==ref||g.revision!==i+1||!Number.isInteger(g.score)||g.score<1||g.score>5||typeof g.note!=='string'||g.note.length>500||!['owner','client'].includes(g.reviewer?.kind)||g.reviewer.kind==='client'&&typeof g.reviewer.keyId!=='string'||g.resultSha256!==value.result?.sha256||!Number.isSafeInteger(g.recordedAt))||JSON.stringify(grade.latest)!==JSON.stringify(grade.history.at(-1)??null)))throw Error('grade');
  return {...value,grade:grade??null};
 }
-const workNextActions={queued:'Queued. You can leave this page and return to the same request.',claimed:'The relay has claimed this request. Following its recorded progress.',invoking:'The provider call is in progress. Checking status will not send another call.',completed:'Ready for your review.',uncertain:'The provider outcome is uncertain. This request is spent and will not be retried. Preserve this record for operator review.',failed:'This request failed and is spent. Inspect the recorded reason before deciding on any new work.',blocked:'This request is blocked. Check the recorded reason and provider availability.',cancelled:'This request was cancelled. No replacement request has been created.'};
+const workNextActions={queued:['Approval saved · queued','Provider not started. Follow this saved request.'],claimed:['Preparing','Claimed by the relay; provider handoff is not confirmed.'],invoking:['Running','Handoff recorded; remote acceptance is not confirmed. Check saved status, never resend.'],completed:['Completed','Ready for your review.'],uncertain:['Outcome unknown','This request is spent. Check saved status or ask your operator; do not resend.'],failed:['Failed','This request failed and is spent. Review the reason; no automatic retry.'],blocked:['Blocked','New execution is blocked. Check the reason; saved answers remain readable.'],cancelled:['Cancelled','No replacement request was created.']};
 function renderWorkspaceResult(v){
  $('request-cost').hidden=true;
  if(workProgress&&workFresh&&v.resultAvailable){workProgress.saved=true;workProgress.setup=true;workProgress.reviewed=workProgress.reviewed||v.review.revision>0;if(!workProgress.reviewed)workProgress.reviewRef=v.ref;}
  renderTraining();
- workShowSheet();workSteps(v.state==='completed'?'result':'run');$('request-state').textContent=v.state==='completed'?'Completed · '+(v.review.latest?.decision==='accepted'?'accepted':v.review.latest?.decision==='changes_requested'?'changes requested':'awaiting your review'):v.state==='uncertain'?'Needs operator review':v.state;
- $('request-sheet-title').textContent=v.request.title;$('request-next').textContent=workNextActions[v.state]+(v.state==='failed'||v.state==='blocked'?' '+(reasons[v.reasonCode]||'Recorded reason unavailable.'):'');$('request-observed').textContent='Observed '+formatTime(Date.parse(v.observedAt));$('request-exact-text').textContent=v.request.text;$('request-exact-context').textContent=v.request.context;$('request-exact-context-wrap').hidden=!v.request.context;$('request-approve').hidden=true;$('request-edit').hidden=true;
+ workShowSheet();workSteps(v.state==='completed'?'result':'run');$('request-state').textContent=v.state==='completed'?'Completed · '+(v.review.latest?.decision==='accepted'?'accepted':v.review.latest?.decision==='changes_requested'?'changes requested':'awaiting your review'):workNextActions[v.state][0];
+ $('request-sheet-title').textContent=v.request.title;$('request-next').textContent=workNextActions[v.state][1]+(v.state==='failed'||v.state==='blocked'?' '+(reasons[v.reasonCode]||'Recorded reason unavailable.'):'');$('request-observed').textContent='Observed '+formatTime(Date.parse(v.observedAt));$('request-exact-text').textContent=v.request.text;$('request-exact-context').textContent=v.request.context;$('request-exact-context-wrap').hidden=!v.request.context;$('request-approve').hidden=true;$('request-edit').hidden=true;
  $('request-limits').replaceChildren();for(const [k,val]of [['Provider',v.provenance.model],['Calls','1'],['Output ceiling',v.provenance.maxOutputTokens+' tokens'],['Source',v.provenance.source]])workPair($('request-limits'),k,val);
  const providerUsage=v.provenance?.providerUsage;
  const usageText=providerUsage&&[providerUsage.inputTokens,providerUsage.outputTokens,providerUsage.totalTokens].every(n=>Number.isSafeInteger(n)&&n>=0)&&providerUsage.inputTokens+providerUsage.outputTokens===providerUsage.totalTokens
@@ -299,9 +300,9 @@ async function readWorkspaceRequest(){
 async function approveWorkspace(){
  if($('request-approve').disabled||!workDraft)return;const draft=workDraft,generation=workGeneration;workBusy=true;workButtons();
  try{await workLoadConfig();if(!workConfig?.ready)throw Error('unavailable');const proof=await workRequest('/workspace/approvals',{requestId:draft.payload.requestId});
-  if(!proof.existing){if(proof.ref!==draft.payload.eventId||proof.draftSha256!==draft.draftSha256||!/^[A-Za-z0-9_-]{43}$/.test(proof.nonce??''))throw Error('approval');await workRequest('/workspace/requests',{requestId:draft.payload.requestId,nonce:proof.nonce,draftSha256:draft.draftSha256,approve:true});}
-  if(generation===workGeneration){await readWorkspaceRequest();workNotice('Registered once. Following the saved request.');}
- }catch{if(generation===workGeneration&&authenticated){workSubmissionUnknown=true;workFresh=false;workNotice('Submission was not confirmed. Check saved status to recover this exact request. No retry or replacement was sent.',true);}}
+  if(proof.ref!==draft.payload.eventId)throw Error('approval');if(!proof.existing){if(proof.draftSha256!==draft.draftSha256||!/^[A-Za-z0-9_-]{43}$/.test(proof.nonce??''))throw Error('approval');await workRequest('/workspace/requests',{requestId:draft.payload.requestId,nonce:proof.nonce,draftSha256:draft.draftSha256,approve:true});}
+  if(generation===workGeneration){$('request-state').textContent='Approval saved';$('request-next').textContent='Check saved status for this exact request.';await readWorkspaceRequest();if(workFresh)workNotice('Registered once. Following the saved request.');}
+ }catch{if(generation===workGeneration&&authenticated){workSubmissionUnknown=true;workFresh=false;$('request-state').textContent='Handoff unconfirmed';$('request-next').textContent='Check saved status for this exact request.';workNotice('Submission was not confirmed. Check saved status to recover this exact request. No retry or replacement was sent.',true);}}
  finally{if(generation===workGeneration){workBusy=false;workButtons();workSchedule();}}
 }
 function editWorkspace(){
@@ -349,7 +350,7 @@ $('request-handoff').addEventListener('click',()=>{if(workResult?.resultAvailabl
 $('request-accept').addEventListener('click',()=>saveWorkspaceReview('accepted'));$('request-changes').addEventListener('click',()=>saveWorkspaceReview('changes_requested'));
 $('request-grade-score').addEventListener('change',workButtons);$('request-grade-save').addEventListener('click',saveWorkspaceGrade);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')stopWorkspacePoll();else if(authenticated&&activeView==='requests')void loadWorkspace();});
-`;
+`.replace(/^[ \t]+/gm,'');
 
 export const REVIEWED_REGRESSION_RESULT=Object.freeze({"body":"[Groq / openai/gpt-oss-20b]\n**Regression‑test table**\n\n| Input (label, used, limit) | Expected output |\n|---|---|\n| (\"Name\", 5, 10) | \"5 characters remaining.\" |\n| (\"Title\", 11, 10) | \"Title: 1 characters over the limit.\" |\n| (\"\", 0, 10) | \"Check this field.\" |\n| (\"Description\", \"five\", 10) | \"Check this field.\" |\n\nAll outputs follow the specification: blank label, invalid number, boundary, and one over.","entryId":"board-form-limits","inputSha256":"4c6707ce9ec428b6ab064c3508493eb7648c3a89ab92ea15e20236bfd3313da5","ref":"4ad59fcf6c082664d8c175aafd974af48be313aa8d5e9aa6e8d0a85d1ae5d5f8"});
 
