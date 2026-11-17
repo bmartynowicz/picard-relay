@@ -3,8 +3,8 @@
   "sourceSha": "83601db6c9fda85113e41fb85343fd45d4e794d2",
   "files": {
     "index.html": {
-      "bytes": 22677,
-      "sha256": "c52a86185ce22215360762bbfd997189b5c7f7b23376b285b5125885187f4d8a"
+      "bytes": 22781,
+      "sha256": "217eb00765f16ee99d8c926dcff58b967cbeede484751deecf9c722e49fb7c8f"
     },
     "console.css": {
       "bytes": 49399,
@@ -50,5 +50,15 @@
       "bytes": 18220,
       "sha256": "477969d63cec1b79187de738e61b9d31b7e89a3c2d7e543855ed4c20cae2887f"
     }
-  }
+  },
+  "overrides": [
+    {
+      "sourceSha": "d2590a7dc8a66034bcb1b224d34971ac539d506d",
+      "pullRequest": 184,
+      "files": [
+        "index.html"
+      ],
+      "scope": "Static contributor acknowledgement only; existing Oracle bundles and all other published assets retained."
+    }
+  ]
 }
