@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import tempfile
 import time
@@ -23,6 +24,7 @@ source = pathlib.Path.cwd()
 IMAGE_URL = "https://yum.oracle.com/templates/OracleLinux/OL9/u8/x86_64/OL9U8_x86_64-kvm-b293.qcow2"
 IMAGE_SHA256 = "b12103391327abee8090686759c0d62dac9a7af2bf0f45fdf6b0d085a0fbb52b"
 vm = None
+resource_qualification = os.environ.get("PICARD_NATIVE_RESOURCE") == "true"
 
 
 def run(args, timeout=60, **kwargs):
@@ -36,6 +38,45 @@ ssh = ["ssh", "-i", str(state / "key"), "-p", "22666", "-o", "BatchMode=yes",
 
 def guest(command, timeout=60, **kwargs):
     return run(ssh + [command], timeout=timeout, **kwargs)
+
+
+def qualify_resources():
+    node = pathlib.Path(shutil.which("node")).resolve(strict=True)
+    assert node.stat().st_size <= 128 * 1024 * 1024
+    with node.open("rb") as stream:
+        node_digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    run(["scp", "-i", str(state / "key"), "-P", "22666", "-o", "BatchMode=yes",
+         "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=" + str(state / "known_hosts"),
+         str(node), "picard-ci@127.0.0.1:/home/picard-ci/qualification-node"], timeout=45)
+    actual = guest("sha256sum ~/qualification-node", text=True, capture_output=True).stdout.split()[0]
+    assert actual == node_digest, "Guest Node did not match the pinned runner binary"
+    guest("chmod 0700 ~/qualification-node")
+    disk = guest("df -B1 --output=size,avail /var/tmp | tail -n 1; findmnt -no FSTYPE -T /var/tmp",
+                 text=True, capture_output=True).stdout.split()
+    assert len(disk) == 3 and disk[2] not in ("tmpfs", "ramfs"), "Benchmark must use disk-backed files"
+    trials = []
+    for _ in range(3):
+        measured = guest(
+            "cd /workspace && sudo unshare --net -- runuser -u picard-ci -- env TMPDIR=/var/tmp "
+            "/home/picard-ci/qualification-node --jitless --max-old-space-size=96 "
+            "experimental/compute-broker/test/resource-qualification.mjs",
+            timeout=60, text=True, stdout=subprocess.PIPE,
+        )
+        report = json.loads(measured.stdout)
+        assert report["kind"] == "picard-resource-qualification-v1"
+        assert report["availableCpus"] == 1 and 896 <= report["memoryBytes"] / 1024**2 <= 1024
+        assert report["platform"] == "linux" and report["node"] == "v24.22.1"
+        assert [row["jobs"] for row in report["results"]] == [128, 128, 256]
+        assert all(row["attempts"] == row["jobs"] and row["maxQueued"] == 8 and row["retainedResult"]
+                   for row in report["results"])
+        trials.append(report)
+    revision = run(["git", "rev-parse", "HEAD"], text=True, capture_output=True).stdout.strip()
+    print("PICARD_RESOURCE_REPORT_V1 " + json.dumps({
+        "sourceSha": revision, "imageSha256": IMAGE_SHA256, "nodeSha256": node_digest,
+        "guestVcpus": 1, "guestRamMiB": 1024, "filesystem": disk[2], "volumeBytes": int(disk[0]),
+        "availableBytesBefore": int(disk[1]), "networkNamespace": "isolated", "selinux": "Enforcing",
+        "trials": trials,
+    }, separators=(",", ":")))
 
 
 try:
@@ -65,7 +106,7 @@ disable_root: true
     # The source image remains immutable; only this ephemeral overlay is written.
     run(["qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", str(image), str(state / "overlay.qcow2")])
     vm = subprocess.Popen([
-        "qemu-system-x86_64", "-accel", "kvm", "-cpu", "host", "-smp", "2", "-m", "1024",
+        "qemu-system-x86_64", "-accel", "kvm", "-cpu", "host", "-smp", "1" if resource_qualification else "2", "-m", "1024",
         "-machine", "q35", "-drive", "file=" + str(state / "overlay.qcow2") + ",if=virtio,format=qcow2",
         "-drive", "file=" + str(state / "seed.img") + ",if=virtio,format=raw,readonly=on",
         "-netdev", "user,id=n0,hostfwd=tcp:127.0.0.1:22666-:22", "-device", "virtio-net-pci,netdev=n0",
@@ -87,7 +128,8 @@ disable_root: true
     guest("test \"$(getenforce)\" = Enforcing && uname -r && systemd-detect-virt && cat /etc/oracle-release")
     # Log otherwise-suppressed denials in this disposable guest. This grants no
     # permissions and does not turn enforcement off.
-    guest("sudo semodule -DB && test \"$(getenforce)\" = Enforcing", timeout=90)
+    if not resource_qualification:
+        guest("sudo semodule -DB && test \"$(getenforce)\" = Enforcing", timeout=90)
     archive = state / "source.tar"
     with archive.open("wb") as stream:
         run(["git", "archive", "--format=tar", "HEAD"], stdout=stream)
@@ -95,6 +137,9 @@ disable_root: true
          "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=" + str(state / "known_hosts"),
          str(archive), "picard-ci@127.0.0.1:/tmp/picard-source.tar"], timeout=60)
     guest("sudo mkdir /workspace && sudo tar --no-same-owner -xf /tmp/picard-source.tar -C /workspace")
+    if resource_qualification:
+        qualify_resources()
+        raise SystemExit(0)  # The shared finally block stops the guest.
     browser=os.environ.get('PICARD_NATIVE_BROWSER')=='true'
     if browser:
         # Exercise the actual cloud-init prerequisite stage on the 1 GB guest,

@@ -9,7 +9,7 @@ export const TOKEN = 'test-token-never-a-secret';
 export const json = value => new Response(JSON.stringify(value), { status: 200 });
 
 export function setupGitHub(overrides = {}) {
-  const calls = [], p = provider(true), job = ciJob();
+  const calls = [], p = overrides.profile ?? provider(true), job = overrides.job ?? ciJob();
   const run = () => ({ id: 11, display_title: `picard-compute/${job.id}/${jobSha256(job)}`,
     head_sha: SOURCE, event: 'workflow_dispatch', path: EXECUTION_WORKFLOW, status: 'completed', conclusion: 'success', run_attempt: 1 });
   const jobs = () => ({ jobs: [{ id: 22, run_id: 11, run_attempt: 1, name: 'fixed-project-checks', labels: ['ubuntu-latest', 'X64'] }] });
@@ -31,8 +31,8 @@ export function setupGitHub(overrides = {}) {
   return { p, job, adapter, calls, run, jobs, output, fetchImpl };
 }
 
-export function setupOracle(patch = {}, handle) {
-  const calls = [], p = provider(), job = liveJob();
+export function setupOracle(patch = {}, handle, { profile = provider(), job = liveJob() } = {}) {
+  const calls = [], p = profile;
   const run = async (command, args, options) => { calls.push({ command, args, options });
     if (handle) { const result = await handle(command, args, options); if (result) return result; }
     return { code: 0, stdout: JSON.stringify(args.at(-1).includes('identity') ? {
