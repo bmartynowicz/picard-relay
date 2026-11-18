@@ -168,7 +168,12 @@ function openCodexUsage(db,owner){
      freshTokens:run.totalTokens-run.cachedInputTokens+fixes.reduce((sum,fix)=>sum+fix.totalTokens-fix.cachedInputTokens,0),
      followUpTokens,followUpCount:fixes.length,lastRecordedAt:fixes[0]?.recordedAt??run.recordedAt};
     const quality=qualityFor(run);if(quality)native.quality=quality;
-    const raw=workflowById.get(owner,run.comparisonId,run.variant)?.record;
+    const costTable=db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='relay_codex_cost_breakdowns'").get();
+  if(costTable){
+   const costRow=db.prepare('SELECT record FROM relay_codex_cost_breakdowns WHERE owner=? AND comparison_id=? ORDER BY rowid DESC LIMIT 1').get(owner,run.comparisonId);
+   if(costRow){const saved=JSON.parse(costRow.record),cost=saved.sides?.[run.variant];if(cost)native.costs={...cost,classificationComplete:true,source:'Audited immutable usage receipts; provider dollars separate.'};}
+  }
+  const raw=workflowById.get(owner,run.comparisonId,run.variant)?.record;
     if(!raw)return native;
     const scope=JSON.parse(raw),preps=scope.preparationIds.map(get),missing=[];
     const ids=new Set(all.map(row=>row.id));
@@ -207,6 +212,10 @@ function openCodexUsage(db,owner){
     const inOrder=run.variant==='assisted'||baseline?.recordedAt>=run.recordedAt;
     const baselineTokens=baseline&&inOrder&&baseline.model===run.model&&baseline.effort===run.effort?baseline.totalTokens:null;
     const comparison=baselineTokens===null?null:{id:comparisonId,baseline:totals(baseline),assisted:totals(run)};
+    if(comparison){
+     for(const side of [comparison.baseline,comparison.assisted])if(!side.costs)side.costs={modelCredits:null,setupCredits:null,coordinationCredits:null,fullCredits:side.workflow?.complete?side.workflow.codexCredits:null,classificationComplete:false,source:'Detailed classification unavailable; missing categories are not zero.'};
+     comparison.savingsEligible=comparison.baseline.quality?.finalQualified===true&&comparison.assisted.quality?.finalQualified===true&&comparison.baseline.workflow?.complete===true&&comparison.assisted.workflow?.complete===true;
+    }
     return {...run,baselineTokens,
      baselineFreshTokens:baselineTokens===null?null:baselineTokens-baseline.cachedInputTokens,
      savedTokens:baselineTokens===null?null:baselineTokens-run.totalTokens,
@@ -219,15 +228,16 @@ function openCodexUsage(db,owner){
   // Keep the recent rows and the wider rolling window on one SQLite snapshot.
   db.exec('BEGIN');
   try{
-   const projected=project(),eligible=[],excluded={legacy:0,incomplete:0,unpriced:0};
+   const projected=project(),eligible=[],excluded={legacy:0,incomplete:0,unpriced:0,quality:0};
    for(const row of projected){
     const pair=row.comparison;
     if(!pair)continue;
     const b=pair.baseline.workflow,a=pair.assisted.workflow;
     if(!b&&!a){excluded.legacy++;continue;}
     if(!b?.complete||!a?.complete){excluded.incomplete++;continue;}
+    if(!pair.savingsEligible){excluded.quality++;continue;}
     if(!Number.isFinite(b.codexCredits)||b.codexCredits<=0||!Number.isFinite(a.codexCredits)||a.codexCredits<0){excluded.unpriced++;continue;}
-    eligible.push({baseline:b.codexCredits,assisted:a.codexCredits,recordedAt:Math.max(pair.baseline.lastRecordedAt,pair.assisted.lastRecordedAt)});
+    eligible.push({baseline:pair.baseline.costs.fullCredits,assisted:pair.assisted.costs.fullCredits,recordedAt:Math.max(pair.baseline.lastRecordedAt,pair.assisted.lastRecordedAt)});
    }
    const selected=eligible.slice(0,20),sampleCount=selected.length;
    const sum=key=>selected.reduce((n,row)=>n+row[key],0);
@@ -237,7 +247,7 @@ function openCodexUsage(db,owner){
     savedPercent:sampleCount?savedCredits/baselineCredits*100:null,
     increasedCount:selected.filter(row=>row.assisted>row.baseline).length,
     fromRecordedAt:sampleCount?selected.at(-1).recordedAt:null,toRecordedAt:sampleCount?selected[0].recordedAt:null,excluded};
-   db.exec('COMMIT');return {runs:projected.slice(0,12),rolling};
+   db.exec('COMMIT');return {runs:projected.slice(0,12),comparisons:projected.filter(row=>row.comparison).slice(0,20).map(row=>row.comparison),rolling};
   }catch(error){db.exec('ROLLBACK');throw error;}
  }
  return {

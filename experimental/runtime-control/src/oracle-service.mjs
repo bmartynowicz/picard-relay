@@ -396,67 +396,67 @@ const feedback=part=>$('feedback-'+part);
 const feedbackIssueUrl='https://github.com/bmartynowicz/picard-relay/issues/new';
 let feedbackRevision=0;
 function clearFeedbackPreview(){
- feedbackRevision++;
- feedback('draft').value='';
- feedback('github').removeAttribute('href');
- feedback('github').textContent='Review on GitHub ↗';
- feedback('preview').hidden=true;
- feedback('note').textContent='';
+feedbackRevision++;
+feedback('draft').value='';
+feedback('github').removeAttribute('href');
+feedback('github').textContent='Review on GitHub ↗';
+feedback('preview').hidden=true;
+feedback('note').textContent='';
 }
 function resetFeedback(){
- feedback('title').value=feedback('details').value='';
- clearFeedbackPreview();
+feedback('title').value=feedback('details').value='';
+clearFeedbackPreview();
 }
 function openFeedback(kind){
- if(!authenticated||feedback('dialog').open)return;
- resetFeedback();
- feedback('kind').value=kind;
- $('console-tools').querySelector?.('summary')?.focus();
- $('console-tools').open=false;
- feedback('dialog').showModal();
+if(!authenticated||feedback('dialog').open)return;
+resetFeedback();
+feedback('kind').value=kind;
+$('console-tools').querySelector?.('summary')?.focus();
+$('console-tools').open=false;
+feedback('dialog').showModal();
 }
 feedback('open').addEventListener('click',()=>openFeedback('feature'));
 $('console-surface').addEventListener('contextmenu',e=>{
- if(!authenticated||!cockpit)return;
- if(!['console-surface','cockpit-glass','hud-instruments'].some(id=>e.target===$(id)))return;
- e.preventDefault();
- openFeedback('bug');
+if(!authenticated||!cockpit)return;
+if(!['console-surface','cockpit-glass','hud-instruments'].some(id=>e.target===$(id)))return;
+e.preventDefault();
+openFeedback('bug');
 });
 feedback('close').addEventListener('click',()=>feedback('dialog').close());
 feedback('dialog').addEventListener('close',resetFeedback);
 feedback('form').addEventListener('input',clearFeedbackPreview);
 feedback('form').addEventListener('submit',e=>{
- e.preventDefault();
- clearFeedbackPreview();
- if(!authenticated)return;
- const title=feedback('title').value.trim(),details=feedback('details').value.trim();
- if(!title||title.length>120){feedback('note').textContent='Enter a title (1–120 characters).';return;}
- if(!details||details.length>2400){feedback('note').textContent='Enter a description (1–2400 characters).';return;}
- const issueTitle=(feedback('kind').value==='bug'?'Bug: ':'Feature: ')+title;
- let url;
- try{url=feedbackIssueUrl+'?title='+encodeURIComponent(issueTitle)+'&body='+encodeURIComponent(details);}
- catch{feedback('note').textContent='Remove invalid characters from the title or details.';return;}
- // Bound the encoded URL, not the character count; never shorten the report.
- if(url.length>8000){
-  url=feedbackIssueUrl;
-  feedback('github').textContent='Open blank GitHub form ↗';
-  feedback('note').textContent='Too long to prefill. Copy the draft, then paste its first line as the GitHub title and the rest as the description.';
- }
- feedback('draft').value=issueTitle+'\n\n'+details;
- feedback('github').setAttribute('href',url);
- feedback('preview').hidden=false;
- feedback('github').focus?.();
+e.preventDefault();
+clearFeedbackPreview();
+if(!authenticated)return;
+const title=feedback('title').value.trim(),details=feedback('details').value.trim();
+if(!title||title.length>120){feedback('note').textContent='Enter a title (1–120 characters).';return;}
+if(!details||details.length>2400){feedback('note').textContent='Enter a description (1–2400 characters).';return;}
+const issueTitle=(feedback('kind').value==='bug'?'Bug: ':'Feature: ')+title;
+let url;
+try{url=feedbackIssueUrl+'?title='+encodeURIComponent(issueTitle)+'&body='+encodeURIComponent(details);}
+catch{feedback('note').textContent='Remove invalid characters from the title or details.';return;}
+// Bound the encoded URL, not the character count; never shorten the report.
+if(url.length>8000){
+url=feedbackIssueUrl;
+feedback('github').textContent='Open blank GitHub form ↗';
+feedback('note').textContent='Too long to prefill. Copy the draft, then paste its first line as the GitHub title and the rest as the description.';
+}
+feedback('draft').value=issueTitle+'\n\n'+details;
+feedback('github').setAttribute('href',url);
+feedback('preview').hidden=false;
+feedback('github').focus?.();
 });
 feedback('github').addEventListener('click',e=>{
- if(!authenticated||!feedback('draft').value||feedback('preview').hidden)e.preventDefault();
+if(!authenticated||!feedback('draft').value||feedback('preview').hidden)e.preventDefault();
 });
 feedback('copy').addEventListener('click',async()=>{
- const draft=feedback('draft').value,revision=feedbackRevision;
- if(!draft||!authenticated)return;
- let message='Draft copied.';
- try{await navigator.clipboard.writeText(draft);}
- catch{message='Select the draft and copy it manually.';}
- if(authenticated&&revision===feedbackRevision)feedback('note').textContent=message;
+const draft=feedback('draft').value,revision=feedbackRevision;
+if(!draft||!authenticated)return;
+let message='Draft copied.';
+try{await navigator.clipboard.writeText(draft);}
+catch{message='Select the draft and copy it manually.';}
+if(authenticated&&revision===feedbackRevision)feedback('note').textContent=message;
 });
 `;
 
@@ -696,138 +696,10 @@ const DISPLAY_RAIL=`<div class="display-rail" role="group" aria-label="Display">
 <div class="display-effects"><label id="stealth-settings" for="stealth-auto">Auto stealth<select id="stealth-auto"><option value="0">Off</option><option value="2">Tab hidden</option><option value="4">5 min idle</option><option value="6">Hidden or idle</option></select></label>
 <button id="stars-toggle" type="button" aria-pressed="true" hidden>Stars</button>${MOTION_CONTROL.replace(' class="motion"','')}</div></div>`;
 
-const SAVINGS_STYLE=String.raw`
-#codex-savings{margin:0 0 26px;padding:18px 0;border-bottom:1px solid var(--line)}
-#codex-savings-headline{display:block;margin:6px 0 1px;font-size:clamp(20px,4vw,30px);line-height:1.2;color:var(--accent)}
-#codex-savings-note{margin:5px 0 11px}
-#codex-savings>details summary{min-height:44px;padding:12px 0;cursor:pointer}
-#codex-savings-runs details{border-top:1px solid var(--line);padding:7px 0;overflow-wrap:anywhere}
-#codex-savings-runs summary{cursor:pointer;padding:4px 0;font-size:13px}
-#codex-savings-runs p{margin:4px 0 4px 14px}
-#codex-savings-comparisons article{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
-#codex-savings-comparisons h3{margin:0 0 8px;font-size:14px}
-#codex-savings-comparisons summary{min-height:44px;padding:12px 0;cursor:pointer}
-.savings-sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.savings-sides p{margin:2px 0;font-size:13px}
-.savings-sides strong{display:block;font-size:clamp(15px,3vw,20px)}
+const SAVINGS_STYLE=String.raw`#codex-savings{margin:0 0 26px;padding:18px 0;border-bottom:1px solid var(--line)}#codex-savings-headline{display:block;margin:6px 0 1px;font-size:clamp(20px,4vw,30px);line-height:1.2;color:var(--accent)}#codex-savings-note{margin:5px 0 11px}#codex-savings>details summary{min-height:44px;padding:12px 0;cursor:pointer}#codex-savings-runs details{border-top:1px solid var(--line);padding:7px 0;overflow-wrap:anywhere}#codex-savings-runs summary{cursor:pointer;padding:4px 0;font-size:13px}#codex-savings-runs p{margin:4px 0 4px 14px}#codex-savings-comparisons article{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}#codex-savings-comparisons h3{margin:0 0 8px;font-size:14px}#codex-savings-comparisons summary{min-height:44px;padding:12px 0;cursor:pointer}.savings-sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.savings-sides p{margin:2px 0;font-size:13px}.savings-sides strong{display:block;font-size:clamp(15px,3vw,20px)}
 `;
-const SAVINGS_PANEL='<section id="codex-savings" aria-labelledby="codex-savings-title"><h2 id="codex-savings-title">Savings</h2><strong id="codex-savings-headline">Rolling savings not yet measured</strong><p class="muted" id="codex-savings-note">Connect Codex to record usage as you work.</p><p id="codex-savings-coverage" class="muted"></p><details><summary>How rolling savings is measured</summary><p>Latest 20 complete, comparable tasks, ordered by their latest recorded activity. Savings is calculated from combined Codex credit totals, so larger tasks carry more weight. Preparation, finishing and linked fixes count. Tasks where Picard uses more credits stay included. Picard provider tokens are tracked separately. These are estimates, not a reading of your subscription allowance or billed cost.</p></details><div id="codex-savings-comparisons" aria-label="Codex comparisons"></div><div id="codex-savings-runs" aria-label="Recent Codex runs"></div></section>';
-const SAVINGS_CLIENT=String.raw`
-let lastCodexUsage='';
-function renderCodexSavings(usage){
- const signature=JSON.stringify(usage??null);
- if(signature===lastCodexUsage)return;
- lastCodexUsage=signature;
- const list=$('codex-savings-runs');
- const comparisons=$('codex-savings-comparisons');
- list.replaceChildren();
- comparisons.replaceChildren();
- const runs=Array.isArray(usage?.runs)?usage.runs:[];
- const pairs=runs.flatMap(run=>run.comparison?[run.comparison]:[]);
- const rolling=usage?.rolling;
- const full=pair=>pair?.baseline.workflow?.complete&&pair?.assisted.workflow?.complete;
- const scoped=pair=>pair?.baseline.workflow||pair?.assisted.workflow;
- const fullCredits=pair=>({baseline:{standardCredits:pair.baseline.workflow.codexCredits},assisted:{standardCredits:pair.assisted.workflow.codexCredits}});
- const number=value=>value.toLocaleString();
- const credits=value=>value.toLocaleString(undefined,{minimumFractionDigits:4,maximumFractionDigits:4});
- const hasCredits=pair=>[pair.baseline.standardCredits,pair.assisted.standardCredits].every(value=>typeof value==='number'&&Number.isFinite(value));
- const headline=$('codex-savings-headline');
- const note=$('codex-savings-note');
- const element=(tag,text='',className='')=>{
-  const node=document.createElement(tag);node.textContent=text;node.className=className;return node;
- };
- const usageChange=({baseline,assisted})=>{
-  const saved=baseline.totalTokens-assisted.totalTokens;
-  const difference=(Math.abs(saved)*100/baseline.totalTokens).toLocaleString(undefined,{maximumFractionDigits:1});
-  return saved===0?'Same total Codex tokens':difference+'% '+(saved>0?'fewer':'more')+' total Codex tokens';
- };
- const creditChange=pair=>{
-  const saved=pair.baseline.standardCredits-pair.assisted.standardCredits;
-  if(pair.baseline.standardCredits===0)return 'Estimated Standard credits: compare totals below';
-  const difference=(Math.abs(saved)*100/pair.baseline.standardCredits).toLocaleString(undefined,{maximumFractionDigits:1});
-  return saved===0?'Same estimated Standard credits':difference+'% '+(saved>0?'fewer':'more')+' estimated Standard credits';
- };
- const measured=Number.isSafeInteger(rolling?.sampleCount)&&rolling.sampleCount>0&&Number.isFinite(rolling.savedPercent);
- if(measured){
-  const percent=Math.abs(rolling.savedPercent).toLocaleString(undefined,{maximumFractionDigits:1});
-  headline.textContent=rolling.savedCredits===0?'No change in estimated Codex credits':percent+'% '+(rolling.savedCredits>0?'estimated Codex credits saved':'more estimated Codex credits used');
-  note.textContent='Latest '+rolling.sampleCount+' complete '+(rolling.sampleCount===1?'comparison':'comparisons')+' · '+credits(rolling.baselineCredits)+' credits on its own · '+credits(rolling.assistedCredits)+' with Picard. Preparation and fixes included.';
- }else{
-  headline.textContent='Rolling savings not yet measured';
-  note.textContent=usage?.state==='unavailable'?'Usage records are temporarily unavailable.':usage?.state==='ready'?'Waiting for a complete comparison with recorded preparation, Picard usage and Codex credit estimates.':'Connect Codex to record usage as you work.';
- }
- const excluded=rolling?.excluded;
- $('codex-savings-coverage').textContent=excluded&&excluded.legacy+excluded.incomplete+excluded.unpriced>0
-  ?'Outside the rolling average: '+excluded.legacy+' finishing-only, '+excluded.incomplete+' incomplete and '+excluded.unpriced+' without a usable credit estimate. These comparisons stay in the records.'
-  :'';
- for(const pair of pairs){
-  const article=element('article');
-  const sides=element('div','','savings-sides');
-  article.append(element('h3',pair.id),sides);
-  if(!scoped(pair))article.append(element('p',hasCredits(pair)?creditChange(pair):'Credit estimate unavailable','muted'),element('p',usageChange(pair),'muted'));
-  if(scoped(pair)){
-   article.append(element('p',full(pair)?'Full recorded workflow: preparation, Picard calls, finishing and linked fixes.':'Workflow incomplete: missing usage is not counted as zero.','muted'));
-   if(full(pair)&&hasCredits(fullCredits(pair)))article.append(element('p','Whole-workflow Codex estimate: '+creditChange(fullCredits(pair)),'muted'));
-  }else article.append(element('p','Legacy comparison: finishing and fixes only. Preparation and Picard usage unavailable.','muted'));
-  for(const [label,side] of [['Codex alone',pair.baseline],['With Picard',pair.assisted]]){
-   const cell=element('div');
-   cell.append(element('p',label));
-   const q=side.quality;
-   if(q){
-    const verdict=value=>value===true?'Passed':value===false?'Changes needed':'Unknown';
-    const detail=element('details');
-    const status=q.finalQualified===true?(q.firstPassPassed===true?'Passed first review':'Passed after corrections'):verdict(q.finalQualified);
-    detail.append(element('summary','Quality: '+status));
-    if(q.providerModel)detail.append(element('p',q.providerModel));
-    detail.append(element('p','First review: '+verdict(q.firstPassPassed)+' · Final review: '+verdict(q.finalQualified)));
-    for(const [name,investment]of [['Repairs',q.repairs],['Repair checks',q.rechecks]])detail.append(element('p',name+': '+investment.turns+(investment.turns===1?' turn':' turns')+' · '+(investment.complete?number(investment.tokens)+' Codex tokens':'receipts unavailable')+(typeof investment.estimatedCredits==='number'?' · '+credits(investment.estimatedCredits)+' estimated credits':'')));
-    detail.append(element('p',q.source+' Human repair time is not measured.','muted'));cell.append(detail);
-   }
-   if(side.workflow){
-    const w=side.workflow,breakdown=element('details');
-    cell.append(element('strong',w.complete?number(w.totalTokens)+' tokens across providers':number(w.knownTokens)+' known tokens · incomplete'));
-    cell.append(element('p',number(w.codexTokens)+' Codex tokens · '+(typeof w.codexCredits==='number'?credits(w.codexCredits)+' estimated Standard credits':'credit estimate unavailable')));
-    breakdown.append(element('summary','Usage breakdown'),
-     element('p','Preparation: '+number(w.preparationTokens)+' Codex tokens across '+w.preparationCount+' recorded '+(w.preparationCount===1?'step':'steps')),
-     element('p','Picard: '+w.picardCalls+(w.picardCalls===1?' call':' calls')+' · '+(w.picardTokens===null?'usage unavailable':number(w.picardTokens)+' provider tokens')),
-     element('p','Finishing: '+number(w.finishingTokens)+' Codex tokens'),
-     element('p','Fixes: '+number(w.followUpTokens)+' Codex tokens across '+w.followUpCount+' turns'),
-     element('p','Provider billed cost unavailable. Codex credits apply only to Codex. Subscription allowance and human time are not measured.','muted'));
-    if(w.missing.length)breakdown.append(element('p','Missing usage: '+w.missing.join(', '),'muted'));
-    cell.append(breakdown);sides.append(cell);continue;
-   }
-   cell.append(element('strong',number(side.totalTokens)+' tokens'),
-    element('p',number(side.freshTokens)+' fresh input + output','muted'));
-   if(typeof side.standardCredits==='number')cell.append(element('p',credits(side.standardCredits)+' estimated Standard credits'));
-   if(Number.isSafeInteger(side.cachedInputTokens))cell.append(element('p',number(side.inputTokens-side.cachedInputTokens)+' uncached input · '+number(side.cachedInputTokens)+' cached · '+number(side.outputTokens)+' output','muted'));
-   if(side.followUpCount){
-    const count=side.followUpCount;
-    cell.append(element('p','Includes '+number(side.followUpTokens)+' tokens across '+count+' follow-up '+(count===1?'turn':'turns'),'muted'));
-   }else if(side.followUpCount===0)cell.append(element('p','Follow-up fixes: 0 turns · 0 tokens','muted'));
-   sides.append(cell);
-  }
-  if(hasCredits(pair)){
-   const cacheDelta=(pair.assisted.workflow?.cachedInputTokens??pair.assisted.cachedInputTokens)-(pair.baseline.workflow?.cachedInputTokens??pair.baseline.cachedInputTokens);
-   article.append(element('p',cacheDelta?'Cache reuse: '+number(Math.abs(cacheDelta))+' '+(cacheDelta>0?'more':'fewer')+' cached input tokens with Picard. Different cache reuse affects the credit comparison.':'Same cached input on both sides.','muted'));
-   const basis=element('details');
-   basis.append(element('summary','How credits are estimated'),element('p','Estimate uses GPT-6.1 Sol Standard rates dated 11 Nov 2026: 50 uncached / 2.5 cached / 250 output credits per million tokens. Whole-workflow Codex totals include recorded preparation and linked fixes. Picard provider tokens are a separate measured total with no Codex-credit conversion. Legacy comparisons cover finishing and fixes only. Speed, billed cost, human time and included subscription allowance are not measured. Shared preparation is allocated once to each independent alternative, never twice within a side.','muted'));
-   article.append(basis);
-  }
-  comparisons.append(article);
- }
- for(const run of runs){
-  const detail=element('details');
-  const label=run.variant==='baseline'?'Comparison baseline':run.tools.length?'With Picard':'Codex run';
-  detail.append(element('summary',label+' · '+number(run.totalTokens)+' tokens · '+new Date(run.recordedAt).toLocaleString()));
-  const row=text=>detail.append(element('p',text,'muted'));
-  row(run.model+' · '+number(run.inputTokens)+' input ('+number(run.cachedInputTokens)+' cached) · '+number(run.outputTokens)+' output');
-  if(run.tools.length)row('Picard tools used · '+run.tools.join(', '));
-  if(run.comparisonId)row('Comparison · '+run.comparisonId);
-  if(run.followUpTo)row('Follows Codex run · '+run.followUpTo);
-  else if(!run.comparison&&run.variant!=='baseline')row('Savings not yet measured');
-  list.append(detail);
- }
-}
+const SAVINGS_PANEL='<section id="codex-savings" aria-labelledby="codex-savings-title"><h2 id="codex-savings-title">Savings</h2><strong id="codex-savings-headline">Rolling savings not yet measured</strong><p class="muted" id="codex-savings-note">Connect Codex to record usage as you work.</p><p id="codex-savings-coverage" class="muted"></p><details><summary>How rolling savings is measured</summary><p>Latest 20 complete comparisons where both final quality reviews pass. Weighted by full Codex totals, including setup, coordination and repairs. Cost increases stay included. Provider tokens are separate; billed costs and subscription allowance are unknown.</p></details><div id="codex-savings-comparisons" aria-label="Codex comparisons"></div><div id="codex-savings-runs" aria-label="Recent Codex runs"></div></section>';
+const SAVINGS_CLIENT=String.raw`let lastCodexUsage='';function renderCodexSavings(usage){const signature=JSON.stringify(usage??null);if(signature===lastCodexUsage)return;lastCodexUsage=signature;const list=$('codex-savings-runs');const comparisons=$('codex-savings-comparisons');list.replaceChildren();comparisons.replaceChildren();const runs=Array.isArray(usage?.runs)?usage.runs:[];const pairs=Array.isArray(usage?.comparisons)?usage.comparisons:runs.flatMap(run=>run.comparison?[run.comparison]:[]);const rolling=usage?.rolling;const full=pair=>pair?.baseline.workflow?.complete&&pair?.assisted.workflow?.complete;const scoped=pair=>pair?.baseline.workflow||pair?.assisted.workflow;const fullCredits=pair=>({baseline:{standardCredits:pair.baseline.costs?.fullCredits??pair.baseline.workflow.codexCredits},assisted:{standardCredits:pair.assisted.costs?.fullCredits??pair.assisted.workflow.codexCredits}});const number=value=>value.toLocaleString();const credits=value=>value.toLocaleString(undefined,{minimumFractionDigits:4,maximumFractionDigits:4});const hasCredits=pair=>[pair.baseline.standardCredits,pair.assisted.standardCredits].every(value=>typeof value==='number'&&Number.isFinite(value));const headline=$('codex-savings-headline');const note=$('codex-savings-note');const element=(tag,text='',className='')=>{const node=document.createElement(tag);node.textContent=text;node.className=className;return node;};const usageChange=({baseline,assisted})=>{const saved=baseline.totalTokens-assisted.totalTokens;const difference=(Math.abs(saved)*100/baseline.totalTokens).toLocaleString(undefined,{maximumFractionDigits:1});return saved===0?'Same total Codex tokens':difference+'% '+(saved>0?'fewer':'more')+' total Codex tokens';};const creditChange=pair=>{const saved=pair.baseline.standardCredits-pair.assisted.standardCredits;if(pair.baseline.standardCredits===0)return 'Estimated Standard credits: compare totals below';const difference=(Math.abs(saved)*100/pair.baseline.standardCredits).toLocaleString(undefined,{maximumFractionDigits:1});return saved===0?'Same estimated Standard credits':difference+'% '+(saved>0?'fewer':'more')+' estimated Standard credits';};const measured=Number.isSafeInteger(rolling?.sampleCount)&&rolling.sampleCount>0&&Number.isFinite(rolling.savedPercent);if(measured){const percent=Math.abs(rolling.savedPercent).toLocaleString(undefined,{maximumFractionDigits:1});headline.textContent=rolling.savedCredits===0?'No change in estimated Codex credits':percent+'% '+(rolling.savedCredits>0?'estimated Codex credits saved':'more estimated Codex credits used');note.textContent='Latest '+rolling.sampleCount+' quality-qualified '+(rolling.sampleCount===1?'comparison':'comparisons')+' · '+credits(rolling.baselineCredits)+' credits on its own · '+credits(rolling.assistedCredits)+' with Picard. Preparation and fixes included.';}else{headline.textContent='Rolling savings not yet measured';note.textContent=usage?.state==='unavailable'?'Usage records are temporarily unavailable.':usage?.state==='ready'?'Waiting for a complete comparison with recorded preparation, Picard usage and Codex credit estimates.':'Connect Codex to record usage as you work.';}const excluded=rolling?.excluded;$('codex-savings-coverage').textContent=excluded&&excluded.legacy+excluded.incomplete+excluded.unpriced+(excluded.quality??0)>0?'Outside the rolling average: '+excluded.legacy+' finishing-only, '+excluded.incomplete+' incomplete and '+excluded.unpriced+' without a usable credit estimate, '+(excluded.quality??0)+' failing or missing final quality. These comparisons stay in the records.':'';for(const pair of pairs){const article=element('article');const sides=element('div','','savings-sides');article.append(element('h3',pair.id),sides);if(!pair.savingsEligible)article.append(element('p','Savings excluded: both runs must pass final quality and have complete accounting.','muted'));if(pair.savingsEligible&&!scoped(pair))article.append(element('p',hasCredits(pair)?creditChange(pair):'Credit estimate unavailable','muted'),element('p',usageChange(pair),'muted'));if(scoped(pair)){article.append(element('p',full(pair)?'Full totals retain overhead. Provider dollars unknown.':'Incomplete usage; missing costs are not zero.','muted'));if(pair.savingsEligible&&full(pair)&&hasCredits(fullCredits(pair)))article.append(element('p','Whole-workflow Codex estimate: '+creditChange(fullCredits(pair)),'muted'));}else article.append(element('p','Legacy comparison: finishing and fixes only. Preparation and Picard usage unavailable.','muted'));for(const [label,side] of [['Codex alone',pair.baseline],['With Picard',pair.assisted]]){const cell=element('div');cell.append(element('p',label));const cost=side.costs;const amount=value=>typeof value==='number'&&Number.isFinite(value)?credits(value)+' estimated Codex credits':'Not classified';if(cost){cell.append(element('p','Task-model work: '+amount(cost.modelCredits)),element('p','Setup: '+amount(cost.setupCredits)),element('p','Coordination and reporting: '+amount(cost.coordinationCredits)),element('strong','Full recorded total: '+amount(cost.fullCredits)));if(!cost.classificationComplete)cell.append(element('p','Unclassified costs are not zero.','muted'));}const q=side.quality;if(q){const verdict=value=>value===true?'Passed':value===false?'Changes needed':'Unknown';const detail=element('details');const status=q.finalQualified===true?(q.firstPassPassed===true?'Passed first review':'Passed after corrections'):verdict(q.finalQualified);detail.append(element('summary','Quality: '+status));if(q.providerModel)detail.append(element('p',q.providerModel));detail.append(element('p','First review: '+verdict(q.firstPassPassed)+' · Final review: '+verdict(q.finalQualified)));for(const [name,investment]of [['Repairs',q.repairs],['Repair checks',q.rechecks]])detail.append(element('p',name+': '+investment.turns+(investment.turns===1?' turn':' turns')+' · '+(investment.complete?number(investment.tokens)+' Codex tokens':'receipts unavailable')+(typeof investment.estimatedCredits==='number'?' · '+credits(investment.estimatedCredits)+' estimated credits':'')));detail.append(element('p',q.source+' Human repair time is not measured.','muted'));cell.append(detail);}if(side.workflow){const w=side.workflow,breakdown=element('details');cell.append(element('strong',w.complete?number(w.totalTokens)+' tokens across providers':number(w.knownTokens)+' known tokens · incomplete'));cell.append(element('p',number(w.codexTokens)+' Codex tokens · '+(typeof w.codexCredits==='number'?credits(w.codexCredits)+' estimated Standard credits in scoped task receipts':'credit estimate unavailable')));breakdown.append(element('summary','Usage breakdown'),element('p','Preparation: '+number(w.preparationTokens)+' Codex tokens across '+w.preparationCount+' recorded '+(w.preparationCount===1?'step':'steps')),element('p','Picard: '+w.picardCalls+(w.picardCalls===1?' call':' calls')+' · '+(w.picardTokens===null?'usage unavailable':number(w.picardTokens)+' provider tokens')),element('p','Finishing: '+number(w.finishingTokens)+' Codex tokens'),element('p','Fixes: '+number(w.followUpTokens)+' Codex tokens across '+w.followUpCount+' turns'),element('p','Provider billed cost unavailable. Codex credits apply only to Codex. Subscription allowance and human time are not measured.','muted'));if(w.missing.length)breakdown.append(element('p','Missing usage: '+w.missing.join(', '),'muted'));cell.append(breakdown);sides.append(cell);continue;}cell.append(element('strong',number(side.totalTokens)+' tokens'),element('p',number(side.freshTokens)+' fresh input + output','muted'));if(typeof side.standardCredits==='number')cell.append(element('p',credits(side.standardCredits)+' estimated Standard credits'));if(Number.isSafeInteger(side.cachedInputTokens))cell.append(element('p',number(side.inputTokens-side.cachedInputTokens)+' uncached input · '+number(side.cachedInputTokens)+' cached · '+number(side.outputTokens)+' output','muted'));if(side.followUpCount){const count=side.followUpCount;cell.append(element('p','Includes '+number(side.followUpTokens)+' tokens across '+count+' follow-up '+(count===1?'turn':'turns'),'muted'));}else if(side.followUpCount===0)cell.append(element('p','Follow-up fixes: 0 turns · 0 tokens','muted'));sides.append(cell);}if(hasCredits(pair)){const cacheDelta=(pair.assisted.workflow?.cachedInputTokens??pair.assisted.cachedInputTokens)-(pair.baseline.workflow?.cachedInputTokens??pair.baseline.cachedInputTokens);article.append(element('p',cacheDelta?'Cache reuse: '+number(Math.abs(cacheDelta))+' '+(cacheDelta>0?'more':'fewer')+' cached input tokens with Picard. Different cache reuse affects the credit comparison.':'Same cached input on both sides.','muted'));const basis=element('details');basis.append(element('summary','How credits are estimated'),element('p','Estimated GPT-6.1 Sol Standard credits: 50 uncached / 2.5 cached / 250 output per million tokens. Full totals retain all categories; shared setup once per alternative. Provider dollars, subscription allowance and human time are unknown.','muted'));article.append(basis);}comparisons.append(article);}for(const run of runs){const detail=element('details');const label=run.variant==='baseline'?'Comparison baseline':run.tools.length?'With Picard':'Codex run';detail.append(element('summary',label+' · '+number(run.totalTokens)+' tokens · '+new Date(run.recordedAt).toLocaleString()));const row=text=>detail.append(element('p',text,'muted'));row(run.model+' · '+number(run.inputTokens)+' input ('+number(run.cachedInputTokens)+' cached) · '+number(run.outputTokens)+' output');if(run.tools.length)row('Picard tools used · '+run.tools.join(', '));if(run.comparisonId)row('Comparison · '+run.comparisonId);if(run.followUpTo)row('Follows Codex run · '+run.followUpTo);else if(!run.comparison&&run.variant!=='baseline')row('Savings not yet measured');list.append(detail);}}
 `;
 
 const CONSOLE_BASE_HTML=CONSOLE_SHELL_HTML
