@@ -9,6 +9,7 @@ import {decodeInvocationError,encodeInvocationError} from './adapters.mjs';
 
 const PREFIX='picard-admission:v1:';
 const ASSOCIATION_EXPIRY=Number.MAX_SAFE_INTEGER;
+export const BADGE_INTEREST_LIMIT=4096;
 export const PUBLIC_TEST_REQUEST='Turn these notes into three next actions: check relay health, write a useful task, and reopen the saved answer.';
 export const PUBLIC_TEST_CONTEXT=Object.freeze({title:'Public relay trial',nextAction:'',latestFinding:'Public demonstration. Reply with three short numbered actions only. No tools, links or code execution.'});
 export const PUBLIC_TEST_INPUT_SHA=createHash('sha256').update(canonical({requestText:PUBLIC_TEST_REQUEST,taskContext:PUBLIC_TEST_CONTEXT})).digest('hex');
@@ -49,6 +50,26 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
  const get=id=>db.prepare('SELECT * FROM relay_jobs WHERE event_id=?').get(id)??null;
  const transaction=fn=>{db.exec('BEGIN IMMEDIATE');try{const result=fn();beforeCommit();db.exec('COMMIT');return result;}catch(e){try{db.exec('ROLLBACK');}catch{}throw e;}};
  const clock=()=>{const at=now();if(!integer(at))stop('clock_invalid');return at;};
+ function badgeScope(ownerId){
+  if(typeof ownerId!=='string'||!ownerId||ownerId.length>200)stop('badge_interest_unavailable');
+  return PREFIX+'badge-interest:'+admissionHash(canonical([ownerId,'badge-interest-v1']))+':';
+ }
+ function badgeInterestState(ownerId,voteId=null){
+  const prefix=badgeScope(ownerId),s=db.prepare("SELECT COUNT(*) AS n,COALESCE(SUM(expires<>? OR LENGTH(nonce)<>? OR SUBSTR(nonce,?) GLOB '*[^0-9a-f]*'),0) AS bad FROM relay_nonces WHERE nonce GLOB ?").get(ASSOCIATION_EXPIRY,prefix.length+64,prefix.length+1,prefix+'*');
+  if(!integer(s.n)||s.n>BADGE_INTEREST_LIMIT||s.bad)stop('badge_interest_unavailable');
+  if(voteId!==null&&!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(voteId))stop('request_invalid');
+  return {v:1,count:s.n,accepting:s.n<BADGE_INTEREST_LIMIT,voted:voteId!==null&&!!db.prepare('SELECT 1 FROM relay_nonces WHERE nonce=?').get(prefix+admissionHash(voteId))};
+ }
+ function saveBadgeInterest(ownerId,voteId){
+  if(typeof voteId!=='string')stop('request_invalid');
+  return transaction(()=>{
+   const prior=badgeInterestState(ownerId,voteId);
+   if(prior.voted)return {...prior,duplicate:true};
+   if(!prior.accepting)stop('badge_interest_full');
+   db.prepare('INSERT INTO relay_nonces VALUES(?,?)').run(badgeScope(ownerId)+admissionHash(voteId),ASSOCIATION_EXPIRY);
+   return {...prior,count:prior.count+1,accepting:prior.count+1<BADGE_INTEREST_LIMIT,voted:true,duplicate:false};
+  });
+ }
  function decode(row){try{const at=row.nonce.lastIndexOf(':');const value=JSON.parse(Buffer.from(row.nonce.slice(at+1),'base64url').toString('utf8'));if(canonical(value)!==Buffer.from(row.nonce.slice(at+1),'base64url').toString('utf8'))stop('approval_record_invalid');return value;}catch{stop('approval_record_invalid');}}
  function key(scope,nonceHash,record){return PREFIX+'challenge:'+scope+':'+nonceHash+':'+Buffer.from(canonical(record)).toString('base64url');}
  function challengeRow(scope,nonceHash){
@@ -581,6 +602,7 @@ function createStore({dbPath,now=Date.now,randomNonce=()=>randomBytes(32).toStri
  }
  return Object.freeze({localTestOnly,mayInvoke:false,get,recordAttempt,issue,inspect,commit,commitSignedBridge,commitReusableBoard,getReusableBoard,getWorkspaceWork,readHistoricalWork,commitWorkspace,publicTestState,publicTestBatchSpec,activatePublicTest,disablePublicTest,getPublicTestWork,publicTestReceipt,publicTestActive,publicTestUncertain,commitPublicTest,createWorkspaceClient,listWorkspaceClients,workspaceClient,authenticateWorkspaceClient,revokeWorkspaceClient,saveWorkspaceDraft,getWorkspaceDraft,getWorkspaceDraftByRef,workspaceReview,workspaceReviewedRef,workspaceReviewedRefs,workspaceCompletedRefs,workspaceProgressVersion,saveWorkspaceReview,workspaceGrade,saveWorkspaceGrade,listReusableBoard,commitReusableFixture,relay,isApproved,grantSeenElsewhere,legacyAdmissionReady,hasEnrollmentUncertainty,pendingGrantAssociated,reconcileEligible,claimEligible,
   resumePublicTest,publicTestReady,publicTestCanRefill,
+  badgeInterestState,saveBadgeInterest,
   close(){db.close();if(!relayStore)relay.close();},
  });
 }

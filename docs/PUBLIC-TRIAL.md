@@ -102,3 +102,40 @@ still requires the existing verified Free enrollment; the implementation has no
 paid fallback. Keep this public feature disabled if the account's Free status
 cannot be verified. A synthetic CI pass does not establish live activation or
 successful model output. Report those checks separately.
+
+## Anonymous badge interest
+
+The separate marketing **Badge** panel offers one anonymous interest signal per
+saved browser token. It is not a preorder, contact form, verified person count or
+promise of hardware availability. No name, email, address, IP address or provider
+input is retained by this feature. A UUID is generated only after the visitor
+chooses to vote; the website remembers it locally and the relay retains only its
+hash in a separate permanent ledger namespace. Proxy logging is an independent
+host setting. Clearing browser storage or using another browser can vote again;
+this is best-effort deduplication, not bot-proof voting.
+
+This API is off unless `BRIDGE_BADGE_INTEREST_ENABLED=true`. It uses the existing
+`BRIDGE_PUBLIC_TEST_ORIGIN` and `BRIDGE_PUBLIC_TEST_PROXY=caddy-overwrite-v1`
+boundary, with exact public Origin and relay Host checks, loopback proxy access,
+and no cookie or Authorization header. It does not enable or consume the public
+AI trial. No provider, dispatcher, grant or request row is created.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /public/badge-interest` | Aggregate count and whether new votes are accepted |
+| `POST /public/badge-interest` | Exact `{voteId}` UUIDv4; atomically save once |
+| `POST /public/badge-interest/status` | Exact `{voteId}`; read the existing vote without adding one |
+
+Bodies are limited to 128 bytes. New votes share a durable ten-per-minute bound;
+all route operations share a sixty-per-minute in-process bound. At 4,096 retained
+signals new votes stop, while existing receipts remain readable. No automatic
+reset, refill, identifier rotation, IP fingerprinting or execution fallback is
+provided. A lost acknowledgement offers a status check using the original token.
+Browser storage must work before a vote is sent.
+
+For release, qualify the backend and preserved records first, explicitly enable
+the flag on the intended public host, and verify its aggregate read without
+inflating the real count. Publish the website assets only after that succeeds.
+Keep fixture votes isolated from the production ledger. The badge preview is a
+CSS concept, not an image of shipped hardware; its module and materials load only
+when the visitor opens Badge. Pause, hidden-tab and reduced-motion handling apply.

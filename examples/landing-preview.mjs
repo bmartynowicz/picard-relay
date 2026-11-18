@@ -10,6 +10,8 @@ const files=new Map([
  ['/setup-flow.mjs',[new URL('./landing/setup-flow.mjs',import.meta.url),'text/javascript; charset=utf-8']],
  ['/learning-guide.mjs',[new URL('./landing/learning-guide.mjs',import.meta.url),'text/javascript; charset=utf-8']],
  ['/public-test.mjs',[new URL('./landing/public-test.mjs',import.meta.url),'text/javascript; charset=utf-8']],
+ ['/badge-interest.mjs',[new URL('./landing/badge-interest.mjs',import.meta.url),'text/javascript; charset=utf-8']],
+ ['/badge-interest.css',[new URL('./landing/badge-interest.css',import.meta.url),'text/css; charset=utf-8']],
  ['/console.css',[new URL('./landing/console.css',import.meta.url),'text/css; charset=utf-8']],
  ['/mark.svg',[new URL('./landing/mark.svg',import.meta.url),'image/svg+xml']],
 ]);

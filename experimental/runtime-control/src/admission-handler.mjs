@@ -14,6 +14,38 @@ const headers={'Cache-Control':'no-store, private','Pragma':'no-cache','Content-
 const routes=new Map([['/request-catalogue','GET'],['/request-approvals','POST'],['/requests','POST']]);
 const failureStatuses={auth_failed:401,request_invalid:400,request_too_large:413,admission_rate_limited:429,approval_invalid:409,approval_expired:409,approval_record_invalid:409,existing_record_invalid:409,scope_revoked:409,admission_blocked:503};
 
+// Anonymous interest only: no prompt, provider, job, cookie or contact fields.
+export function createBadgeInterestHandler({enabled=false,proxyConfigured=false,store,binding,origins=[],publicOrigin='',now=Date.now}={}){
+ if(enabled!==true)return async()=>false;
+ if(proxyConfigured!==true||!store||!binding?.ownerId||!origins.length||!/^https:\/\/[a-z0-9.-]+(?::[0-9]+)?$/.test(publicOrigin))stop('badge_interest_configuration_invalid');
+ const hosts=new Set(origins.map(o=>new URL(o).host)),scope=admissionHash(canonical([binding.ownerId,'badge-interest-rate']));
+ const h={...headers,'Cache-Control':'no-store','Cross-Origin-Resource-Policy':'cross-origin','Access-Control-Allow-Origin':publicOrigin,'Vary':'Origin'};
+ let windowAt=0,reads=0;
+ return async(req,res)=>{
+  if(!['/public/badge-interest','/public/badge-interest/status'].includes(req.url))return false;
+  const reply=(status,value)=>{res.writeHead(status,h);res.end(JSON.stringify(value));return true;};
+  try{
+   if(!hosts.has(req.headers.host)||req.headers.origin!==publicOrigin||req.headers.cookie!==undefined||req.headers.authorization!==undefined||!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket?.remoteAddress))stop('auth_failed');
+   const at=now();if(!Number.isSafeInteger(at)||at<windowAt)stop('badge_interest_unavailable');
+   if(at-windowAt>=60000){windowAt=at;reads=0;}if(++reads>60)stop('admission_rate_limited');
+   if(req.method==='OPTIONS'){
+    if(req.headers['access-control-request-method']!=='POST'||String(req.headers['access-control-request-headers']??'').toLowerCase()!=='content-type')stop('auth_failed');
+    res.writeHead(204,{...h,'Access-Control-Allow-Methods':'POST','Access-Control-Allow-Headers':'Content-Type','Access-Control-Max-Age':'300'});res.end();return true;
+   }
+   if(req.method==='GET'&&req.url==='/public/badge-interest')return reply(200,store.badgeInterestState(binding.ownerId));
+   if(req.method!=='POST')return reply(405,{error:'method_not_allowed'});
+   if(!/^application\/json(?:;\s*charset=utf-8)?$/i.test(req.headers['content-type']??''))stop('request_invalid');
+   const chunks=[];let size=0;for await(const chunk of req){size+=Buffer.byteLength(chunk);if(size>128)stop('request_too_large');chunks.push(Buffer.from(chunk));}
+   let b;try{b=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));}catch{stop('request_invalid');}
+   if(!exact(b,['voteId'])||typeof b.voteId!=='string')stop('request_invalid');
+   const prior=store.badgeInterestState(binding.ownerId,b.voteId);
+   if(req.url.endsWith('/status')||prior.voted)return reply(200,prior);
+   store.recordAttempt(scope);
+   return reply(201,store.saveBadgeInterest(binding.ownerId,b.voteId));
+  }catch(e){const statuses={auth_failed:401,request_invalid:400,request_too_large:413,admission_rate_limited:429,badge_interest_full:503};return reply(statuses[e?.code]??503,{error:Object.hasOwn(statuses,e?.code)?e.code:'badge_interest_unavailable'});}
+ };
+}
+
 // Dedicated public route: no bearer token, owner cookie, arbitrary prompt or
 // private job reference is accepted. Disabled until the host explicitly wires
 // a loopback proxy that overwrites X-Picard-Public-Client-IP with {remote_host}.
