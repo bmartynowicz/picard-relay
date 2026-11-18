@@ -8,8 +8,9 @@ const titles={overview:['Your workspace','The cockpit is yours.'],jobs:['Jobs','
 titles.claim=['02 / Password','Claim your cockpit.'];
 titles.guide=['Interactive guide','Try one request.'];
 titles.trial=['Live relay trial','Test the relay.'];
+titles.badge=['Desk badge','Want one?'];
 const guideState=createGuideState();
-let current=null,opener=null,paused=false,transition=Promise.resolve(),closeTrial=null;
+let current=null,opener=null,paused=false,transition=Promise.resolve(),closeTrial=null,viewVersion=0;
 function motion(){root.dataset.motion=paused||reduce.matches||document.hidden?'off':'on';document.querySelector('#motion').textContent=reduce.matches?'Reduced motion':paused?'Resume motion':'Pause motion';document.querySelector('#motion').disabled=reduce.matches;document.querySelector('#motion').setAttribute('aria-pressed',String(paused));}
 document.querySelector('#motion').addEventListener('click',()=>{paused=!paused;motion();});
 document.querySelector('#stars-toggle').addEventListener('click',event=>{const enabled=root.dataset.starfield!=='true';root.dataset.starfield=String(enabled);event.currentTarget.setAttribute('aria-pressed',String(enabled));});
@@ -19,6 +20,7 @@ function markControls(){document.querySelectorAll('[data-panel]').forEach(button
 async function animate(frames){if(reduce.matches||paused||document.hidden)return;const animation=panel.animate(frames,{duration:160,easing:'cubic-bezier(.2,.8,.25,1)'});try{await animation.finished;}catch{}finally{animation.cancel();}}
 function pivot(button){const source=button.getBoundingClientRect(),box=panel.getBoundingClientRect();panel.style.setProperty('--origin-x',(source.left+source.width/2-box.left)+'px');panel.style.setProperty('--origin-y',(source.top+source.height/2-box.top)+'px');}
 async function change(view,button){
+ const version=++viewVersion;
  closeTrial?.();closeTrial=null;
  if(current){panel.inert=true;await animate([{transform:'none',opacity:1},{transform:'scale(.3,.12)',opacity:0}]);}
  if(current===view||view===null){panel.hidden=true;panel.inert=false;current=null;root.dataset.panelOpen='false';root.dataset.lessonOpen='false';welcome.inert=false;markControls();if(opener?.isConnected)opener.focus({preventScroll:true});else document.querySelector('#hud-next').focus({preventScroll:true});return;}
@@ -28,6 +30,7 @@ async function change(view,button){
  panel.hidden=false;panel.inert=false;panel.scrollTop=0;panel.dataset.view=view;root.dataset.panelOpen='true';root.dataset.lessonOpen=String(view==='guide'||view==='trial');welcome.inert=true;markControls();pivot(anchor);
  if(view==='guide')mountGuide(content,guideState);
  if(view==='trial')closeTrial=mountPublicTest(content);
+ if(view==='badge')void import('./badge-interest.js').then(({mountBadgeInterest})=>{if(current===view&&version===viewVersion)closeTrial=mountBadgeInterest(content);}).catch(()=>{if(current===view&&version===viewVersion)content.textContent='Badge voting is unavailable. Try again later.';});
  if(view==='connect')content.querySelector('form').addEventListener('submit',event=>{
   event.preventDefault();const input=content.querySelector('input'),error=content.querySelector('#relay-error');
   try{const destination=relayAddress(input.value);input.removeAttribute('aria-invalid');window.location.assign(destination);}

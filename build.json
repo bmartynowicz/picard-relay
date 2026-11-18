@@ -3,8 +3,8 @@
   "sourceSha": "83601db6c9fda85113e41fb85343fd45d4e794d2",
   "files": {
     "index.html": {
-      "bytes": 23548,
-      "sha256": "9f99f6db387c9dcdc3365137f6a95fe32dfed3bdffa5f271fcbe18fc09a1b475"
+      "bytes": 23719,
+      "sha256": "a2f28788d501ca47c8f26141ce86dff840eebd9bcad234948f5b812ff7ba54e8"
     },
     "console.css": {
       "bytes": 49399,
@@ -15,8 +15,8 @@
       "sha256": "879c97644f57fc17a86b6b0a9eced4560a2691be21de56d4e108ea1efa24393b"
     },
     "landing.js": {
-      "bytes": 6827,
-      "sha256": "cd3fcbad33bc5db88c38bbe24184f546f2cb378a035fe2ef6f3d901ed683492b"
+      "bytes": 7149,
+      "sha256": "2567452d1ddd9c7cb775b6acc443b06500c5d1c9289da26e7593bef4c0738d1d"
     },
     "setup-flow.js": {
       "bytes": 318,
@@ -49,6 +49,14 @@
     "oracle-stack.zip": {
       "bytes": 18220,
       "sha256": "477969d63cec1b79187de738e61b9d31b7e89a3c2d7e543855ed4c20cae2887f"
+    },
+    "badge-interest.js": {
+      "bytes": 4680,
+      "sha256": "135f1ccc2658db628a3c224d9615063cfedc79a7ece808a214b95ecd6b91faf6"
+    },
+    "badge-interest.css": {
+      "bytes": 2309,
+      "sha256": "e433f640ee3130330a8a959bce4ce4966bb3da5dd247b485587877ac8e6e4796"
     }
   },
   "overrides": [
@@ -68,6 +76,18 @@
         "landing.css"
       ],
       "scope": "Marketing star geometry and CSS depth travel only; existing copy, scripts, Oracle launch URL and setup bundles retained."
+    },
+    {
+      "sourceSha": "e1cfbbc231aa466a931e2d298b6e58aed1bda6a9",
+      "integratedSourceSha": "60a7423be04f5a8b0c00785351aeed8a3a07d152",
+      "pullRequest": 190,
+      "files": [
+        "index.html",
+        "landing.js",
+        "badge-interest.js",
+        "badge-interest.css"
+      ],
+      "scope": "Lazy anonymous Badge-interest panel/client only; prior starfield, credits, copy, normal scripts/styles and Oracle immutable setup assets/launch URL retained. Runtime installation and feature activation are separate."
     }
   ]
 }
