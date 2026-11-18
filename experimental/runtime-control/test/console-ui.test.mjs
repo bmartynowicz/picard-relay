@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"1bd04ca219ff854691692f7253b66783526ac797896b19f006667d1fac2cc13b");
+assert.equal(createHash('sha256').update(script).digest('hex'),"677bbb4276f26b258d02ef7ac3b4a262f7c48a30269b29b2b0d2cce51d75be75");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:(?:stealth|cockpit)Preference|'picard:windshield-readout')\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\)|setItem\('picard:windshield-readout',hidden\?'hidden':'shown'\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
@@ -80,7 +80,7 @@ const w={complete:true,totalTokens:15000,knownTokens:15000,codexTokens:13000,cod
 const passedQuality={providerModel:'fixture-model',firstPassPassed:true,finalQualified:true,repairs:{turns:0,complete:true,tokens:0,estimatedCredits:0},rechecks:{turns:0,complete:true,tokens:0,estimatedCredits:0},source:'Synthetic source-backed final quality fixture; separate from owner acceptance.'};
 const wholeFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',rolling:{sampleCount:1,savedPercent:25,savedCredits:.2,baselineCredits:.8,assistedCredits:.6,excluded:{legacy:1,incomplete:2,unpriced:3,quality:4}},runs:[
  {id:'whole',variant:'assisted',tools:['prepare_context'],model:'gpt-6.1-sol',recordedAt:3,inputTokens:10000,cachedInputTokens:0,outputTokens:1000,totalTokens:11000,
-  comparison:{id:'whole-example',savingsEligible:true,
+  comparison:{id:'whole-example',savingsEligible:true,creditSavingsPercent:25,
    baseline:{...side(12000,12000),quality:passedQuality,costs:{modelCredits:.5,setupCredits:.1,coordinationCredits:.2,fullCredits:.8,classificationComplete:true},workflow:{...w,picardCalls:0,picardTokens:0,totalTokens:14000,codexTokens:14000,codexCredits:.8}},
    assisted:{...side(11000,11000),quality:passedQuality,costs:{modelCredits:.3,setupCredits:.1,coordinationCredits:.2,fullCredits:.6,classificationComplete:true},workflow:w}}}
 ]}}));await flush();

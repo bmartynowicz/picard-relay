@@ -25,6 +25,21 @@ export function recentJobReason(state,lastError,resultAvailable){
 
 const usageCount=value=>Number.isSafeInteger(value)&&value>=0&&value<=1_000_000_000;
 const usageSlug=value=>typeof value==='string'&&/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,79}$/.test(value);
+const usableCredits=value=>Number.isFinite(value)&&value>=0;
+function creditSavingsPercent(baseline,assisted){
+ if(!usableCredits(baseline)||baseline===0||!usableCredits(assisted))return null;
+ const percent=(baseline-assisted)/baseline*100;
+ return Number.isFinite(percent)?percent:null;
+}
+function auditedCosts(record,variant){
+ let side;
+ try{side=JSON.parse(record)?.sides?.[variant];}catch{}
+ const read=name=>usableCredits(side?.[name])?side[name]:null;
+ const modelCredits=read('modelCredits'),setupCredits=read('setupCredits'),coordinationCredits=read('coordinationCredits'),fullCredits=read('fullCredits');
+ return {modelCredits,setupCredits,coordinationCredits,fullCredits,
+  classificationComplete:[modelCredits,setupCredits,coordinationCredits,fullCredits].every(value=>value!==null),
+  source:fullCredits===null?'Audited total unavailable.':'Audited immutable usage receipts; provider dollars separate.'};
+}
 function codexUsageRecord(value){
  const keys='cachedInputTokens,comparisonId,effort,id,inputTokens,model,outputTokens,recordedAt,tools,v,variant';
  if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).sort().join(',')!==keys||value.v!==1
@@ -144,6 +159,8 @@ function openCodexUsage(db,owner){
  }
  function project(){
    const entries=recent.all(owner).map(({record,original_id})=>({run:JSON.parse(record),originalId:original_id}));
+   const costByPair=db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='relay_codex_cost_breakdowns'").get()
+    ?db.prepare('SELECT record FROM relay_codex_cost_breakdowns WHERE owner=? AND comparison_id=? ORDER BY rowid DESC LIMIT 1'):null;
    const baselineByPair=new Map(),explicitAssisted=new Set(),followUps=new Map();
    for(const {run,originalId} of entries){
     if(run.variant==='baseline')baselineByPair.set(run.comparisonId,run);
@@ -168,12 +185,10 @@ function openCodexUsage(db,owner){
      freshTokens:run.totalTokens-run.cachedInputTokens+fixes.reduce((sum,fix)=>sum+fix.totalTokens-fix.cachedInputTokens,0),
      followUpTokens,followUpCount:fixes.length,lastRecordedAt:fixes[0]?.recordedAt??run.recordedAt};
     const quality=qualityFor(run);if(quality)native.quality=quality;
-    const costTable=db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='relay_codex_cost_breakdowns'").get();
-  if(costTable){
-   const costRow=db.prepare('SELECT record FROM relay_codex_cost_breakdowns WHERE owner=? AND comparison_id=? ORDER BY rowid DESC LIMIT 1').get(owner,run.comparisonId);
-   if(costRow){const saved=JSON.parse(costRow.record),cost=saved.sides?.[run.variant];if(cost)native.costs={...cost,classificationComplete:true,source:'Audited immutable usage receipts; provider dollars separate.'};}
-  }
-  const raw=workflowById.get(owner,run.comparisonId,run.variant)?.record;
+    const costRow=costByPair?.get(owner,run.comparisonId);
+    // A missing audit permits the scoped estimate. An unusable saved audit stays unavailable.
+    if(costRow)native.costs=auditedCosts(costRow.record,run.variant);
+    const raw=workflowById.get(owner,run.comparisonId,run.variant)?.record;
     if(!raw)return native;
     const scope=JSON.parse(raw),preps=scope.preparationIds.map(get),missing=[];
     const ids=new Set(all.map(row=>row.id));
@@ -215,6 +230,10 @@ function openCodexUsage(db,owner){
     if(comparison){
      for(const side of [comparison.baseline,comparison.assisted])if(!side.costs)side.costs={modelCredits:null,setupCredits:null,coordinationCredits:null,fullCredits:side.workflow?.complete?side.workflow.codexCredits:null,classificationComplete:false,source:'Detailed classification unavailable; missing categories are not zero.'};
      comparison.savingsEligible=comparison.baseline.quality?.finalQualified===true&&comparison.assisted.quality?.finalQualified===true&&comparison.baseline.workflow?.complete===true&&comparison.assisted.workflow?.complete===true;
+     const b=comparison.baseline,a=comparison.assisted;
+     const scopedCreditsUsable=usableCredits(b.workflow?.codexCredits)&&b.workflow.codexCredits>0&&usableCredits(a.workflow?.codexCredits);
+     comparison.creditSavingsPercent=comparison.savingsEligible&&scopedCreditsUsable
+      ?creditSavingsPercent(b.costs.fullCredits,a.costs.fullCredits):null;
     }
     return {...run,baselineTokens,
      baselineFreshTokens:baselineTokens===null?null:baselineTokens-baseline.cachedInputTokens,
@@ -236,16 +255,18 @@ function openCodexUsage(db,owner){
     if(!b&&!a){excluded.legacy++;continue;}
     if(!b?.complete||!a?.complete){excluded.incomplete++;continue;}
     if(!pair.savingsEligible){excluded.quality++;continue;}
-    if(!Number.isFinite(b.codexCredits)||b.codexCredits<=0||!Number.isFinite(a.codexCredits)||a.codexCredits<0){excluded.unpriced++;continue;}
+    if(pair.creditSavingsPercent===null){excluded.unpriced++;continue;}
     eligible.push({baseline:pair.baseline.costs.fullCredits,assisted:pair.assisted.costs.fullCredits,recordedAt:Math.max(pair.baseline.lastRecordedAt,pair.assisted.lastRecordedAt)});
    }
-   const selected=eligible.slice(0,20),sampleCount=selected.length;
+   const selected=eligible.slice(0,20);
    const sum=key=>selected.reduce((n,row)=>n+row[key],0);
-   const baselineCredits=sampleCount?sum('baseline'):null,assistedCredits=sampleCount?sum('assisted'):null;
+   const baselineTotal=sum('baseline'),assistedTotal=sum('assisted');
+   const savedPercent=creditSavingsPercent(baselineTotal,assistedTotal);
+   const sampleCount=savedPercent===null?0:selected.length;
+   const baselineCredits=sampleCount?baselineTotal:null,assistedCredits=sampleCount?assistedTotal:null;
    const savedCredits=sampleCount?baselineCredits-assistedCredits:null;
    const rolling={windowSize:20,sampleCount,eligibleCount:eligible.length,baselineCredits,assistedCredits,savedCredits,
-    savedPercent:sampleCount?savedCredits/baselineCredits*100:null,
-    increasedCount:selected.filter(row=>row.assisted>row.baseline).length,
+    savedPercent,increasedCount:sampleCount?selected.filter(row=>row.assisted>row.baseline).length:0,
     fromRecordedAt:sampleCount?selected.at(-1).recordedAt:null,toRecordedAt:sampleCount?selected[0].recordedAt:null,excluded};
    db.exec('COMMIT');return {runs:projected.slice(0,12),comparisons:projected.filter(row=>row.comparison).slice(0,20).map(row=>row.comparison),rolling};
   }catch(error){db.exec('ROLLBACK');throw error;}
