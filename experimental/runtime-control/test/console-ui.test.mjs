@@ -3,7 +3,7 @@ import {CONSOLE_HTML as html} from '../src/oracle-service.mjs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 const script=html.match(/<script>\n([\s\S]*?)<\/script>/)[1],style=html.match(/<style>([\s\S]*?)<\/style>/)[1];
-assert.equal(createHash('sha256').update(script).digest('hex'),"e89e3dd8cd113e89ef5a77d79fb0d969bed5e8cc3050efee3fe9386158b5bb6f");
+assert.equal(createHash('sha256').update(script).digest('hex'),"1bd04ca219ff854691692f7253b66783526ac797896b19f006667d1fac2cc13b");
 assert.equal(createHash('sha256').update(html.match(/id="logo" aria-hidden="true">([\s\S]*?)<\/pre>/)[1]).digest('hex'),"632fc5b24f76003e80bc7299ba9e404b3d8e01f7ab31563a492ae9b6421a0ca4");
 const noDisplayStorage=script.replace(/localStorage\.(?:getItem\((?:(?:stealth|cockpit)Preference|'picard:windshield-readout')\)|setItem\(stealthPreference,String\(stealthFlags\)\)|setItem\(cockpitPreference,String\(cockpitFlags\)\)|setItem\('picard:windshield-readout',hidden\?'hidden':'shown'\))/g,'');
 assert.match(script,/const stealthPreference='picard:stealth';/);
@@ -50,7 +50,12 @@ assert.equal(savingsFlow.get('codex-savings-headline').textContent,'Rolling savi
 assert.match(savingsFlow.get('codex-savings-note').textContent,/Waiting for a complete comparison/);
 const [firstSavings,secondSavings]=savingsFlow.get('codex-savings-comparisons').children;
 assert.match(firstSavings.textContent,/first-example.*Codex alone12,000 tokens.*With Picard10,000 tokens.*Includes 2,000 tokens across 1 follow-up turn/);
-assert.match(secondSavings.textContent,/second-example.*Codex alone8,000 tokens.*With Picard9,000 tokens.*12.5% more/);
+assert.match(secondSavings.textContent,/second-example.*Codex alone8,000 tokens.*With Picard9,000 tokens/);
+for(const card of [firstSavings,secondSavings]){
+ assert.match(card.textContent,/Savings excluded: both runs must pass final quality and have complete accounting/);
+ assert.match(card.textContent,/Legacy comparison: finishing and fixes only/);
+ assert.doesNotMatch(card.textContent,/\d[\d.]*% (?:more|fewer)/);
+}
 
 const creditFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',runs:[
  {id:'c',variant:'assisted',tools:['context'],model:'gpt-6.1-sol',recordedAt:3,inputTokens:16500,cachedInputTokens:7168,outputTokens:921,totalTokens:17421,
@@ -60,26 +65,34 @@ const creditFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok
 ]}}));
 await flush();
 assert.equal(creditFlow.get('codex-savings-headline').textContent,'Rolling savings not yet measured');
-assert.match(creditFlow.get('codex-savings-comparisons').textContent,/34.8% more estimated Standard credits/);
 const creditCard=creditFlow.get('codex-savings-comparisons').textContent;
+assert.match(creditCard,/Savings excluded: both runs must pass final quality and have complete accounting/);
 assert.match(creditCard,/0.5302 estimated Standard credits/);
 assert.match(creditCard,/0.7148 estimated Standard credits/);
 assert.match(creditCard,/5,120 fewer cached input tokens/);
-assert.match(creditCard,/5% fewer total Codex tokens/);
-assert.match(creditCard,/include recorded preparation and linked fixes/);
+assert.match(creditCard,/18,337 tokens/);assert.match(creditCard,/17,421 tokens/);
+assert.doesNotMatch(creditCard,/34.8% more estimated Standard credits|5% fewer total Codex tokens/);
+assert.match(creditCard,/Full totals retain all categories; shared setup once per alternative/);
 assert.match(creditCard,/Follow-up fixes: 0 turns · 0 tokens/);
 assert.match(creditCard,/How credits are estimated/);
 
 const w={complete:true,totalTokens:15000,knownTokens:15000,codexTokens:13000,codexCredits:.6,preparationTokens:2000,preparationCount:1,finishingTokens:10000,followUpTokens:1000,followUpCount:1,picardCalls:1,picardTokens:2000,missing:[]};
-const wholeFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',rolling:{sampleCount:1,savedPercent:25,savedCredits:.2,baselineCredits:.8,assistedCredits:.6,excluded:{legacy:1,incomplete:2,unpriced:3}},runs:[
+const passedQuality={providerModel:'fixture-model',firstPassPassed:true,finalQualified:true,repairs:{turns:0,complete:true,tokens:0,estimatedCredits:0},rechecks:{turns:0,complete:true,tokens:0,estimatedCredits:0},source:'Synthetic source-backed final quality fixture; separate from owner acceptance.'};
+const wholeFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',rolling:{sampleCount:1,savedPercent:25,savedCredits:.2,baselineCredits:.8,assistedCredits:.6,excluded:{legacy:1,incomplete:2,unpriced:3,quality:4}},runs:[
  {id:'whole',variant:'assisted',tools:['prepare_context'],model:'gpt-6.1-sol',recordedAt:3,inputTokens:10000,cachedInputTokens:0,outputTokens:1000,totalTokens:11000,
-  comparison:{id:'whole-example',baseline:{...side(12000,12000),workflow:{...w,picardCalls:0,picardTokens:0,totalTokens:14000,codexTokens:14000,codexCredits:.8}},assisted:{...side(11000,11000),workflow:w}}}
+  comparison:{id:'whole-example',savingsEligible:true,
+   baseline:{...side(12000,12000),quality:passedQuality,costs:{modelCredits:.5,setupCredits:.1,coordinationCredits:.2,fullCredits:.8,classificationComplete:true},workflow:{...w,picardCalls:0,picardTokens:0,totalTokens:14000,codexTokens:14000,codexCredits:.8}},
+   assisted:{...side(11000,11000),quality:passedQuality,costs:{modelCredits:.3,setupCredits:.1,coordinationCredits:.2,fullCredits:.6,classificationComplete:true},workflow:w}}}
 ]}}));await flush();
 assert.equal(wholeFlow.get('codex-savings-headline').textContent,'25% estimated Codex credits saved');
 const wholeCard=wholeFlow.get('codex-savings-comparisons').textContent;
 assert.match(wholeCard,/15,000 tokens across providers/);assert.match(wholeCard,/Preparation: 2,000 Codex tokens/);
 assert.match(wholeCard,/Picard: 1 call · 2,000 provider tokens/);assert.match(wholeCard,/Fixes: 1,000 Codex tokens/);
 assert.match(wholeCard,/Provider billed cost unavailable/);
+assert.doesNotMatch(wholeCard,/Savings excluded/);
+assert.match(wholeCard,/Whole-workflow Codex estimate: 25% fewer estimated Standard credits/);
+assert.match(wholeCard,/Codex aloneTask-model work: 0.5000 estimated Codex creditsSetup: 0.1000 estimated Codex creditsCoordination and reporting: 0.2000 estimated Codex creditsFull recorded total: 0.8000 estimated Codex credits/);
+assert.match(wholeCard,/With PicardTask-model work: 0.3000 estimated Codex creditsSetup: 0.1000 estimated Codex creditsCoordination and reporting: 0.2000 estimated Codex creditsFull recorded total: 0.6000 estimated Codex credits/);
 
 const qualityExample={providerModel:'qwen/qwen3.8-27b',firstPassPassed:false,finalQualified:true,repairs:{turns:1,complete:true,tokens:120,estimatedCredits:.007625},rechecks:{turns:1,complete:true,tokens:100,estimatedCredits:.004},source:'Recorded native source-backed reviews; separate from owner acceptance. Preparation and coordination remain in full workflow cost.'};
 const qualityFlow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',runs:[
@@ -92,18 +105,23 @@ assert.match(qualityCard,/First review: Changes needed · Final review: Passed/)
 assert.match(qualityCard,/Repairs: 1 turn · 120 Codex tokens · 0.0076 estimated credits/);
 assert.match(qualityCard,/Repair checks: 1 turn · 100 Codex tokens · 0.0040 estimated credits/);
 assert.match(qualityCard,/separate from owner acceptance/);assert.match(qualityCard,/Preparation and coordination remain in full workflow cost/);
+assert.match(qualityCard,/Savings excluded: both runs must pass final quality and have complete accounting/);
+assert.doesNotMatch(qualityCard,/Whole-workflow Codex estimate:/);
 await qualityFlow.click('logout');await flush();assert.equal(qualityFlow.get('codex-savings-comparisons').children.length,0);
 
-assert.match(wholeFlow.get('codex-savings-note').textContent,/Latest 1 complete comparison · 0.8000 credits on its own · 0.6000 with Picard/);
+assert.match(wholeFlow.get('codex-savings-note').textContent,/Latest 1 quality-qualified comparison · 0.8000 credits on its own · 0.6000 with Picard/);
 assert.match(wholeFlow.get('codex-savings-coverage').textContent,/1 finishing-only, 2 incomplete and 3 without a usable credit estimate/);
+assert.match(wholeFlow.get('codex-savings-coverage').textContent,/4 failing or missing final quality/);
 for(const [savedPercent,savedCredits,expected] of [[-9.405940594,-9.5,'9.4% more estimated Codex credits used'],[0,0,'No change in estimated Codex credits']]){
  const flow=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',runs:[],rolling:{sampleCount:20,savedPercent,savedCredits,baselineCredits:101,assistedCredits:101-savedCredits}}}));
  await flush();assert.equal(flow.get('codex-savings-headline').textContent,expected);
- assert.match(flow.get('codex-savings-note').textContent,/Latest 20 complete comparisons/);
+ assert.match(flow.get('codex-savings-note').textContent,/Latest 20 quality-qualified comparisons/);
 }
 const emptyRolling=harness(async path=>path==='/auth/state'?ok({enrolled:true}):ok({...health,codexUsage:{state:'ready',runs:[],rolling:{sampleCount:0,savedPercent:null}}}));
 await flush();assert.equal(emptyRolling.get('codex-savings-headline').textContent,'Rolling savings not yet measured');
-assert.match(html,/How rolling savings is measured/);assert.match(html,/larger tasks carry more weight/);
+assert.match(html,/How rolling savings is measured/);assert.match(html,/both final quality reviews pass/);
+assert.match(html,/Weighted by full Codex totals, including setup, coordination and repairs/);
+assert.match(html,/Cost increases stay included/);
 wholeFlow.wl.pagehide();
 assert.equal(wholeFlow.get('codex-savings-headline').textContent,'Rolling savings not yet measured');
 assert.equal(wholeFlow.get('codex-savings-coverage').textContent,'');
