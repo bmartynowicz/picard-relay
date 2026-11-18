@@ -107,6 +107,28 @@ Example **local fixture** job:
 
 Live Oracle jobs reserve exactly 3,000 CPU units and 96–128 MiB RAM, no GPU and at most 1 MiB declared disk; use a 30-second transport deadline. GitHub jobs use `project-checks`, workload `project-ci`, `input.text` equal to an exact approved 40-character lowercase source SHA and 360,000 CPU admission units. That is a finite scheduling budget, not measured runner CPU entitlement. The workflow has a three-minute wall-clock limit.
 
+## Small-machine resource qualification
+
+The resource qualification workflow uses three fresh processes on a disposable
+one-vCPU, 1 GiB Oracle Linux guest with enforcing SELinux. Each trial runs
+512 synthetic jobs through the Oracle adapter, GitHub adapter and signed relay,
+with bursts of eight reservations or queued jobs. Simulated lost replies exercise
+uncertain outcomes alongside ordinary writes. The harness asserts one attempt
+per job, bounded history and recovery of retained results.
+
+The workflow records CPU time, peak process RSS, disk I/O and sampled/retained
+SQLite allocation on a disk-backed guest filesystem. A maintainer can rerun
+the workflow from main. Local replay runs the same workload with Node 24 from
+the repository root:
+
+```sh
+node --jitless --max-old-space-size=96 experimental/compute-broker/test/resource-qualification.mjs
+```
+
+The measurements cover the fixture process, including in-process transports
+and SQLite. They exclude guest OS overhead, network latency, full application
+services, and live providers. They describe this bounded burst workload.
+
 ## Live observation and deployment boundary
 
 Brian selected GitHub public-project CI as the second backend. The original status tool read real run [41889597537](https://github.com/bmartynowicz/picard-relay/actions/runs/41889597537) without dispatch. Oracle inventory was also read through existing pinned SSH and real MCP. These prove observation, not broker-driven execution.
