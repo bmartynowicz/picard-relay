@@ -5,6 +5,7 @@ import {mkdtemp,rm,writeFile} from 'node:fs/promises';
 import {createServer,request} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {DatabaseSync} from 'node:sqlite';
 import {createRelayStore} from '../src/relay-store.mjs';
 import {createConsoleHandler} from '../src/oracle-service.mjs';
 import {readCodexExecTools,readCompletedCodexUsage} from '../../../tools/codex-usage-notify.mjs';
@@ -145,6 +146,26 @@ test('rolling window uses twenty comparisons beyond the twelve rows and updates 
  assert.equal(snapshot.runs[0].comparison.assisted.workflow.followUpCount,1);
 });
 
+test('rolling totals stay unavailable when individually finite audited totals overflow in combination',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'picard-audited-window-'));
+ const dbPath=join(directory,'relay.sqlite');
+ const store=createRelayStore({dbPath,now:()=>0});
+ const db=new DatabaseSync(dbPath);
+ t.after(async()=>{db.close();store.close();await rm(directory,{recursive:true,force:true});});
+ const usage=store.openCodexUsage('owner');
+ db.exec('CREATE TABLE relay_codex_cost_breakdowns(owner TEXT,comparison_id TEXT,record TEXT)');
+ const record=JSON.stringify({sides:{baseline:{fullCredits:1e308},assisted:{fullCredits:1e308}}});
+ for(const index of [1,2]){
+  const {baseline}=await fullPair(store,usage,index,20000,10000);
+  db.prepare('INSERT INTO relay_codex_cost_breakdowns VALUES(?,?,?)').run('owner',baseline.comparisonId,record);
+ }
+ const {comparisons,rolling}=usage.overview();
+ assert.deepEqual(comparisons.map(pair=>pair.creditSavingsPercent),[0,0]);
+ assert.equal(rolling.eligibleCount,2);
+ assert.equal(rolling.sampleCount,0);
+ for(const key of ['baselineCredits','assistedCredits','savedCredits','savedPercent'])assert.equal(rolling[key],null,key);
+});
+
 test('empty rolling history exposes unknown savings rather than zero',t=>{
  const store=createRelayStore({dbPath:':memory:'});t.after(()=>store.close());
  const rolling=store.openCodexUsage('owner').overview().rolling;
@@ -258,7 +279,7 @@ test('comparison totals include linked turns on either side without rewriting us
  const unclassified={modelCredits:null,setupCredits:null,coordinationCredits:null,fullCredits:null,classificationComplete:false,
   source:'Detailed classification unavailable; missing categories are not zero.'};
  assert.deepEqual(measured.comparison,{
-  id:'sample',savingsEligible:false,baseline:{totalTokens:12350,inputTokens:10300,cachedInputTokens:8200,outputTokens:2050,standardCredits:null,freshTokens:4150,followUpTokens:350,followUpCount:1,lastRecordedAt:3000,costs:unclassified},
+  id:'sample',savingsEligible:false,creditSavingsPercent:null,baseline:{totalTokens:12350,inputTokens:10300,cachedInputTokens:8200,outputTokens:2050,standardCredits:null,freshTokens:4150,followUpTokens:350,followUpCount:1,lastRecordedAt:3000,costs:unclassified},
   assisted:{totalTokens:8800,inputTokens:8200,cachedInputTokens:5900,outputTokens:600,standardCredits:null,freshTokens:2900,followUpTokens:800,followUpCount:2,lastRecordedAt:4000,costs:unclassified}
  });
 });
