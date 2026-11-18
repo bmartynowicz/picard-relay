@@ -1,19 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createOracleExecutor } from '../src/oracle-executor.mjs';
-import { makeReceipt, PreflightDenied, verifyGrant } from '../src/execution-protocol.mjs';
+import { PreflightDenied, verifyGrant } from '../src/execution-protocol.mjs';
 import { CLOCK } from './helpers.mjs';
-import { provider, HASH, KEY, liveJob } from './execution-helpers.mjs';
-function setup(patch = {}, handle) {
-  const calls = [], p = provider(), job = liveJob();
-  const run = async (command, args, options) => { calls.push({ command, args, options });
-    if (handle) { const result = await handle(command, args, options); if (result) return result; }
-    return { code: 0, stdout: JSON.stringify(args.at(-1).includes('identity') ? {
-      schemaVersion: 1, resourceId: p.resource.id, workerSha256: HASH(), shape: 'VM.Standard.E2.1.Micro',
-      architecture: 'x64', isolationVerified: true, remainingCpuMs: 6000, slots: 1, memoryAvailableBytes: 512 * 1024 * 1024, ...patch,
-    } : makeReceipt(job, HASH(), 'completed', { value: 3 })) }; };
-  return { calls, p, job, run, adapter: createOracleExecutor(p, { key: () => KEY, run, now: () => CLOCK }) };
-}
+import { HASH, KEY } from './execution-helpers.mjs';
+import { setupOracle as setup } from './executor-fixtures.mjs';
+
 test('Oracle execution uses pinned dedicated identity, fixed commands and exact signed grant', async () => {
   const s = setup(); assert.equal((await s.adapter.execute(s.job, { mayDispatch: () => true })).state, 'completed'); assert.equal(s.calls.length, 2);
   assert.equal(s.calls[0].args.at(-1), 'picard-compute-identity-v1'); assert.equal(s.calls[1].args.at(-1), 'picard-compute-execute-v1');

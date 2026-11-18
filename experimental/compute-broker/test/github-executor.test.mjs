@@ -1,36 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGitHubExecutor, freeWorkflowSha256, EXECUTION_REPOSITORY, EXECUTION_WORKFLOW } from '../src/github-executor.mjs';
-import { readFileSync } from 'node:fs';
-import { makeReceipt, jobSha256, PreflightDenied } from '../src/execution-protocol.mjs';
+import { createGitHubExecutor, freeWorkflowSha256 } from '../src/github-executor.mjs';
+import { jobSha256, PreflightDenied } from '../src/execution-protocol.mjs';
 import { RESULT_MARKER, runProjectChecks } from '../src/github-job.mjs';
 import { REPOSITORY_CHECKS } from '../src/repository-checks.mjs';
 import { CLOCK } from './helpers.mjs';
-import { ciJob, HASH, SOURCE, provider } from './execution-helpers.mjs';
-const TOKEN = 'test-token-never-a-secret';
-const json = value => new Response(JSON.stringify(value), { status: 200 });
-function setup(overrides = {}) {
-  const calls = [], p = provider(true), job = ciJob();
-  const run = () => ({ id: 11, display_title: `picard-compute/${job.id}/${jobSha256(job)}`,
-    head_sha: SOURCE, event: 'workflow_dispatch', path: EXECUTION_WORKFLOW, status: 'completed', conclusion: 'success', run_attempt: 1 });
-  const jobs = () => ({ jobs: [{ id: 22, run_id: 11, run_attempt: 1, name: 'fixed-project-checks', labels: ['ubuntu-latest', 'X64'] }] });
-  const output = () => `${RESULT_MARKER}${Buffer.from(JSON.stringify(makeReceipt(job, HASH(), 'completed', { sourceSha: SOURCE, value: 3 }))).toString('base64')}`;
-  const fetchImpl = async (url, options) => {
-    calls.push({ url: String(url), options });
-    if (overrides.handle) { const response = await overrides.handle(String(url), options); if (response) return response; }
-    if (options.method === 'POST') return new Response(null, { status: 204 });
-    if (String(url).endsWith(`/repos/${EXECUTION_REPOSITORY}`)) return json({ full_name: EXECUTION_REPOSITORY, private: false, archived: false, ...overrides.repository });
-    if (String(url).includes('/git/ref/')) return json({ object: { type: 'commit', sha: overrides.tagSha ?? SOURCE } });
-    if (String(url).includes('/contents/')) return json({ type: 'file', path: EXECUTION_WORKFLOW, encoding: 'base64',
-      content: Buffer.from(overrides.workflow ?? readFileSync(new URL('../../../.github/workflows/compute-worker.yml', import.meta.url))).toString('base64') });
-    if (String(url).includes('/runs?')) return json({ workflow_runs: overrides.runs ?? [run()] });
-    if (String(url).includes('/jobs?')) return json(overrides.jobs ?? jobs());
-    if (String(url).endsWith('/logs')) return new Response(overrides.output ?? output());
-    throw Error('unexpected_request');
-  };
-  const adapter = createGitHubExecutor(p, { fetchImpl, now: () => CLOCK, token: () => TOKEN });
-  return { p, job, adapter, calls, run, jobs, output, fetchImpl };
-}
+import { ciJob, HASH, SOURCE } from './execution-helpers.mjs';
+import { TOKEN, setupGitHub as setup } from './executor-fixtures.mjs';
+
 test('GitHub fixed standard workflow dispatch is one POST with exact source, job and worker hashes', async () => {
   const s = setup(); const receipt = await s.adapter.execute(s.job, { mayDispatch: () => true }); assert.equal(receipt.state, 'accepted');
   assert.equal(s.calls.length, 4); assert.equal(s.calls.filter(c => c.options.method === 'POST').length, 1);
